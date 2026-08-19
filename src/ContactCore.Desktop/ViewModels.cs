@@ -38,9 +38,16 @@ public sealed partial class ContactDraftViewModel : ObservableObject
 
     public void Load(Contact contact)
     {
-        Id = contact.Id; CreatedAt = contact.CreatedAt; GivenName = contact.GivenName; FamilyName = contact.FamilyName; Nickname = contact.Nickname;
-        BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd") ?? ""; Phone = contact.Phones.FirstOrDefault()?.Number ?? ""; Email = contact.Emails.FirstOrDefault()?.Address ?? "";
-        Notes = contact.Notes; IsFavorite = contact.IsFavorite;
+        Id = contact.Id;
+        CreatedAt = contact.CreatedAt;
+        GivenName = contact.GivenName;
+        FamilyName = contact.FamilyName;
+        Nickname = contact.Nickname;
+        BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd") ?? "";
+        Phone = contact.Phones.FirstOrDefault()?.Number ?? "";
+        Email = contact.Emails.FirstOrDefault()?.Address ?? "";
+        Notes = contact.Notes;
+        IsFavorite = contact.IsFavorite;
     }
 
     public Contact ToContact()
@@ -48,10 +55,23 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         DateOnly? birthday = null;
         if (!string.IsNullOrWhiteSpace(BirthdayText))
         {
-            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", out var parsed)) throw new FormatException("Birthday must use yyyy-MM-dd.");
+            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", out var parsed))
+                throw new FormatException("Birthday must use yyyy-MM-dd.");
             birthday = parsed;
         }
-        var contact = new Contact { Id = Id == Guid.Empty ? Guid.NewGuid() : Id, CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt, GivenName = GivenName, FamilyName = FamilyName, Nickname = Nickname, Birthday = birthday, Notes = Notes, IsFavorite = IsFavorite, UpdatedAt = DateTimeOffset.UtcNow };
+
+        var contact = new Contact
+        {
+            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
+            CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt,
+            GivenName = GivenName,
+            FamilyName = FamilyName,
+            Nickname = Nickname,
+            Birthday = birthday,
+            Notes = Notes,
+            IsFavorite = IsFavorite,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
         if (!string.IsNullOrWhiteSpace(Phone)) contact.Phones.Add(new(Guid.NewGuid(), "Mobile", Phone.Trim()));
         if (!string.IsNullOrWhiteSpace(Email)) contact.Emails.Add(new(Guid.NewGuid(), "Email", Email.Trim()));
         return contact;
@@ -65,17 +85,28 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IAppPreferences _preferences;
     private readonly AppPaths _paths;
     private CancellationTokenSource? _searchCts;
+
     public MainWindowViewModel(ContactService service, IBackupService backup, IAppPreferences preferences, AppPaths paths)
     {
-        _service = service; _backup = backup; _preferences = preferences; _paths = paths;
+        _service = service;
+        _backup = backup;
+        _preferences = preferences;
+        _paths = paths;
         Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".Select(x => x.ToString()).ToArray();
+        ThemeOptions = ["System", "Light", "Dark"];
         Draft = new ContactDraftViewModel();
     }
 
     public Action? FocusSearchRequested { get; set; }
+    public Action<string>? ThemeChangeRequested { get; set; }
     public ObservableCollection<ContactListItemViewModel> Contacts { get; } = [];
     public IReadOnlyList<string> Alphabet { get; }
+    public IReadOnlyList<string> ThemeOptions { get; }
     public ContactDraftViewModel Draft { get; }
+    public string DataDirectory => _paths.DataDirectory;
+    public string AboutSummary => "ContactCore • MIT License • Made by the Sanskar";
+    public string SupportSummary => "sanskarin@outlook.in • supportramsandesh@gmail.com";
+    public string ProjectSummary => "github.com/sanskarIN/contactcore • buymeacoffee.com/sanskarIN";
 
     [ObservableProperty] private string searchText = "";
     [ObservableProperty] private ContactListItemViewModel? selectedContact;
@@ -83,68 +114,203 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool archivedOnly;
     [ObservableProperty] private bool showAll = true;
     [ObservableProperty] private bool isEditorVisible;
+    [ObservableProperty] private bool isSettingsVisible;
     [ObservableProperty] private string editorTitle = "Contact details";
     [ObservableProperty] private string statusMessage = "";
     [ObservableProperty] private string listHeading = "All contacts";
     [ObservableProperty] private string resultCountText = "0 contacts";
     [ObservableProperty] private string footerText = "Ready";
+    [ObservableProperty] private string selectedTheme = "System";
+    [ObservableProperty] private bool reducedMotion;
     private char? _letter;
 
     partial void OnSearchTextChanged(string value) => _ = DebouncedRefreshAsync();
+
     partial void OnSelectedContactChanged(ContactListItemViewModel? value)
     {
         if (value is null) return;
-        Draft.Load(value.Model.DeepCopy()); IsEditorVisible = true; EditorTitle = value.DisplayName; StatusMessage = "";
+        IsSettingsVisible = false;
+        Draft.Load(value.Model.DeepCopy());
+        IsEditorVisible = true;
+        EditorTitle = value.DisplayName;
+        StatusMessage = "";
     }
 
     public async Task InitializeAsync()
     {
-        try { FooterText = "Opening local database…"; await _service.InitializeAsync(); await RefreshAsync(); FooterText = "Ready"; }
-        catch (Exception ex) { FooterText = "Could not initialize ContactCore"; StatusMessage = RedactingLog.Sanitize(ex.Message); }
+        try
+        {
+            FooterText = "Opening local database…";
+            await _service.InitializeAsync();
+            await RefreshAsync();
+            FooterText = "Ready";
+        }
+        catch (Exception ex)
+        {
+            FooterText = "Could not initialize ContactCore";
+            StatusMessage = RedactingLog.Sanitize(ex.Message);
+        }
     }
 
-    [RelayCommand] private void NewContact()
+    [RelayCommand]
+    private void NewContact()
     {
-        SelectedContact = null; Draft.Load(new Contact()); IsEditorVisible = true; EditorTitle = "New contact"; StatusMessage = "";
+        SelectedContact = null;
+        IsSettingsVisible = false;
+        Draft.Load(new Contact());
+        IsEditorVisible = true;
+        EditorTitle = "New contact";
+        StatusMessage = "";
     }
 
-    [RelayCommand] private async Task SaveAsync()
+    [RelayCommand]
+    private async Task SaveAsync()
     {
-        try { await _service.SaveAsync(Draft.ToContact()); StatusMessage = "Saved locally."; await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = RedactingLog.Sanitize(ex.Message); }
+        try
+        {
+            await _service.SaveAsync(Draft.ToContact());
+            StatusMessage = "Saved locally.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = RedactingLog.Sanitize(ex.Message);
+        }
     }
 
-    [RelayCommand] private async Task DeleteAsync()
+    [RelayCommand]
+    private async Task DeleteAsync()
     {
-        if (Draft.Id == Guid.Empty) { CancelEdit(); return; }
-        try { await _service.DeleteAsync(Draft.Id); IsEditorVisible = false; SelectedContact = null; StatusMessage = "Contact permanently deleted."; await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = RedactingLog.Sanitize(ex.Message); }
+        if (Draft.Id == Guid.Empty)
+        {
+            CancelEdit();
+            return;
+        }
+
+        try
+        {
+            await _service.DeleteAsync(Draft.Id);
+            IsEditorVisible = false;
+            SelectedContact = null;
+            StatusMessage = "Contact permanently deleted.";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = RedactingLog.Sanitize(ex.Message);
+        }
     }
 
-    [RelayCommand] private void CancelEdit() { IsEditorVisible = false; SelectedContact = null; StatusMessage = ""; }
-    [RelayCommand] private async Task ShowAllAsync() { ShowAll = true; FavoritesOnly = false; ArchivedOnly = false; _letter = null; ListHeading = "All contacts"; await RefreshAsync(); }
-    [RelayCommand] private async Task FavoritesAsync() { ShowAll = false; FavoritesOnly = true; ArchivedOnly = false; _letter = null; ListHeading = "Favorites"; await RefreshAsync(); }
-    [RelayCommand] private async Task ArchivedAsync() { ShowAll = false; FavoritesOnly = false; ArchivedOnly = true; _letter = null; ListHeading = "Archived"; await RefreshAsync(); }
-    [RelayCommand] private async Task FilterLetterAsync(string letter) { _letter = string.IsNullOrEmpty(letter) ? null : letter[0]; ListHeading = $"Contacts — {letter}"; await RefreshAsync(); }
+    [RelayCommand]
+    private void CancelEdit()
+    {
+        if (IsSettingsVisible)
+        {
+            IsSettingsVisible = false;
+            StatusMessage = "";
+            return;
+        }
 
-    [RelayCommand] private async Task FindDuplicatesAsync()
+        IsEditorVisible = false;
+        SelectedContact = null;
+        StatusMessage = "";
+    }
+
+    [RelayCommand]
+    private async Task ShowAllAsync()
+    {
+        ShowAll = true;
+        FavoritesOnly = false;
+        ArchivedOnly = false;
+        _letter = null;
+        ListHeading = "All contacts";
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task FavoritesAsync()
+    {
+        ShowAll = false;
+        FavoritesOnly = true;
+        ArchivedOnly = false;
+        _letter = null;
+        ListHeading = "Favorites";
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task ArchivedAsync()
+    {
+        ShowAll = false;
+        FavoritesOnly = false;
+        ArchivedOnly = true;
+        _letter = null;
+        ListHeading = "Archived";
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task FilterLetterAsync(string letter)
+    {
+        _letter = string.IsNullOrEmpty(letter) ? null : letter[0];
+        ListHeading = $"Contacts — {letter}";
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task FindDuplicatesAsync()
     {
         var all = await _service.SearchAsync(new ContactQuery(IncludeArchived: true));
         var duplicates = new DuplicateDetector().Find(all);
-        StatusMessage = duplicates.Count == 0 ? "No likely duplicates found." : $"Found {duplicates.Count} likely duplicate pair(s). Highest score: {duplicates[0].Score:P0}.";
+        StatusMessage = duplicates.Count == 0
+            ? "No likely duplicates found."
+            : $"Found {duplicates.Count} likely duplicate pair(s). Highest score: {duplicates[0].Score:P0}.";
     }
 
-    [RelayCommand] private async Task ShowDataToolsAsync()
+    [RelayCommand]
+    private async Task ShowDataToolsAsync()
     {
         Directory.CreateDirectory(_paths.BackupDirectory);
-        try { var path = await _backup.CreateBackupAsync(_paths.BackupDirectory); StatusMessage = $"Backup created: {Path.GetFileName(path)}"; }
-        catch (Exception ex) { StatusMessage = RedactingLog.Sanitize(ex.Message); }
+        try
+        {
+            var path = await _backup.CreateBackupAsync(_paths.BackupDirectory);
+            StatusMessage = $"Backup created: {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = RedactingLog.Sanitize(ex.Message);
+        }
     }
 
-    [RelayCommand] private void ShowSettings()
+    [RelayCommand]
+    private void ShowSettings()
     {
-        StatusMessage = $"Theme: {_preferences.Theme}. Data folder: {_paths.DataDirectory}. Privacy: all contact data stays local unless you export it. About: ContactCore • MIT • Made by the Sanskar • github.com/sanskarIN • buymeacoffee.com/sanskarIN";
+        SelectedContact = null;
+        IsEditorVisible = false;
+        SelectedTheme = NormalizeTheme(_preferences.Theme);
+        ReducedMotion = _preferences.ReducedMotion;
+        IsSettingsVisible = true;
+        StatusMessage = "";
     }
+
+    [RelayCommand]
+    private void SaveSettings()
+    {
+        SelectedTheme = NormalizeTheme(SelectedTheme);
+        _preferences.Theme = SelectedTheme;
+        _preferences.ReducedMotion = ReducedMotion;
+        _preferences.Save();
+        ThemeChangeRequested?.Invoke(SelectedTheme);
+        IsSettingsVisible = false;
+        StatusMessage = "Settings saved locally.";
+    }
+
+    private static string NormalizeTheme(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "light" => "Light",
+        "dark" => "Dark",
+        _ => "System"
+    };
 
     private async Task DebouncedRefreshAsync()
     {
@@ -174,7 +340,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var query = new ContactQuery(SearchText, FavoritesOnly, IncludeArchived: ArchivedOnly, StartsWith: _letter);
         var contacts = await _service.SearchAsync(query, cancellationToken);
         if (ArchivedOnly) contacts = contacts.Where(x => x.IsArchived).ToArray();
-        Contacts.Clear(); foreach (var contact in contacts) Contacts.Add(new(contact));
+        Contacts.Clear();
+        foreach (var contact in contacts) Contacts.Add(new(contact));
         ResultCountText = $"{Contacts.Count} {(Contacts.Count == 1 ? "contact" : "contacts")}";
     }
 }
