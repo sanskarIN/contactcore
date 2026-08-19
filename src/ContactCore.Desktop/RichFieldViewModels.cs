@@ -42,12 +42,14 @@ public sealed partial class OrganizationDraftViewModel : ObservableObject
 public sealed partial class GroupDraftViewModel : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
+    public string? OriginalName { get; init; }
     [ObservableProperty] private string name = "";
 }
 
 public sealed partial class TagDraftViewModel : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
+    public string? OriginalName { get; init; }
     [ObservableProperty] private string name = "";
 }
 
