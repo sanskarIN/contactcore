@@ -41,6 +41,54 @@ public sealed class SqliteRepositoryTests
     }
 
     [TestMethod]
+    public async Task Rich_aggregate_round_trip_preserves_all_child_types_and_replaces_stale_rows()
+    {
+        var c = new Contact { GivenName = "Rich", FamilyName = "Contact" };
+        var firstPhone = new ContactPhone(Guid.NewGuid(), "Mobile", "1111111", ContactFieldKind.Mobile);
+        var secondPhone = new ContactPhone(Guid.NewGuid(), "Work", "2222222", ContactFieldKind.Work);
+        var email = new ContactEmail(Guid.NewGuid(), "Work", "rich@example.test", ContactFieldKind.Work);
+        var address = new ContactAddress(Guid.NewGuid(), "Home", "1 Fictional Street", "Example City", "Example Region", "100001", "Exampleland");
+        var organization = new ContactOrganization(Guid.NewGuid(), "Example Org", "Engineer", "Research");
+        var group = new ContactGroup(Guid.NewGuid(), "Project Team");
+        var tag = new ContactTag(Guid.NewGuid(), "Priority");
+        c.Phones.Add(firstPhone);
+        c.Phones.Add(secondPhone);
+        c.Emails.Add(email);
+        c.Addresses.Add(address);
+        c.Organizations.Add(organization);
+        c.Groups.Add(group);
+        c.Tags.Add(tag);
+
+        await _repo.UpsertAsync(c);
+        var firstLoad = await _repo.GetAsync(c.Id);
+
+        Assert.IsNotNull(firstLoad);
+        CollectionAssert.AreEquivalent(new[] { firstPhone, secondPhone }, firstLoad.Phones.ToArray());
+        Assert.AreEqual(email, firstLoad.Emails.Single());
+        Assert.AreEqual(address, firstLoad.Addresses.Single());
+        Assert.AreEqual(organization, firstLoad.Organizations.Single());
+        Assert.AreEqual(group.Name, firstLoad.Groups.Single().Name);
+        Assert.AreEqual(tag.Name, firstLoad.Tags.Single().Name);
+
+        c.Phones.RemoveAt(0);
+        c.Addresses.Clear();
+        c.Groups.Clear();
+        c.Notes = "Updated";
+        await _repo.UpsertAsync(c);
+        var secondLoad = await _repo.GetAsync(c.Id);
+
+        Assert.IsNotNull(secondLoad);
+        Assert.AreEqual("Updated", secondLoad.Notes);
+        Assert.AreEqual(1, secondLoad.Phones.Count);
+        Assert.AreEqual(secondPhone, secondLoad.Phones.Single());
+        Assert.AreEqual(0, secondLoad.Addresses.Count, "Removed address rows must not remain stale in SQLite.");
+        Assert.AreEqual(0, secondLoad.Groups.Count, "Removed contact-group links must not remain stale in SQLite.");
+        Assert.AreEqual(email, secondLoad.Emails.Single());
+        Assert.AreEqual(organization, secondLoad.Organizations.Single());
+        Assert.AreEqual(tag.Name, secondLoad.Tags.Single().Name);
+    }
+
+    [TestMethod]
     public async Task Search_treats_percent_underscore_and_backslash_as_literal_text()
     {
         var percent = new Contact { GivenName = "Percent%Literal" };
