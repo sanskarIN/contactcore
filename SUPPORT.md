@@ -91,9 +91,15 @@ If `CONTACTCORE_DATABASE_KEY` is set without a SQLCipher-compatible provider, Co
 
 If encryption is not intended, remove the environment variable. If encryption is intended, consult `docs/security.md` and ADR `docs/adr/0003-encryption-provider.md`.
 
-## Rich editor limitation
+## Rich editor limitation and preservation
 
-The current desktop editor exposes one phone and one email, while the underlying model/database can contain richer repeated fields. If you believe editing a rich contact lost unexposed fields, preserve backups/current DB and follow the recovery guidance before making further edits. This is a known roadmap correctness item.
+The current desktop editor exposes one visible phone and one visible email, while the underlying model/database can contain additional phones/emails plus addresses, organizations, groups, and tags.
+
+Current branch code preserves those unexposed values when a contact is opened and saved through the compact editor. The draft begins from a deep copy of the complete aggregate and regression tests verify preservation when the visible primary phone/email are edited or cleared.
+
+The remaining limitation is that those additional values cannot yet be directly edited from the main UI. If a current build reproducibly drops them, treat that as a data-integrity regression: stop repeated edits, preserve the database/backups, record the exact version/commit, and reproduce with fictional data before reporting it.
+
+For older builds created before the preservation fix, `docs/troubleshooting.md` includes recovery guidance.
 
 ## Feature requests
 
