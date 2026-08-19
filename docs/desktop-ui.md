@@ -67,26 +67,31 @@ The current editor exposes the complete persisted aggregate used by the present 
 
 Each repeated row has explicit add/remove UI. Reordering is not currently exposed.
 
-### Identity preservation
+### Identity preservation and shared dictionaries
 
-`ContactDraftViewModel.Load` projects every child collection into dedicated draft rows while preserving the child record IDs. `ToContact()` reconstructs the aggregate with the original contact ID and creation timestamp and retains existing child IDs for rows that remain.
+`ContactDraftViewModel.Load` projects every child collection into dedicated draft rows. `ToContact()` reconstructs the aggregate with the original contact ID and creation timestamp.
 
-This matters because `SqliteContactRepository` treats the supplied contact as the complete desired aggregate and replaces contact-owned child/link rows during save. The editor therefore must not silently recreate unchanged children or omit collections it cannot represent.
+Phone, email, address, and organization rows are contact-owned, so ordinary edits retain their existing child IDs. Groups and tags are different: their IDs identify case-insensitive **shared dictionary rows** used by potentially many contacts.
 
 Current behavior:
 
-- existing phone/email/address/organization/group/tag IDs are preserved when their row remains;
+- existing phone/email/address/organization IDs are preserved while their rows remain;
+- unchanged group/tag assignments preserve their shared dictionary IDs;
+- a true group/tag name change is treated as per-contact reassignment and receives a new dictionary ID instead of reusing the old global row ID;
+- case-only/normalization-equivalent group/tag edits keep the existing identity and original canonical name;
 - new rows receive generated IDs;
-- removed rows are absent from the resulting aggregate and are therefore removed by the aggregate save;
+- removed rows are absent from the resulting aggregate and are therefore removed from the aggregate/link save;
 - blank phone/email rows are ignored unless they contain a value;
 - a blank new address row is ignored;
 - an existing address containing only a label is still preserved;
 - an organization row is included when it has a nonblank organization name;
 - blank group/tag rows are ignored;
-- duplicate group/tag names are collapsed case-insensitively while preserving the first row identity;
+- duplicate group/tag names are collapsed case-insensitively while preserving the first applicable identity;
 - group/tag names containing commas or semicolons remain exact because they are independent rows rather than delimiter-separated text.
 
-Desktop regression tests cover these invariants.
+The rename distinction prevents a per-contact edit from trying to reuse one shared SQLite dictionary primary key for a different name or accidentally turning a local assignment edit into an implicit global taxonomy rename.
+
+Desktop and SQLite regression tests cover these invariants.
 
 ## Draft lifetime and unsaved contacts
 
@@ -122,7 +127,7 @@ For unsaved drafts, the command discards the draft without touching SQLite.
 
 ## Duplicate review and merge
 
-**Find duplicates** now opens an interactive duplicate-review surface rather than only reporting a count.
+**Find duplicates** opens an interactive duplicate-review surface rather than only reporting a count.
 
 The workflow:
 
@@ -133,13 +138,14 @@ The workflow:
 5. show a merge-behavior explanation;
 6. let the user choose **Keep first record…** or **Keep second record…**;
 7. require confirmation for the destructive merge;
-8. ask `ContactService.MergeAsync` to build/normalize/validate the merged aggregate;
-9. persist the surviving aggregate and delete the secondary contact in **one SQLite transaction**;
-10. refresh the contact list and duplicate candidates.
+8. ask `ContactService.MergeAsync` to reload/build/normalize/validate the merged aggregate;
+9. require both reviewed contact IDs to still exist inside the repository merge transaction;
+10. persist the surviving aggregate and delete the secondary contact in **one SQLite transaction**;
+11. refresh the contact list and duplicate candidates.
 
-The operation is intentionally atomic. `SqliteContactRepository.MergeAsync` rolls the transaction back when the secondary row no longer exists instead of committing only the survivor update.
+The operation is intentionally atomic and stale-review-safe. `SqliteContactRepository.MergeAsync` cancels/rolls back when either reviewed contact has disappeared. A missing chosen primary is not recreated from stale reviewed data; a missing secondary cannot leave only the survivor update committed.
 
-The merge engine keeps the chosen survivor identity, fills missing scalar identity fields from the other contact, combines distinct notes, preserves favorite state if either side is favorite, and adds unique phones, emails, addresses, organizations, groups, and tags. Copied child rows receive new IDs where needed.
+The merge engine keeps the chosen survivor identity, fills missing scalar identity fields from the other contact, combines distinct notes, preserves favorite state if either side is favorite, and adds unique phones, emails, addresses, organizations, groups, and tags. Copied contact-owned child rows receive new IDs where needed.
 
 There is no general-purpose undo stack; users should use verified backups for recovery needs.
 
@@ -241,13 +247,16 @@ The desktop test project covers, among other cases:
 - contact ID/creation timestamp/Favorite/Archived preservation;
 - explicit persisted versus unsaved draft state;
 - exact ISO birthday validation;
-- rich phone/email/address/organization/group/tag editing while preserving child IDs;
+- rich phone/email/address/organization editing while preserving contact-owned child IDs;
+- unchanged group/tag shared dictionary identity preservation;
+- true group/tag rename reassignment to new dictionary identities;
+- case-only group/tag edit preservation of canonical identity/name;
 - removal of selected repeated rows without deleting unrelated rows;
 - exact group/tag names containing commas and semicolons;
 - preservation of a legacy label-only address;
 - suppression of blank newly added rich rows.
 
-Higher-level destructive/storage behavior is covered in Application/Infrastructure tests, including atomic merge rollback when the secondary record is missing.
+Higher-level destructive/storage behavior is covered in Application/Infrastructure tests, including atomic duplicate merge stale-record rejection and shared group/tag reassignment persistence.
 
 ## Manual verification still required
 
