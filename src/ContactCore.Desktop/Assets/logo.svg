@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">ContactCore logo</title><desc id="desc">Rounded address book with two contact silhouettes and a central core dot.</desc>
+<rect width="512" height="512" rx="112" fill="#2563EB"/><rect x="92" y="84" width="328" height="344" rx="48" fill="#FFFFFF" opacity="0.96"/>
+<circle cx="256" cy="194" r="62" fill="#2563EB"/><path d="M154 362c8-70 49-106 102-106s94 36 102 106" fill="#2563EB"/>
+<circle cx="256" cy="194" r="20" fill="#93C5FD"/><path d="M92 150H64M92 230H64M92 310H64" stroke="#DBEAFE" stroke-width="22" stroke-linecap="round"/>
+</svg>
