@@ -27,6 +27,8 @@ public sealed partial class MainWindow : Window
         _wiredViewModel.FocusSearchRequested = () => SearchBox.Focus();
         _wiredViewModel.PickImportTextRequested = PickImportTextAsync;
         _wiredViewModel.SaveTextRequested = SaveTextAsync;
+        _wiredViewModel.PickBackupFileRequested = PickBackupFileAsync;
+        _wiredViewModel.ConfirmActionRequested = ConfirmActionAsync;
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -41,6 +43,8 @@ public sealed partial class MainWindow : Window
         _wiredViewModel.FocusSearchRequested = null;
         _wiredViewModel.PickImportTextRequested = null;
         _wiredViewModel.SaveTextRequested = null;
+        _wiredViewModel.PickBackupFileRequested = null;
+        _wiredViewModel.ConfirmActionRequested = null;
     }
 
     private async Task<PickedTextFile?> PickImportTextAsync()
@@ -58,7 +62,7 @@ public sealed partial class MainWindow : Window
             ]
         });
 
-        var file = files.FirstOrDefault();
+        using var file = files.FirstOrDefault();
         if (file is null) return null;
         await using var stream = await file.OpenReadAsync();
         var content = await ReadLimitedTextAsync(stream, MaxImportCharacters);
@@ -73,7 +77,7 @@ public sealed partial class MainWindow : Window
             ? new FilePickerFileType("vCard") { Patterns = ["*.vcf"] }
             : new FilePickerFileType("CSV") { Patterns = ["*.csv"] };
 
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        using var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export contacts",
             SuggestedFileName = suggestedName,
@@ -91,6 +95,40 @@ public sealed partial class MainWindow : Window
         await writer.WriteAsync(content);
         await writer.FlushAsync();
         return true;
+    }
+
+    private async Task<PickedBackupFile?> PickBackupFileAsync()
+    {
+        if (!StorageProvider.CanOpen) return null;
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Restore ContactCore backup",
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("ContactCore database backup") { Patterns = ["*.db"] }]
+        });
+
+        using var file = files.FirstOrDefault();
+        if (file is null) return null;
+
+        var localPath = file.TryGetLocalPath();
+        if (!string.IsNullOrWhiteSpace(localPath))
+            return new PickedBackupFile(localPath);
+
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "ContactCore", "restore-picker");
+        Directory.CreateDirectory(tempDirectory);
+        var tempPath = Path.Combine(tempDirectory, $"restore-{Guid.NewGuid():N}.db");
+        await using (var source = await file.OpenReadAsync())
+        await using (var target = File.Create(tempPath))
+            await source.CopyToAsync(target);
+
+        return new PickedBackupFile(tempPath, DeleteAfterUse: true);
+    }
+
+    private async Task<bool> ConfirmActionAsync(string message)
+    {
+        var dialog = new ConfirmDialog(message);
+        var result = await dialog.ShowDialog<bool?>(this);
+        return result == true;
     }
 
     private static async Task<string> ReadLimitedTextAsync(Stream stream, int maxCharacters)
