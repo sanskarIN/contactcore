@@ -32,11 +32,16 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
         """)
     };
 
+    public static int LatestSchemaVersion => Migrations.Max(x => x.Version);
+
     public async Task ApplyAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
         await SqliteConnectionFactory.ExecuteAsync(connection, "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);", cancellationToken).ConfigureAwait(false);
         var current = await CurrentVersionAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (current > LatestSchemaVersion)
+            throw new NotSupportedException($"Database schema version {current} is newer than this ContactCore build supports ({LatestSchemaVersion}).");
+
         foreach (var migration in Migrations.Where(x => x.Version > current).OrderBy(x => x.Version))
         {
             await using var tx = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
@@ -55,16 +60,29 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
             }
             catch
             {
-                await tx.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                try { await tx.RollbackAsync(cancellationToken).ConfigureAwait(false); }
+                catch (InvalidOperationException) { }
                 throw;
             }
         }
+
+        await EnsureSchemaIdentityAsync(connection, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<int> CurrentVersionAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    internal static async Task<int> CurrentVersionAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;";
         return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task EnsureSchemaIdentityAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        if (LatestSchemaVersion < 2) return;
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT value FROM app_metadata WHERE key='schema_family' LIMIT 1;";
+        var family = Convert.ToString(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        if (!string.Equals(family, "contactcore", StringComparison.Ordinal))
+            throw new InvalidDataException("The database schema identity is not ContactCore.");
     }
 }
