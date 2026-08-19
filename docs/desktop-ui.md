@@ -61,23 +61,40 @@ The **current desktop draft editor is intentionally narrower than the full domai
 - Favorite flag;
 - Archived flag.
 
-The Domain and SQLite layers support multiple phone numbers, emails, addresses, organizations, groups, and tags, but this specific editor does not yet expose full multi-value editing for those collections. When an existing rich contact is loaded into `ContactDraftViewModel`, the draft reads only the first phone and first email; `ToContact()` currently constructs at most one phone and one email and does not reconstruct addresses, organizations, groups, or tags. Contributors must account for this behavior when expanding the editor because saving such a draft uses the repository's complete-aggregate replacement strategy.
+The Domain and SQLite layers support multiple phone numbers, emails, addresses, organizations, groups, and tags, but this specific editor does not yet expose full multi-value editing for those collections.
 
-This is an important current UI limitation and should not be described as full rich-field editing until the editor is expanded and regression-tested.
+### Preservation of unexposed rich fields
+
+`ContactDraftViewModel.Load` now retains a **deep copy of the complete loaded aggregate** while also projecting the first phone/email into the visible quick-edit fields.
+
+`ToContact()` starts from that preserved complete aggregate and then applies the scalar editor fields. For the primary phone/email:
+
+- editing the visible value updates the existing first item's value while preserving its ID, label, and `ContactFieldKind`;
+- clearing the visible value removes only the first item;
+- additional phone/email entries remain in the aggregate;
+- addresses, organizations, groups, and tags remain unchanged.
+
+This is important because `SqliteContactRepository` treats the supplied contact as the complete desired aggregate and replaces contact-owned child/link rows during save. Starting from the preserved deep copy prevents an unrelated compact edit from silently discarding child data that the current UI cannot display.
+
+Desktop regression tests cover both editing the first phone/email while preserving all additional/unexposed collections and clearing the first phone/email while retaining the remaining entries.
+
+This safeguard is **preservation, not full rich-field editing**. The user still cannot add/edit/reorder the hidden repeated fields from the current main editor; a complete multi-value editor remains roadmap work.
 
 ## Saving
 
 `SaveCommand` converts the draft to a `Contact`, parses birthday exactly, passes it to `ContactService.SaveAsync`, and refreshes the list on success. Errors are converted to a sanitized status message through `RedactingLog`.
 
-For a new draft, a new contact ID and creation timestamp are generated. Existing draft IDs and creation timestamps are preserved. Archived state is also preserved by the draft model.
+For a new draft, a new contact identity/creation timestamp are already supplied by the new `Contact` loaded into the draft. Existing IDs and creation timestamps are preserved. Favorite/Archived state and preserved unexposed child collections survive draft conversion.
+
+The returned contact receives a fresh `UpdatedAt` before service normalization/persistence.
 
 ## Permanent deletion
 
 `RequestDeleteCommand` handles deletion rather than binding directly to the repository. The default preference requires confirmation. If confirmation is enabled but the platform confirmation callback is unavailable, deletion is blocked.
 
-The confirmation message states that the operation removes the contact from the active database and that backups/exports are separate copies. If confirmed, the application deletes the contact, closes the editor selection, reports success, and refreshes the list.
+The confirmation message states that the operation removes the contact from the active database and that backups/exports are separate copies. If confirmed, the application deletes the contact ID, closes the editor selection, reports success, and refreshes the list.
 
-For an unsaved draft (`Guid.Empty`), the action simply cancels editing.
+A newly created draft currently already has a generated GUID even before first save, so its delete action can flow through the same delete command; deleting that not-yet-persisted ID has no database row to remove and simply closes/refreshes the editor workflow after confirmation when confirmation is enabled. A future UI refinement can distinguish `IsNew` explicitly and present this as Cancel instead of permanent deletion.
 
 ## Duplicate command
 
@@ -170,17 +187,25 @@ The view model deliberately exposes delegates for platform services:
 
 Initialization, save, import/export, backup/restore, and delete flows catch failures at the desktop boundary and pass error text through `RedactingLog.Sanitize` before exposing it as status text. This is a defense-in-depth diagnostic measure, not permission to place sensitive values in exception messages elsewhere.
 
-## UI test priorities
+## UI test coverage and priorities
 
-The desktop test project currently covers draft-model behavior. Additional high-value tests include:
+The desktop test project now covers:
 
-- preservation of every rich child collection once full multi-value editing is added;
+- contact ID/creation timestamp/Favorite/Archived preservation;
+- exact ISO birthday validation;
+- complete unexposed rich-child preservation while visible first phone/email are edited;
+- preservation of remaining phone/email values when the visible primary value is cleared.
+
+Additional high-value tests include:
+
 - debounced-search cancellation races;
 - settings persistence/view-model propagation;
 - confirmation-required destructive actions;
 - import/export callback cancellation;
 - restore temporary-file cleanup;
+- explicit new-draft/delete behavior;
 - command state during overlapping operations;
-- keyboard/focus behavior via Avalonia integration testing where practical.
+- keyboard/focus behavior via Avalonia integration testing where practical;
+- preservation/editing regression tests as the full multi-value UI is introduced.
 
 Manual platform verification remains necessary for focus visuals, screen readers, high-DPI scaling, native pickers, theme integration, and window behavior.
