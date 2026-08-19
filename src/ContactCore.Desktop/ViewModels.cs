@@ -28,8 +28,6 @@ public sealed partial class ContactListItemViewModel(Contact contact) : Observab
 
 public sealed partial class ContactDraftViewModel : ObservableObject
 {
-    private Contact? _loadedContact;
-
     public Guid Id { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public bool IsPersisted { get; private set; }
@@ -38,6 +36,8 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     public ObservableCollection<EmailDraftViewModel> Emails { get; } = [];
     public ObservableCollection<AddressDraftViewModel> Addresses { get; } = [];
     public ObservableCollection<OrganizationDraftViewModel> Organizations { get; } = [];
+    public ObservableCollection<GroupDraftViewModel> Groups { get; } = [];
+    public ObservableCollection<TagDraftViewModel> Tags { get; } = [];
 
     [ObservableProperty] private string givenName = "";
     [ObservableProperty] private string familyName = "";
@@ -46,13 +46,10 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     [ObservableProperty] private string notes = "";
     [ObservableProperty] private bool isFavorite;
     [ObservableProperty] private bool isArchived;
-    [ObservableProperty] private string groupsText = "";
-    [ObservableProperty] private string tagsText = "";
 
     public void Load(Contact contact, bool isPersisted = true)
     {
         ArgumentNullException.ThrowIfNull(contact);
-        _loadedContact = contact.DeepCopy();
         Id = contact.Id;
         CreatedAt = contact.CreatedAt;
         IsPersisted = isPersisted;
@@ -63,8 +60,6 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         Notes = contact.Notes;
         IsFavorite = contact.IsFavorite;
         IsArchived = contact.IsArchived;
-        GroupsText = string.Join(", ", contact.Groups.Select(x => x.Name));
-        TagsText = string.Join(", ", contact.Tags.Select(x => x.Name));
 
         Phones.Clear();
         foreach (var phone in contact.Phones)
@@ -100,6 +95,14 @@ public sealed partial class ContactDraftViewModel : ObservableObject
                 Department = organization.Department ?? ""
             });
         }
+
+        Groups.Clear();
+        foreach (var group in contact.Groups)
+            Groups.Add(new GroupDraftViewModel { Id = group.Id, Name = group.Name });
+
+        Tags.Clear();
+        foreach (var tag in contact.Tags)
+            Tags.Add(new TagDraftViewModel { Id = tag.Id, Name = tag.Name });
     }
 
     public Contact ToContact()
@@ -130,7 +133,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         {
             contact.Phones.Add(new(
                 phone.Id == Guid.Empty ? Guid.NewGuid() : phone.Id,
-                LabelOrDefault(phone.Label, phone.Kind.ToString()),
+                phone.Label.Trim(),
                 phone.Number.Trim(),
                 phone.Kind));
         }
@@ -139,7 +142,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         {
             contact.Emails.Add(new(
                 email.Id == Guid.Empty ? Guid.NewGuid() : email.Id,
-                LabelOrDefault(email.Label, email.Kind.ToString()),
+                email.Label.Trim(),
                 email.Address.Trim(),
                 email.Kind));
         }
@@ -148,7 +151,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         {
             contact.Addresses.Add(new(
                 address.Id == Guid.Empty ? Guid.NewGuid() : address.Id,
-                LabelOrDefault(address.Label, "Address"),
+                address.Label.Trim(),
                 address.Street.Trim(),
                 address.City.Trim(),
                 address.Region.Trim(),
@@ -165,11 +168,8 @@ public sealed partial class ContactDraftViewModel : ObservableObject
                 NullIfBlank(organization.Department)));
         }
 
-        foreach (var groupName in SplitLabels(GroupsText))
-            contact.Groups.Add(FindExistingGroup(groupName) ?? new ContactGroup(Guid.NewGuid(), groupName));
-        foreach (var tagName in SplitLabels(TagsText))
-            contact.Tags.Add(FindExistingTag(tagName) ?? new ContactTag(Guid.NewGuid(), tagName));
-
+        AddDistinctGroups(contact);
+        AddDistinctTags(contact);
         return contact;
     }
 
@@ -209,25 +209,53 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         if (organization is not null) Organizations.Remove(organization);
     }
 
-    private ContactGroup? FindExistingGroup(string name) => _loadedContact?.Groups.FirstOrDefault(x =>
-        TextNormalizer.SearchKey(x.Name) == TextNormalizer.SearchKey(name));
+    [RelayCommand]
+    private void AddGroup() => Groups.Add(new GroupDraftViewModel());
 
-    private ContactTag? FindExistingTag(string name) => _loadedContact?.Tags.FirstOrDefault(x =>
-        TextNormalizer.SearchKey(x.Name) == TextNormalizer.SearchKey(name));
+    [RelayCommand]
+    private void RemoveGroup(GroupDraftViewModel? group)
+    {
+        if (group is not null) Groups.Remove(group);
+    }
+
+    [RelayCommand]
+    private void AddTag() => Tags.Add(new TagDraftViewModel());
+
+    [RelayCommand]
+    private void RemoveTag(TagDraftViewModel? tag)
+    {
+        if (tag is not null) Tags.Remove(tag);
+    }
+
+    private void AddDistinctGroups(Contact contact)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in Groups)
+        {
+            var name = group.Name.Trim();
+            if (name.Length == 0 || !names.Add(name)) continue;
+            contact.Groups.Add(new ContactGroup(group.Id == Guid.Empty ? Guid.NewGuid() : group.Id, name));
+        }
+    }
+
+    private void AddDistinctTags(Contact contact)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tag in Tags)
+        {
+            var name = tag.Name.Trim();
+            if (name.Length == 0 || !names.Add(name)) continue;
+            contact.Tags.Add(new ContactTag(tag.Id == Guid.Empty ? Guid.NewGuid() : tag.Id, name));
+        }
+    }
 
     private static bool HasAddressValue(AddressDraftViewModel address) =>
+        !string.IsNullOrWhiteSpace(address.Label) ||
         !string.IsNullOrWhiteSpace(address.Street) ||
         !string.IsNullOrWhiteSpace(address.City) ||
         !string.IsNullOrWhiteSpace(address.Region) ||
         !string.IsNullOrWhiteSpace(address.PostalCode) ||
         !string.IsNullOrWhiteSpace(address.Country);
-
-    private static IEnumerable<string> SplitLabels(string value) => value
-        .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-        .Distinct(StringComparer.OrdinalIgnoreCase);
-
-    private static string LabelOrDefault(string value, string fallback) =>
-        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
     private static string? NullIfBlank(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -330,14 +358,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAsync()
     {
+        if (!IsEditorVisible)
+        {
+            StatusMessage = "Open or create a contact before saving.";
+            return;
+        }
+
         try
         {
             var saved = Draft.ToContact();
             await _service.SaveAsync(saved);
             Draft.Load(saved, isPersisted: true);
-            StatusMessage = "Saved locally.";
             await RefreshAsync();
             SelectedContact = Contacts.FirstOrDefault(x => x.Model.Id == saved.Id);
+            StatusMessage = "Saved locally.";
         }
         catch (Exception ex)
         {
