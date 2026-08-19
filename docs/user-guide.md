@@ -6,9 +6,9 @@ ContactCore is an offline-first desktop contact manager. It does not require an 
 
 On startup, ContactCore resolves its local data directory, loads local preferences, configures the requested theme, opens the SQLite database, applies supported migrations, and then loads the desktop workspace. If database encryption is requested but a SQLCipher-compatible provider is unavailable, startup fails rather than silently creating or opening plaintext data.
 
-## Contact workspace
+## Contact data capabilities
 
-The main workspace is built around a searchable contact list and an editor/detail surface. A contact can contain:
+The ContactCore domain and storage model can represent:
 
 - given name, family name, and nickname;
 - birthday and notes;
@@ -22,9 +22,17 @@ The main workspace is built around a searchable contact list and an editor/detai
 
 A contact whose name fields are empty is displayed as `Unnamed contact` by the domain model.
 
+### Current desktop-editor scope
+
+The present desktop editor is intentionally simpler than the full domain/storage model. It exposes names, birthday, **one phone**, **one email**, notes, Favorite, and Archived. It does not yet provide full multi-value editing for addresses, organizations, groups, tags, or additional phone/email entries.
+
+This distinction matters when editing a contact that originally contains richer repeated data: the current draft view model loads only the first phone/email and constructs only the fields exposed by the editor. Full rich-field editing is therefore a roadmap item rather than a completed UI claim. See [Desktop UI](desktop-ui.md) for the exact behavior.
+
 ## Create and edit
 
-Use the new-contact action to start a draft. Fill only the fields that are useful; repeated fields can be added or removed in the editor. Saving normalizes surrounding whitespace, validates the contact, updates its modification timestamp, and writes the full aggregate transactionally.
+Use **New contact** or `Ctrl+N` to start a draft. Fill the fields that are useful and choose **Save** or `Ctrl+S`. Birthday, when supplied, must use `yyyy-MM-dd`.
+
+Saving normalizes surrounding whitespace, validates the contact, updates its modification timestamp, and writes the resulting aggregate transactionally.
 
 Validation currently enforces practical length limits for names and notes, basic email validity, and a permissive phone-character/length pattern. Validation errors identify the field without echoing potentially sensitive invalid values.
 
@@ -34,31 +42,33 @@ Search matches given name, family name, nickname, phone number, and email addres
 
 - favorites-only filtering;
 - hiding/showing archived contacts;
-- exact case-insensitive tag filtering;
-- exact case-insensitive group filtering;
+- exact case-insensitive tag filtering at the repository/API layer;
+- exact case-insensitive group filtering at the repository/API layer;
 - alphabetical `StartsWith` filtering.
 
-Search input is trimmed before execution. SQL wildcard characters entered by the user are escaped so they are treated as search text instead of changing the intended query pattern.
+The current sidebar exposes All, Favorites, Archived, and A–Z filtering. Search input is trimmed before execution. SQL wildcard characters entered by the user are escaped so they are treated as search text instead of changing the intended query pattern.
+
+Search is debounced for 180 ms and older pending searches are cancelled when a newer query is entered. `Ctrl+F` focuses the search box.
 
 ## Favorites
 
-Favoriting changes the contact's `IsFavorite` state and persists the updated aggregate. The favorites filter uses the persisted flag, so it is preserved across restarts.
+The editor's **Favorite** checkbox changes the contact's `IsFavorite` state when saved. The favorites filter uses the persisted flag, so it is preserved across restarts.
 
 ## Archive and permanent delete
 
-Archive is the reversible removal path: archived contacts remain in the database but are excluded by normal searches unless archived records are requested.
+Archive is the reversible removal path: archived contacts remain in the database but are excluded by normal searches unless archived records are requested. The editor exposes an **Archived** checkbox.
 
-Permanent delete removes the contact row. SQLite foreign keys cascade deletion to contact-owned rows and relationship rows. The desktop settings include a local preference to confirm before permanent deletion; the default is enabled.
+Permanent delete removes the contact row. SQLite foreign keys cascade deletion to contact-owned rows and relationship rows. The desktop settings include a local preference to confirm before permanent deletion; the default is enabled. If confirmation is required but the platform confirmation service is unavailable, the application blocks deletion rather than bypassing confirmation.
 
 For important contacts, create a backup before irreversible cleanup.
 
-## Duplicate review and merge
+## Duplicate detection and merge support
 
-Duplicate detection assigns a score based on matching normalized names, phone numbers, and email addresses. The minimum-score input is clamped to the valid `0..1` range.
+The current **Find duplicates** command scans all contacts, including archived contacts, and reports the number of likely duplicate pairs plus the highest score. It does not yet present a complete pair-by-pair review/merge screen.
 
-Merge keeps the selected primary contact identity, fills missing primary name/nickname fields from the secondary contact, combines notes when they differ, preserves favorite state, and merges repeated fields while avoiding equivalent values. New IDs are generated when phone/email/address/organization rows are copied from the secondary contact so child-row primary keys do not collide. A contact cannot be merged with itself.
+At the application layer, duplicate detection assigns a score using normalized names, phone numbers, and email addresses. The minimum score is clamped to `0..1`. A deterministic `ContactMerger` also exists: it keeps the selected primary identity, fills missing name/nickname fields, combines distinct notes, preserves favorite state, de-duplicates repeated values, generates fresh IDs for copied child rows where needed, and rejects self-merge.
 
-Review the preview before confirming a merge because merge is a data-changing operation.
+The interactive duplicate-review/merge experience is still a UI roadmap item; do not interpret the existing merge engine as a completed merge screen.
 
 ## CSV import/export
 
@@ -70,6 +80,10 @@ Only the first email and first phone are represented by the current CSV codec. F
 
 CSV import is header-driven and case-insensitive. Unknown columns are ignored. Invalid birthday text produces a warning. Parsed contacts are normalized and validated before persistence. The application bulk-import path validates the entire batch before calling the repository, and the repository writes the batch in one SQLite transaction.
 
+The desktop importer reads UTF-8 text with BOM detection and enforces a maximum size of **5,000,000 characters**. Oversized files are rejected with a controlled error.
+
+CSV quoting does not currently implement spreadsheet-specific formula neutralization, so treat exported contact text as untrusted when opening it in spreadsheet software.
+
 See [Import and export](import-export.md) for format details and limitations.
 
 ## vCard import/export
@@ -77,6 +91,12 @@ See [Import and export](import-export.md) for format details and limitations.
 The vCard codec writes vCard 4.0 records with `N`, `FN`, repeated `TEL`, repeated `EMAIL`, optional `BDAY`, and optional `NOTE`. Import supports those fields and unfolded continuation lines. An unterminated vCard is ignored with a warning.
 
 The codec is intentionally focused; it is not a complete implementation of every vCard property or parameter defined by the standard.
+
+## Export behavior
+
+The Data tools surface can export CSV or vCard. Export includes archived contacts and runs only after you choose a destination. Text is written as UTF-8 without a BOM.
+
+Export is an interchange function, not a full-fidelity backup. Use the SQLite backup function when you need to preserve the complete ContactCore database model.
 
 ## Backup
 
@@ -98,7 +118,9 @@ Restore is deliberately conservative:
 8. The new active database is verified once more.
 9. If final verification fails, the failed restore is retained in the backups directory and the verified pre-restore snapshot is copied back into place.
 
-This process reduces the chance that a corrupt, foreign, or incompatible backup can replace the only good copy of the user's data.
+Restore always requires the desktop confirmation callback. If the storage provider does not expose a local path for the chosen backup, the desktop layer creates a temporary local copy and deletes that picker copy after the restore attempt.
+
+This process reduces the chance that a corrupt, foreign, or incompatible backup can replace the only good copy of the user's data. See [Storage, backup, and recovery](storage-backup-recovery.md) for the failure-path details.
 
 ## Settings
 
@@ -112,11 +134,13 @@ The database key is runtime-only and is not serialized into `settings.json`.
 
 Preference writes use a temporary file followed by replacement to reduce the chance of leaving a partially written JSON settings file.
 
+The reduced-motion preference is persisted for present/future UI behavior, but its existence is not a claim that every framework-level animation is disabled.
+
 ## Data location
 
 By default the data directory is `ContactCore` under the operating system's local application-data location. If that platform API returns no path, the application falls back to its base directory.
 
-`CONTACTCORE_DATA_PATH` can override the directory. The database is always named `contactcore.db` inside the selected directory; settings use `settings.json`; automatic recovery artifacts are placed under `backups/`.
+`CONTACTCORE_DATA_PATH` can override the **directory**. The database is named `contactcore.db` inside the selected directory; settings use `settings.json`; automatic recovery artifacts are placed under `backups/`.
 
 ## Encryption
 
@@ -134,4 +158,11 @@ Do not put real keys in `.env.example`, source files, issues, screenshots, logs,
 
 ## Keyboard and accessibility
 
-The desktop UI is designed around labeled fields, keyboard navigation, visible focus, scalable text, theme support, and a reduced-motion preference. `Ctrl+F` focuses search in the desktop workflow. Accessibility should still be manually verified on each supported operating system and with representative assistive technology before making conformance claims.
+Current application shortcuts are:
+
+- `Ctrl+N` — new contact;
+- `Ctrl+S` — save;
+- `Ctrl+F` — focus search;
+- `Esc` — close/cancel the active editing/settings/data-tools surface.
+
+The desktop UI uses labeled fields, keyboard navigation, visible focus styling, theme-aware dynamic resources, and a reduced-motion preference. Accessibility must still be manually verified on each supported operating system and with representative assistive technology before making conformance claims.
