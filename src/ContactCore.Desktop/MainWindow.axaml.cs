@@ -83,7 +83,11 @@ public sealed partial class MainWindow : Window
 
         await using var stream = await file.OpenWriteAsync();
         if (stream.CanSeek) stream.SetLength(0);
-        await using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: false);
+        await using var writer = new StreamWriter(
+            stream,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            bufferSize: 1024,
+            leaveOpen: false);
         await writer.WriteAsync(content);
         await writer.FlushAsync();
         return true;
