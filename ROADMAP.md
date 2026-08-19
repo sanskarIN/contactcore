@@ -2,6 +2,8 @@
 
 This roadmap distinguishes **implemented** behavior from future intent. A checked item means the capability exists in the repository at the current checkpoint; it does not automatically mean every release platform has been manually verified or that every edge case is complete.
 
+Current release-preparation version: **2.0.12**.
+
 ## 0.1 — Foundation and MVP
 
 - [x] Layered Domain/Application/Infrastructure/Desktop solution.
@@ -48,6 +50,7 @@ This roadmap distinguishes **implemented** behavior from future intent. A checke
 - [x] Stable repeated-row identity preservation through edit/save.
 - [x] Explicit unsaved/persisted draft state and safe unsaved discard.
 - [x] Atomic duplicate survivor-update + secondary-delete persistence.
+- [x] Duplicate merge rejects stale operations when either reviewed contact disappeared.
 - [x] Interactive duplicate review with evidence, preview, survivor choice, and confirmation.
 
 ## 0.3 — Documentation completeness
@@ -62,7 +65,7 @@ This roadmap distinguishes **implemented** behavior from future intent. A checke
 - [x] Maintainer engineering guide.
 - [x] ADRs for modular monolith, SQLite, and encryption-provider boundary.
 - [x] Exhaustive tracked-file repository reference.
-- [x] Root README/changelog/roadmap synchronized for this checkpoint; future behavior changes must keep them synchronized.
+- [x] Root README/changelog/roadmap synchronized for the 2.0.12 checkpoint.
 
 ## 0.4 — Rich UX completion
 
@@ -79,7 +82,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Side-by-side duplicate comparison/merge preview.
 - [x] User-confirmed merge workflow wired through `ContactService`/`ContactMerger`.
 - [x] Explicit user choice of which duplicate record survives.
-- [x] One-transaction duplicate merge/delete with rollback if the secondary row disappeared.
+- [x] One-transaction duplicate merge/delete with rollback when either reviewed contact is stale/missing.
 - [ ] Drag/drop or other reorder controls for repeated rich fields.
 - [ ] Dedicated global group/tag taxonomy-management screen.
 - [ ] Undo/recovery UX for high-impact contact modifications where practical.
@@ -91,14 +94,14 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Full address/organization/group/tag repository round-trip/replacement tests.
 - [x] Restore rejection test for valid non-ContactCore SQLite file.
 - [x] Missing-backup and same-active-path restore tests.
-- [x] Atomic duplicate-merge success and missing-secondary rollback tests.
+- [x] Atomic duplicate-merge success, missing-secondary rollback, and missing-primary non-resurrection tests.
 - [x] Import parser tests for unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard fields, TYPE mapping, and non-echoing birthday warnings.
 - [x] Desktop rich-field tests for IDs, exact group/tag names, blank rows, removal semantics, and label-only legacy address preservation.
 - [x] App-path environment/fallback tests.
 - [x] Redaction truncation/PII-shape tests.
+- [x] ContactService save/import normalization and indexed import-validation tests, including rich address/organization/group/tag normalization.
 - [ ] Forced post-switch restore verification failure/rollback test.
 - [ ] Restore staging/temp cleanup failure-path tests beyond current successful/invalid-source flows.
-- [ ] ContactService normalization and indexed import-validation unit tests for every rich field.
 - [ ] Search debounce/cancellation view-model tests.
 - [ ] Destructive-action and restore confirmation view-model tests.
 - [ ] Native/Avalonia integration tests where stable and valuable.
@@ -124,13 +127,18 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 
 ## 0.8 — Release hardening
 
+- [x] Centralize application/release version metadata for 2.0.12.
+- [x] Require release tag/project-version equality before publish.
+- [x] Align release workflow SDK resolution with `global.json`.
+- [x] Package Windows output as ZIP and Unix outputs as permission-preserving tar.gz archives.
+- [x] Publish SHA-256 checksum manifest for release archives.
+- [x] Restrict release workflow write permission to the final GitHub Release job.
 - [ ] Capture real product screenshots using fictional data after verified release builds.
 - [ ] Manual keyboard/screen-reader/high-DPI/theme audit on supported platforms.
 - [ ] Windows signing pipeline when credentials/policy are available.
 - [ ] macOS Developer ID signing and notarization when credentials/policy are available.
-- [ ] Decide installer/package formats per platform.
-- [ ] Align release workflow SDK resolution directly with `global.json` if the workflow still duplicates SDK selection.
-- [ ] Publish a repeatable release smoke-test record/template.
+- [ ] Decide installer/package formats per platform beyond the current portable archives.
+- [ ] Publish a repeatable manual release smoke-test record/template.
 
 ## Future product exploration
 
