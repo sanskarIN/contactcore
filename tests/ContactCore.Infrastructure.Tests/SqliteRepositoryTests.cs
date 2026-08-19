@@ -41,6 +41,29 @@ public sealed class SqliteRepositoryTests
     }
 
     [TestMethod]
+    public async Task Search_treats_percent_underscore_and_backslash_as_literal_text()
+    {
+        var percent = new Contact { GivenName = "Percent%Literal" };
+        var percentControl = new Contact { GivenName = "PercentXLiteral" };
+        var underscore = new Contact { GivenName = "Under_Score" };
+        var underscoreControl = new Contact { GivenName = "UnderXScore" };
+        var slash = new Contact { GivenName = "Back\\Slash" };
+        var slashControl = new Contact { GivenName = "BackXSlash" };
+        await _repo.UpsertManyAsync([percent, percentControl, underscore, underscoreControl, slash, slashControl]);
+
+        var percentMatches = await _repo.SearchAsync(new ContactQuery("%"));
+        var underscoreMatches = await _repo.SearchAsync(new ContactQuery("_"));
+        var slashMatches = await _repo.SearchAsync(new ContactQuery("\\"));
+
+        Assert.AreEqual(1, percentMatches.Count);
+        Assert.AreEqual(percent.Id, percentMatches[0].Id);
+        Assert.AreEqual(1, underscoreMatches.Count);
+        Assert.AreEqual(underscore.Id, underscoreMatches[0].Id);
+        Assert.AreEqual(1, slashMatches.Count);
+        Assert.AreEqual(slash.Id, slashMatches[0].Id);
+    }
+
+    [TestMethod]
     public async Task Delete_cascades_related_rows()
     {
         var c = new Contact { GivenName = "Disposable" };
