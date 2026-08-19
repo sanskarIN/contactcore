@@ -1,271 +1,226 @@
 # Security and Privacy Engineering
 
-ContactCore is an offline-first desktop contact manager. Its security model is primarily about protecting local personal data from accidental disclosure, injection/input mistakes, misleading encryption claims, corrupt restores, and destructive-operation errors. It is not a network security product and does not claim to defend a compromised operating system from an attacker already able to read the user's files or process memory.
+ContactCore is an offline-first desktop contact manager. Its security model focuses on local personal-data protection, input handling, transaction/data-integrity boundaries, truthful encryption claims, restore safety, and protection from accidental destructive actions. It is not a network-security product and cannot protect files/process memory from an attacker who already controls the user's operating-system account or device.
 
-For vulnerability-reporting instructions, see `../SECURITY.md`. For user-facing data practices, see `../PRIVACY.md`.
+For vulnerability reporting see `../SECURITY.md`; for user-facing data practices see `../PRIVACY.md`.
 
-## Assets
+## Sensitive assets
 
 Sensitive assets can include:
 
-- the active `contactcore.db` database;
-- WAL/SHM sidecars while SQLite uses them;
+- `contactcore.db` and SQLite WAL/SHM sidecars;
 - verified backups and pre-restore snapshots;
-- failed-restore recovery copies;
-- CSV/vCard exports;
+- failed-restore/recovery copies;
+- CSV/vCard exports and import files;
 - temporary restore-picker files;
 - contact values shown on screen;
-- runtime database encryption key, when configured;
+- runtime database encryption keys when configured;
 - settings that influence destructive-action safety.
 
-Backups and exports must be treated as copies of personal data, not as harmless generated artifacts.
+Backups, exports, picker copies, and recovery files are personal-data copies, not harmless generated artifacts.
 
 ## Trust boundaries
 
 ### Local operating system
 
-ContactCore trusts the OS/runtime to enforce filesystem permissions, process isolation, and native file-picker behavior. A malicious administrator, malware running as the user, disk-forensics attacker against unencrypted storage, or compromised native dependency is outside the protection offered by normal application-layer controls.
+ContactCore trusts OS/runtime filesystem permissions, process isolation, native UI/file-picker behavior, and native dependencies. Same-user malware, administrators, disk-forensics against unencrypted storage, compromised runtime/native libraries, and screen capture are outside normal application-layer protection.
 
-### Imported files
+### Imported CSV/vCard
 
-CSV/vCard files are untrusted input. They may be malformed, very large, Unicode-heavy, or intentionally crafted to stress parsers/downstream tools.
+Imports are untrusted. They may be malformed, Unicode-heavy, formula-like, oversized, or crafted to stress parsers/downstream spreadsheet software.
 
-### Selected backup files
+### Selected backup database
 
-A `.db` chosen for restore is untrusted until ContactCore verifies it. A valid SQLite file is not automatically a ContactCore database.
+A `.db` is untrusted until integrity, ContactCore schema/version, and schema-family identity have been verified. Valid SQLite is not automatically valid ContactCore data.
+
+### Duplicate heuristic
+
+Duplicate scoring is also a trust boundary of a different kind: it is a heuristic, not proof that two people are the same. Scores must never automatically trigger destructive persistence.
 
 ### Native SQLite provider
 
-The default app uses normal SQLite. If a user integrates a SQLCipher-compatible provider, the native provider becomes part of the trusted computing base.
+The default app uses ordinary SQLite. A SQLCipher-compatible provider, when deliberately integrated, joins the trusted computing base and introduces packaging/licensing/update requirements.
 
-### Public repository/support channels
+### Public repository/support surfaces
 
-Issues, pull requests, screenshots, logs, and test fixtures are public-data boundaries. Real contact information, databases, exports, and secrets must not cross this boundary.
+Issues, pull requests, screenshots, logs, and fixtures are public-data boundaries. Real contact databases/exports/keys and identifying screenshots must not cross them.
 
 ## Offline-first privacy posture
 
-The application has no mandatory cloud synchronization, account, telemetry, advertising, or analytics dependency. Normal contact operations use local files/SQLite.
+Normal contact operations use local files/SQLite and require no mandatory account, cloud sync, analytics, telemetry, or advertising service.
 
-This reduces remote data exposure but does **not** automatically encrypt local storage or backups. Local-first and encrypted-at-rest are separate properties.
+Local-first does **not** imply encrypted-at-rest. The default ordinary SQLite build is plaintext unless a compatible encryption provider is deliberately integrated.
 
-## SQL injection controls
+## SQL controls
 
-`SqliteContactRepository` parameterizes contact IDs and values for normal CRUD/search operations. User search text used in `LIKE` expressions is also escaped for backslash, `%`, and `_` so wildcard characters are interpreted literally when appropriate.
+Repository values/IDs are parameterized. Search values intended as literal text escape backslash, `%`, and `_` before entering `LIKE ... ESCAPE '\'` patterns.
 
-Schema/table names used in fixed repository loops are developer-controlled constants, not user input.
+Developer-controlled table names in fixed loops are constants. Never concatenate contact/import/search values into SQL text.
 
-Developers must preserve this rule: never concatenate contact/import/search values into SQL text.
+## SQLite consistency controls
 
-## SQLite foreign keys and consistency
+Factory-opened connections enable foreign keys and a busy timeout. Aggregate writes and multi-contact imports are transactional.
 
-Every factory-opened connection enables:
+The repository also exposes a dedicated atomic duplicate-merge operation: it writes the complete chosen survivor aggregate and deletes the secondary contact inside the **same SQLite transaction**. The delete must affect exactly one secondary row; otherwise the transaction throws/rolls back so only half the destructive operation is never intentionally committed.
 
-```sql
-PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 5000;
-```
+## Complete-aggregate editor safety
 
-Foreign keys cascade contact deletion into child/link rows. Aggregate and bulk-import writes occur inside SQLite transactions.
+The repository replaces contact-owned child/link rows from the complete aggregate supplied on save. A presentation bug that omits an existing child can therefore become data loss.
 
-A database error while a multi-contact batch is being written rolls back the batch instead of committing the successful prefix.
+The current full editor represents phones, emails, addresses, organizations, groups, and tags and preserves existing child IDs for rows that remain. Regression tests cover removal isolation, exact delimiter-containing group/tag names, blank-row suppression, label-only address preservation, and source-aggregate non-mutation.
+
+A new/alternate editor must either represent every persisted field or explicitly preserve unsupported fields. Generated GUIDs are not proof of persistence; unsaved drafts are tracked separately so discard never becomes an unintended database delete.
+
+## Duplicate detection and destructive merge controls
+
+The duplicate UI:
+
+1. scans candidates without mutating data;
+2. presents confidence and matching reasons;
+3. shows both record summaries;
+4. requires the user to choose which record survives;
+5. requires confirmation regardless of permanent-delete preference;
+6. calls the validated Application merge workflow;
+7. commits survivor update + secondary deletion atomically.
+
+The merge algorithm preserves the selected survivor identity, combines documented unique child values, and generates fresh IDs for copied secondary child rows where needed.
+
+There is no general-purpose undo stack. Atomicity prevents partial merge state; it is not undo. Verified backups remain the recovery path for an incorrectly confirmed destructive merge.
 
 ## Database schema identity
 
-Schema version 2 introduces:
+Schema version 2 uses:
 
 ```text
 app_metadata['schema_family'] = 'contactcore'
 ```
 
-Backup/restore verification uses this identity plus required tables and schema version. This helps reject an unrelated valid SQLite file that should not replace ContactCore data.
+Backup/restore validation combines this identity with required tables and schema version. Future schema versions are rejected instead of being opened as though downgrade compatibility were guaranteed.
 
-Future schema versions are rejected instead of being opened as though downgrade compatibility were guaranteed.
+## Backup integrity
 
-## Backup integrity controls
+Backup creation uses SQLite's backup API, then requires integrity/schema/identity verification before reporting success. A path is not considered a successful ContactCore backup merely because a file was created.
 
-Backup creation uses SQLite's native backup API and then verifies:
+## Restore safety
 
-- `PRAGMA integrity_check` returns `ok`;
-- required ContactCore tables exist;
-- schema version is valid/supported;
-- current backups contain the ContactCore schema-family marker.
+Restore follows:
 
-The path is reported as a successful backup only after these checks.
+1. path validation and active-source rejection;
+2. read-only source verification;
+3. verified pre-restore snapshot of current active data when present;
+4. staging copy;
+5. migration of staging to the supported schema;
+6. staging integrity/identity verification;
+7. pool/sidecar cleanup and switch;
+8. final active-database verification;
+9. failed-restored-file retention + recovery-snapshot restoration attempt if final verification fails.
 
-## Restore safety controls
-
-Restore uses a staged sequence:
-
-1. normalize/validate selected path;
-2. reject active-database-as-source;
-3. open selected backup read-only;
-4. verify integrity/ContactCore structure/version;
-5. snapshot the current active database to a verified recovery copy when one exists;
-6. copy selected backup to staging;
-7. migrate staging to the current supported schema;
-8. verify staging;
-9. clear pools/sidecars and switch staged file into the active path;
-10. verify the new active database;
-11. on final verification failure, retain the failed copy and restore the verified pre-restore snapshot.
-
-This ordering aims to prevent a corrupt, unrelated, unsupported, or migration-failing backup from silently destroying the only good active copy.
-
-See `storage-backup-recovery.md` for exact behavior.
+This sequence is intentionally more expensive than raw replacement because data-loss protection is the priority.
 
 ## Optional database encryption
 
 ### Default build
 
-The repository's default SQLite dependency is `Microsoft.Data.Sqlite`. Ordinary SQLite does not provide SQLCipher encryption merely because `PRAGMA key` is issued.
+`Microsoft.Data.Sqlite` with ordinary SQLite does not become encrypted merely because code issues `PRAGMA key`.
 
 ### Fail-closed key request
 
-When `CONTACTCORE_DATABASE_KEY` is non-empty, `SqliteConnectionFactory`:
+When `CONTACTCORE_DATABASE_KEY` is non-empty, `SqliteConnectionFactory` applies the runtime key without interpolating the original secret and queries `PRAGMA cipher_version`. If cipher support cannot be proven, the connection is closed and startup fails.
 
-1. obtains UTF-8 bytes of the runtime key;
-2. converts them to hex;
-3. issues a hex-literal `PRAGMA key` without interpolating the original string;
-4. queries `PRAGMA cipher_version`;
-5. closes the connection and throws when no cipher version is returned.
-
-Therefore a key configured against an incompatible provider should cause failure, not a false “encrypted” state.
+The preferences loader reads this runtime key even on first launch when `settings.json` does not yet exist. The key is excluded from the serialized settings model.
 
 ### Provider responsibility
 
-Production encryption requires a maintained SQLCipher-compatible native SQLite distribution or another deliberately supported provider integration. Maintainers must evaluate licensing, platform packaging, updates, and runtime compatibility.
+Shipping encryption requires a maintained compatible provider plus licensing/native packaging/runtime tests on every supported release target. Do not claim encryption-at-rest until provider behavior is actually verified.
 
-Do not commit proprietary encryption binaries, license material, or secret keys unless repository licensing/policy explicitly permits them.
+### Not guaranteed
 
-### What the application does not guarantee
+ContactCore does not protect keys from a process-memory attacker, provide an OS secret-store today, automatically encrypt CSV/vCard exports, or claim cryptographic properties beyond an integrated provider.
 
-- It does not protect an encryption key from a process-memory attacker.
-- It does not provide an OS secret-store implementation today.
-- It does not encrypt ordinary CSV/vCard exports automatically.
-- It does not magically encrypt a normal SQLite database without a compatible provider.
-- It does not claim cryptographic guarantees beyond those of the integrated provider.
+## Preference resilience
 
-## Secret handling
+`settings.json` stores non-secret preferences. Saves use a temporary file followed by replacement. Malformed JSON falls back to conservative defaults, including permanent-delete confirmation enabled.
 
-ContactCore requires no application API secret for normal use.
+This is corruption resilience, not tamper authentication.
 
-`JsonAppPreferences` reads `CONTACTCORE_DATABASE_KEY` from the process environment and exposes it at runtime through the preference abstraction, but its serialized settings model excludes `DatabaseKey`. Tests assert that the key/property name are not written to `settings.json`.
+## Permanent delete controls
 
-`.env.example` contains variable names/documentation only. Never put a real key into tracked files.
+For persisted contacts, permanent deletion follows the configured confirmation requirement. If confirmation is required but unavailable, the action is blocked.
 
-For stronger deployments, an OS credential/secret-store adapter would be preferable to a long-lived environment variable; that integration remains future work.
+For an unsaved draft, **Delete / discard** performs no repository deletion.
 
-## Preferences integrity
+Restore and duplicate merge always require their own confirmation callback in the desktop workflow.
 
-Settings save through a temporary file followed by replacement. Malformed JSON loads with conservative defaults, including confirmation before permanent delete enabled.
+## Import resource limits and atomicity
 
-This is resilience rather than an authentication mechanism: a local attacker able to modify the user's settings file can still change non-secret preferences.
+The desktop text reader bounds selected import text at **5,000,000 characters**, uses UTF-8/BOM detection, and rejects oversize input before accepting the complete string.
 
-## Destructive-action confirmation
+`ContactService.ImportAsync` deep-copies/normalizes the parsed contacts, validates the complete batch, and only then calls one-transaction repository persistence. A validation or write failure does not intentionally leave a successful prefix committed.
 
-Permanent contact deletion defaults to confirmation-on. If confirmation is enabled but the desktop confirmation callback is unavailable, deletion is blocked.
+Alternate future import entry points must impose their own resource bounds rather than assuming every caller passes through `MainWindow`.
 
-Restore always requires a confirmation callback in the desktop workflow and informs the user that a pre-restore snapshot will be retained.
+## CSV hardening boundary
 
-These controls address accidental actions, not malicious local automation with code execution in the user's context.
+Current CSV behavior:
 
-## Import resource limits
+- requires at least one recognized ContactCore header; otherwise imports zero contacts with a warning;
+- duplicate headers use the first occurrence and warn;
+- formula-like text beginning with `=`, `+`, `-`, or `@` after leading whitespace is preserved and warned about;
+- quoting/escaping does **not** constitute spreadsheet-formula neutralization.
 
-The native desktop import reader limits selected text to 5,000,000 characters. It reads UTF-8 with BOM detection and throws a controlled error when the limit would be exceeded.
+Users should treat contact-derived CSV as untrusted data when opening it in spreadsheet software. Do not claim formula mitigation unless a deliberate compatibility policy and tests are added.
 
-The parser itself operates on an in-memory string, so this desktop limit is an important resource bound. Alternate future import entry points must enforce their own appropriate limits rather than assuming every caller passes through `MainWindow`.
+## vCard hardening boundary
 
-## Import validation and atomicity
+Focused vCard handling supports the documented subset, line unfolding, supported escaping, escaped delimiters in structured names, common field TYPE mappings, and controlled malformed-card warnings.
 
-Parsing and domain validation are separate. `ContactService.ImportAsync` deep-copies and normalizes contacts, validates the complete batch, and rejects it before repository persistence when any issue exists.
+Invalid birthday warnings intentionally do not echo the invalid imported value. Unknown/unsupported vCard properties are not proof of full interoperability or sanitization for every external client.
 
-The SQLite repository then writes the batch in one transaction. This reduces partial-import data integrity risk.
+## Diagnostic/validation privacy
 
-## CSV spreadsheet risk
+`RedactingLog.Sanitize` removes common email/long-number shapes and caps output length before desktop error display. It is defense-in-depth, not a complete PII classifier.
 
-The CSV codec performs standards-style quoting but currently does not neutralize spreadsheet formula prefixes. If an export contains contact text beginning with a formula-significant character, downstream spreadsheet software may interpret it according to its own rules.
+Lower layers should avoid inserting raw contact values/secrets into exceptions. Validation messages and hardened parser warnings identify the error without intentionally echoing invalid private values where practical.
 
-Users should treat exported CSV as untrusted data when opening it in a spreadsheet. If formula neutralization is introduced, its compatibility policy and tests must be explicit rather than silently modifying contact values.
+## Temporary restore-picker copies
 
-## vCard limitations
+When a storage provider cannot expose a normal local path, Desktop copies the selected backup stream to a unique temporary path and marks it for best-effort deletion after the restore attempt.
 
-The vCard implementation is a focused subset. Unknown/unsupported properties are generally ignored. An unterminated card is ignored with a warning.
-
-Do not claim full RFC interoperability or assume unsupported property encodings are sanitized for every external application.
-
-## Diagnostic message redaction
-
-`RedactingLog.Sanitize`:
-
-- replaces email-shaped text with `[email-redacted]`;
-- replaces long phone/number-shaped text with `[number-redacted]`;
-- truncates output beyond 2,000 characters.
-
-The desktop uses this before displaying caught exception messages.
-
-This is **defense-in-depth, not a complete PII classifier**. Names, addresses, unusual identifier formats, or secrets that do not match these patterns can remain. Lower layers should therefore avoid placing sensitive payloads in exception messages in the first place.
-
-## Validation-message privacy
-
-Email/phone validation messages state that the field is invalid without echoing the submitted value. Tests explicitly assert that invalid example values do not appear in validation message text.
-
-## File-picker temporary restore copies
-
-Some Avalonia storage providers may not expose a normal local filesystem path. The desktop restore picker then copies the chosen stream into a unique system temporary file and marks it for deletion after the restore attempt.
-
-Deletion is best-effort for common I/O/authorization errors. Sensitive temporary-file lifecycle therefore still depends on OS/filesystem behavior. A future hardening pass can evaluate stronger secure-temp handling per platform.
+OS/filesystem behavior still controls actual secure deletion semantics. Treat leftover temporary files as potentially sensitive.
 
 ## Logging and telemetry
 
-The current application does not contain a mandatory telemetry pipeline. If logging is added later:
+There is no mandatory telemetry pipeline. Any future logging should default local, avoid raw contact/secret/path payloads where unnecessary, document retention/location, and require review before remote telemetry.
 
-- default to local-only diagnostic output;
-- avoid contact contents/keys/database paths where unnecessary;
-- use structured event categories rather than payload dumps;
-- document retention and location;
-- require explicit design review before remote telemetry.
+## Dependency and CI security
 
-## Dependency security
+Package versions are centrally managed; Dependabot and CodeQL are configured; CI is configured across Windows, Ubuntu, and macOS.
 
-- Package versions are centrally managed.
-- Dependabot is configured.
-- CodeQL analyzes C# on pushes/PRs to `main` and weekly.
-- CI builds/tests across Windows, Ubuntu, and macOS.
-
-Dependency updates must still be reviewed for native/provider/licensing and behavior changes. An automated update PR is not evidence that a package is safe or compatible.
+Automated analysis does not replace review of native-provider licensing, dependency behavior, release artifacts, or final-commit verification.
 
 ## Release security
 
-Current release automation publishes self-contained single-file artifacts for Windows x64, Linux x64, macOS x64, and macOS arm64. It does not currently document code signing/notarization steps.
+Release automation publishes self-contained/single-file artifacts for Windows x64, Linux x64, macOS x64, and macOS arm64. Current repository documentation does not claim signing or notarization.
 
-Do not describe release files as signed or notarized unless those operations are implemented and verified. Download reputation warnings are expected for unsigned binaries on some platforms.
+Do not describe artifacts as signed/notarized until those steps are implemented and verified.
 
-## Threats not currently mitigated by the application
+## Threats not mitigated by the application
 
-Examples include:
-
-- malware or another same-user process reading files/process memory;
-- stolen unencrypted device/storage;
-- weak OS account password or permissions;
-- insecure backup destinations selected by the user;
-- malicious spreadsheet behavior after opening a CSV export;
-- screen capture/shoulder surfing;
-- compromised compiler/dependency/native provider/build runner;
-- denial of service within limits not yet benchmarked;
-- arbitrary tampering by an attacker with write access to the application files and user data.
-
-These should be stated plainly rather than implying “offline-first” solves all local security concerns.
+Examples include same-user malware/process access, stolen unencrypted storage, weak OS credentials/permissions, insecure backup destinations, malicious spreadsheet behavior after opening CSV, screen capture, compromised build/dependency/native providers, denial-of-service beyond tested limits, and arbitrary tampering by an attacker who can write application/user-data files.
 
 ## Security review checklist
 
-For a security-sensitive change:
+For a security/data-safety change:
 
-- identify the asset and trust boundary;
+- identify assets and trust boundaries;
 - add failure-path tests;
-- confirm no new secret persistence;
-- confirm SQL remains parameterized;
-- confirm import/resource bounds;
-- confirm rollback/recovery behavior for data replacement;
-- confirm errors avoid sensitive payloads;
-- review native/dependency licensing and update channel;
-- run CI/CodeQL on the final branch head;
-- update this document and `SECURITY.md` where needed.
+- verify no new secret persistence;
+- verify parameterized SQL/literal wildcard behavior;
+- verify input bounds/termination;
+- verify transactional all-or-nothing behavior for multi-row destructive writes;
+- verify confirmation direction/text matches the destructive operation;
+- verify backup/restore recovery behavior;
+- verify errors avoid private payloads;
+- review dependency/native licensing;
+- run CI/CodeQL on the final head;
+- update security/user/maintenance documentation.
