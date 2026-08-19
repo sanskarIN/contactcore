@@ -47,7 +47,9 @@ Current release-preparation version: **2.0.12**.
 - [x] `Ctrl+S` restricted to the active contact editor.
 - [x] Desktop draft regression test project.
 - [x] Full rich-field editor for multiple phones/emails/addresses/organizations/groups/tags.
-- [x] Stable repeated-row identity preservation through edit/save.
+- [x] Stable contact-owned phone/email/address/organization IDs through edit/save.
+- [x] Unchanged group/tag assignments preserve shared dictionary identity.
+- [x] True per-contact group/tag rename uses safe new-identity reassignment instead of reusing a shared ID with a different name.
 - [x] Explicit unsaved/persisted draft state and safe unsaved discard.
 - [x] Atomic duplicate survivor-update + secondary-delete persistence.
 - [x] Duplicate merge rejects stale operations when either reviewed contact disappeared.
@@ -76,6 +78,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Organization add/edit/remove editor.
 - [x] Per-contact group/tag add/edit/remove assignment.
 - [x] Exact delimiter-containing group/tag names without text-splitting loss.
+- [x] Shared group/tag rename-as-reassignment semantics with case-only canonical identity preservation.
 - [x] Add/edit/remove and blank-row regression tests for current rich controls.
 - [x] Explicit unsaved/new-contact state.
 - [x] Interactive duplicate candidate list.
@@ -84,7 +87,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Explicit user choice of which duplicate record survives.
 - [x] One-transaction duplicate merge/delete with rollback when either reviewed contact is stale/missing.
 - [ ] Drag/drop or other reorder controls for repeated rich fields.
-- [ ] Dedicated global group/tag taxonomy-management screen.
+- [ ] Dedicated global group/tag taxonomy-management screen with explicit global rename/delete/orphan-cleanup semantics.
 - [ ] Undo/recovery UX for high-impact contact modifications where practical.
 
 ## 0.5 — Test and resilience expansion
@@ -92,11 +95,12 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Test literal search characters `%`, `_`, and backslash.
 - [x] Tag/group/StartsWith repository filter tests.
 - [x] Full address/organization/group/tag repository round-trip/replacement tests.
+- [x] Shared group/tag per-contact rename/reassignment tests at Desktop and SQLite layers.
 - [x] Restore rejection test for valid non-ContactCore SQLite file.
 - [x] Missing-backup and same-active-path restore tests.
 - [x] Atomic duplicate-merge success, missing-secondary rollback, and missing-primary non-resurrection tests.
 - [x] Import parser tests for unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard fields, TYPE mapping, and non-echoing birthday warnings.
-- [x] Desktop rich-field tests for IDs, exact group/tag names, blank rows, removal semantics, and label-only legacy address preservation.
+- [x] Desktop rich-field tests for contact-owned IDs, shared dictionary identities, exact group/tag names, blank rows, removal semantics, and label-only legacy address preservation.
 - [x] App-path environment/fallback tests.
 - [x] Redaction truncation/PII-shape tests.
 - [x] ContactService save/import normalization and indexed import-validation tests, including rich address/organization/group/tag normalization.
