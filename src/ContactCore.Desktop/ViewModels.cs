@@ -148,9 +148,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private async Task DebouncedRefreshAsync()
     {
-        _searchCts?.Cancel(); _searchCts?.Dispose(); _searchCts = new CancellationTokenSource();
-        try { await Task.Delay(180, _searchCts.Token); await RefreshAsync(_searchCts.Token); }
-        catch (OperationCanceledException) { }
+        var current = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _searchCts, current);
+        if (previous is not null)
+        {
+            previous.Cancel();
+            previous.Dispose();
+        }
+
+        try
+        {
+            await Task.Delay(180, current.Token);
+            await RefreshAsync(current.Token);
+        }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        finally
+        {
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _searchCts, null, current), current))
+                current.Dispose();
+        }
     }
 
     private async Task RefreshAsync(CancellationToken cancellationToken = default)
