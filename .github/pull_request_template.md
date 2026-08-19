@@ -39,7 +39,8 @@ If a local command could not be run, explain exactly why rather than checking it
 - [ ] No `.env`, database key, token, password, signing private key/certificate, or other secret was added
 - [ ] User-controlled SQL/data values remain parameterized and intended `LIKE` text escaping is preserved where relevant
 - [ ] Aggregate, batch-import, and destructive multi-row writes remain transactional where relevant
-- [ ] The full contact editor preserves root identity, creation time, and existing repeated child identities unless a row is intentionally removed/recreated
+- [ ] The full editor preserves contact root identity/creation time and existing contact-owned phone/email/address/organization IDs unless a row is intentionally removed/recreated
+- [ ] Unchanged group/tag assignments retain their shared dictionary identity; a true per-contact rename becomes reassignment instead of reusing one shared ID with a different name
 - [ ] Newly added/changed contact fields are represented by the editor or explicitly preserved so complete-aggregate saves cannot silently drop them
 - [ ] Unsaved drafts remain distinguishable from persisted contacts for destructive actions
 - [ ] Duplicate/heuristic workflows remain user-controlled; destructive merge requires survivor choice/confirmation and rejects stale reviewed records
