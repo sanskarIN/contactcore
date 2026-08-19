@@ -66,4 +66,25 @@ public sealed class SqliteMergeTests
         Assert.AreEqual("original", loaded.Notes);
         Assert.AreEqual(1, await _repo.CountAsync());
     }
+
+    [TestMethod]
+    public async Task Merge_does_not_recreate_primary_when_primary_disappeared()
+    {
+        var primary = new Contact { GivenName = "Primary", Notes = "stale copy" };
+        var secondary = new Contact { GivenName = "Secondary", Notes = "must remain" };
+        await _repo.UpsertManyAsync([primary, secondary]);
+
+        var attempted = primary.DeepCopy();
+        attempted.Notes = "must not be recreated";
+        await _repo.DeleteAsync(primary.Id);
+
+        await Assert.ThrowsExactlyAsync<KeyNotFoundException>(
+            () => _repo.MergeAsync(attempted, secondary.Id));
+
+        Assert.IsNull(await _repo.GetAsync(primary.Id));
+        var survivingSecondary = await _repo.GetAsync(secondary.Id);
+        Assert.IsNotNull(survivingSecondary);
+        Assert.AreEqual("must remain", survivingSecondary.Notes);
+        Assert.AreEqual(1, await _repo.CountAsync());
+    }
 }
