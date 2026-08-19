@@ -1,6 +1,6 @@
 # Repository Reference
 
-This is the canonical file-by-file reference for the current ContactCore audit branch. It documents **all 94 tracked files** present after the 2026-08-19 final hardening/documentation pass. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, exports, backups, restore staging files, secrets, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
+This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 94 tracked files** present after the 2026-08-19 final hardening/documentation pass. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, exports, backups, restore staging files, secrets, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
 
 If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change. Temporary addenda used during the audit were folded into this file and removed so this remains the single authoritative inventory.
 
@@ -19,7 +19,7 @@ Git text/line-ending handling rules. Keeps platform checkouts consistent.
 Ignores build/IDE output plus local databases, WAL/SHM files, backups, exports, restore/temp artifacts, environment secrets, signing-key material, and other private/generated files covered by the current policy.
 
 ### `CHANGELOG.md`
-Detailed `Unreleased` history for the audit: full editor, parser hardening, atomic duplicate merge, data-safety fixes, tests, documentation, security boundaries, and known limitations.
+Release/change history. Contains the dated **2.0.12** release-preparation section covering the full editor, parser hardening, duplicate merge/data-safety fixes, tests, version/release automation, documentation, security boundaries, and known limitations, plus an empty post-2.0.12 `Unreleased` section.
 
 ### `CODE_OF_CONDUCT.md`
 Community behavior/enforcement policy, including privacy-conscious handling of accidentally shared sensitive data.
@@ -31,7 +31,7 @@ Contributor entry point for branch, quality, testing, documentation, privacy, an
 Solution containing four production projects and four corresponding test projects. Repository restore/format/build/test commands operate on this solution.
 
 ### `Directory.Build.props`
-Shared MSBuild/compiler/analyzer policy: .NET 10 target, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI build settings, and analyzer configuration.
+Shared MSBuild/compiler/analyzer policy: .NET 10 target, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI build settings, analyzer configuration, and centralized **2.0.12** project/assembly/file/informational version metadata.
 
 ### `Directory.Packages.props`
 Central NuGet version management for Avalonia, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite, MSTest, test SDK, coverage collector, and related dependencies.
@@ -43,10 +43,10 @@ MIT license text for ContactCore's repository code. Third-party/native dependenc
 User-facing privacy posture: offline/local-first behavior, storage/export/backup implications, temporary copies, runtime-key handling, and absence of mandatory telemetry/cloud behavior.
 
 ### `README.md`
-Primary project landing page. Documents the implemented full rich editor, search/filtering, import/export, duplicate review/atomic merge, backup/restore, themes, security boundaries, release targets, setup, documentation links, support/funding, and current limitations without overclaiming encryption/signing/accessibility.
+Primary project landing page. Identifies version 2.0.12 and documents the full rich editor, search/filtering, import/export, duplicate review/atomic merge, backup/restore, themes, security boundaries, release targets/package names/checksums, setup, documentation links, support/funding, and current limitations without overclaiming encryption/signing/accessibility.
 
 ### `ROADMAP.md`
-Separates completed work from future work. Current rich editing, unsaved-draft safety, duplicate review/transactional merge, and major resilience tests are marked complete; reorder/global taxonomy/undo/scale/encryption-provider/release-signing/manual-audit work remains open.
+Separates completed 2.0.12 work from future work. Rich editing, unsaved-draft safety, stale-safe duplicate transactions, rich normalization tests, and release-version/package/checksum hardening are complete; reorder/global taxonomy/undo/deeper failure injection/scale/encryption-provider/signing/manual-audit work remains open.
 
 ### `SECURITY.md`
 Public vulnerability-reporting and supported-security-policy document. Routes private vulnerabilities away from public issues and complements `docs/security.md`.
@@ -55,10 +55,10 @@ Public vulnerability-reporting and supported-security-policy document. Routes pr
 Support channels and privacy-safe diagnostic guidance. Discourages posting real contact databases, backups, exports, or keys publicly.
 
 ### `global.json`
-Pins the stable .NET 10 SDK baseline (`10.0.100`) with latest-compatible feature-band roll-forward and prereleases disabled.
+Pins the stable .NET 10 SDK baseline (`10.0.100`) with latest-compatible feature-band roll-forward and prereleases disabled. Development, CI and the hardened release workflow use this policy.
 
 ### `what_changed.md`
-Operational continuation/handoff ledger. Records the audit branch/PR, concrete fixes/features/docs, commit/check verification state, remaining limitations, and final handoff facts.
+Authoritative v2.0.12 continuation/handoff ledger. Records branch/PR reconciliation, version metadata, implemented features/fixes, regression coverage, release pipeline, verification boundary, remaining roadmap, and exact merge/release procedure.
 
 ## 2. GitHub configuration — 8 files
 
@@ -84,7 +84,7 @@ Cross-platform CI matrix for Ubuntu, Windows, and macOS. Restores, verifies form
 C# CodeQL analysis for relevant pushes/pull requests plus scheduled analysis, with minimal required permissions and concurrency handling.
 
 ### `.github/workflows/release.yml`
-Tag-driven release workflow publishing self-contained/single-file artifacts for `win-x64`, `linux-x64`, `osx-x64`, and `osx-arm64`. It does not currently implement or claim code signing/notarization.
+Tag-driven release workflow for `win-x64`, `linux-x64`, `osx-x64`, and `osx-arm64`. Preflight resolves the project version and rejects a mismatched tag; SDK setup uses `global.json`; each target runs tests/publishes and is packaged as ZIP or tar.gz; the final job publishes `SHA256SUMS.txt`; repository write permission is limited to that final release job. It does not implement or claim code signing/notarization.
 
 ## 3. Documentation — 21 files
 
@@ -107,7 +107,7 @@ Accepted decision to keep SQLCipher-compatible provider integration optional whi
 Layer/dependency map plus startup/read/write/import/backup/restore flows, full-editor identity invariant, unsaved-draft boundary, atomic duplicate merge flow, platform/error/security/test architecture, and evolution rules.
 
 ### `docs/ci-cd.md`
-CI, CodeQL, release-workflow triggers/matrices/permissions/concurrency/artifacts, quality gate, SDK/dependency automation, and failure-diagnosis guidance.
+CI/CodeQL behavior plus the 2.0.12 version-gated release workflow, SDK policy, packaging, SHA-256 checksums, least-privilege release permissions, quality gate, dependency automation, and failure diagnosis.
 
 ### `docs/data-model.md`
 Complete domain-to-SQLite mapping for scalar/repeated fields, groups/tags, identity/timestamps, complete-aggregate replacement, editor child-ID preservation, atomic merge semantics, indexes, normalization, schema identity, and migrations.
@@ -128,7 +128,7 @@ Long-term maintainer invariants and workflows for fields/migrations, complete ed
 Current complexity/performance characteristics and non-claims: leading-wildcard search, root-plus-child loading, pairwise duplicate scan, in-memory codec behavior, backup/restore costs, benchmark scenarios, profiling, and optimization priorities.
 
 ### `docs/release.md`
-Release preparation, RIDs, quality/security/doc checks, tag/publish sequence, SDK consistency, smoke tests, schema compatibility, artifact signing/notarization truth, failure recovery, and post-release steps.
+Exact 2.0.12 release procedure: source version/tag equality, four RIDs/packages, global.json SDK policy, preflight/publish/release stages, checksum generation, permission model, smoke-test requirements, signing/notarization truth, schema compatibility, failed/partial release handling, and post-release checks.
 
 ### `docs/repository-reference.md`
 This canonical exhaustive tracked-file inventory. It supersedes/removes the temporary reference/addendum files used during the audit.
@@ -143,7 +143,7 @@ Source setup for SDK/clone/restore/build/run/test, paths/environment values, dis
 Local storage, connection policy, schema/migrations, aggregate transaction model, backup verification, staged restore/rollback sequence, recovery artifacts, encryption-provider interactions, failure behavior, and operational recommendations.
 
 ### `docs/testing.md`
-Concrete coverage map across all four test projects, quality commands, deterministic/temp-data rules, remaining high-value cases, coverage policy, manual release matrix, CI-only failure diagnosis, and regression workflow.
+Concrete v2.0.12 coverage map across all four test projects, including rich Application normalization and both stale duplicate-merge directions, quality commands, deterministic/temp-data rules, remaining high-value cases, manual release matrix, CI-only failure diagnosis, and regression workflow.
 
 ### `docs/troubleshooting.md`
 Safety-first diagnosis for SDK/build/startup, encryption/path/settings/search, rich editor invariants, unsaved drafts, shortcuts, CSV/vCard, backup/restore, permanent delete, duplicate merge, themes, file locks, CI platform differences, and privacy-safe diagnostics.
@@ -174,7 +174,7 @@ Application project definition with the Domain project reference.
 `ContactQuery`, `IContactRepository`, `IBackupService`, and `IAppPreferences`. The repository contract includes bulk upsert and atomic `MergeAsync`.
 
 ### `src/ContactCore.Application/ContactService.cs`
-Use-case boundary for initialize/count/search/save/import/duplicate-merge/favorite/archive/delete. Normalizes, timestamps, validates, performs whole-batch import validation, and delegates atomic persistence.
+Use-case boundary for initialize/count/search/save/import/duplicate-merge/favorite/archive/delete. Normalizes scalar and all current repeated rich fields, timestamps, validates, performs whole-batch import validation, and delegates persistence/atomic merge to repository abstractions.
 
 ### `src/ContactCore.Application/DuplicateDetector.cs`
 Duplicate candidate scoring/comparison plus `ContactMerger`. Uses normalized name/email/phone/birthday signals, clamps thresholds, rejects self-merge, structurally de-duplicates richer child data, and assigns fresh IDs to copied secondary child records.
@@ -206,7 +206,7 @@ Defense-in-depth sanitizer for UI-visible diagnostics: common email/long-number 
 Central connection policy for paths, access/read-only mode, pooling/cache, foreign keys, busy timeout, runtime key application, and fail-closed cipher-version verification.
 
 ### `src/ContactCore.Infrastructure/SqliteContactRepository.cs`
-Concrete repository: count/get/search/delete, filters/literal wildcard escaping, aggregate load, transactional single/bulk upsert, child/link replacement, group/tag linking, and atomic survivor-update/secondary-delete duplicate merge.
+Concrete repository: count/get/search/delete, filters/literal wildcard escaping, aggregate load, transactional single/bulk upsert, child/link replacement, group/tag linking, and atomic duplicate merge. The merge transaction requires both the chosen primary/survivor and secondary records to still exist, preventing stale-primary resurrection and rolling back when either reviewed record disappeared.
 
 ## 7. Desktop production project — 14 files
 
@@ -250,7 +250,7 @@ Editable row models for phone, email, address, organization, group and tag plus 
 Shared desktop visual styles for surfaces, cards, labels, buttons, avatar/logo, status/muted text, alphabet controls, and visible focus behavior using theme resources.
 
 ### `src/ContactCore.Desktop/ViewModels.cs`
-Core list/draft/main view-model implementation. Preserves root/child identities, complete aggregate state, explicit persistence state, rich add/remove commands, search/filter/debounce, save guard, import/export/backup/settings, duplicate review/first-direction merge, and status handling.
+Core list/draft/main view-model implementation. Preserves root/child identities, complete aggregate state, explicit persistence state, rich add/remove commands, search/filter/debounce, editor-only save guard, import/export/backup/settings, duplicate review/first-direction merge, and status handling.
 
 ## 8. Domain tests — 2 files
 
@@ -266,7 +266,7 @@ Validation/normalization/domain-model regression tests, including valid/invalid 
 Application MSTest project definition/reference.
 
 ### `tests/ContactCore.Application.Tests/ContactServiceTests.cs`
-Fake-repository tests for save normalization/timestamping, whole-batch import validation-before-write, indexed issue fields, deep-copy import behavior, one bulk call/shared timestamp, and trimmed search forwarding.
+Fake-repository tests for scalar/phone/email normalization, full address/organization/group/tag normalization, timestamping, whole-batch import validation-before-write, indexed issue fields, deep-copy import behavior, one bulk call/shared timestamp, and trimmed search forwarding.
 
 ### `tests/ContactCore.Application.Tests/DuplicateDetectorTests.cs`
 Duplicate scoring and merge tests for normalized signals, duplicate phone suppression, copied child ID safety, and self-merge rejection.
@@ -295,7 +295,7 @@ Preferences regression tests for runtime-key non-persistence/first-run handling,
 Diagnostic sanitizer tests for likely email/long-number redaction and output-length boundaries.
 
 ### `tests/ContactCore.Infrastructure.Tests/SqliteMergeTests.cs`
-Atomic duplicate persistence tests: successful survivor update/secondary deletion and rollback of the survivor update when the secondary record has disappeared.
+Atomic duplicate persistence tests: successful survivor update/secondary deletion, rollback when the secondary record is missing, and rejection/non-resurrection when the reviewed primary disappeared while preserving the secondary record.
 
 ### `tests/ContactCore.Infrastructure.Tests/SqliteRepositoryTests.cs`
 Repository tests for base/rich aggregate round trip/replacement, favorites, literal `%`/`_`/backslash search, tag/group/StartsWith filters, cascade delete, and whole-batch rollback.
@@ -325,4 +325,4 @@ Non-visual editor regression tests: root identity/timestamps/flags, persisted ve
 | Desktop tests | 2 |
 | **Total** | **94** |
 
-This total intentionally counts files only, not directories. The canonical reference should be regenerated if the tracked tree changes after this checkpoint.
+This total intentionally counts files only, not directories. The canonical reference must be regenerated if the tracked tree changes after this checkpoint.
