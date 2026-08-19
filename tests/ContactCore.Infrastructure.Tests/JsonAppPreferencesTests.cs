@@ -69,4 +69,40 @@ public sealed class JsonAppPreferencesTests
 
         Assert.AreEqual("System", reloaded.Theme);
     }
+
+    [TestMethod]
+    public void Valid_theme_motion_and_delete_confirmation_round_trip()
+    {
+        foreach (var theme in new[] { "System", "Light", "Dark" })
+        {
+            var path = Path.Combine(_directory, theme, "settings.json");
+            var preferences = new JsonAppPreferences(path)
+            {
+                Theme = theme,
+                ReducedMotion = true,
+                ConfirmPermanentDelete = false
+            };
+
+            preferences.Save();
+            var reloaded = new JsonAppPreferences(path);
+
+            Assert.AreEqual(theme, reloaded.Theme);
+            Assert.IsTrue(reloaded.ReducedMotion);
+            Assert.IsFalse(reloaded.ConfirmPermanentDelete);
+            Assert.IsFalse(File.Exists(path + ".tmp"), "Successful writes must not leave the temporary preferences file behind.");
+        }
+    }
+
+    [TestMethod]
+    public void Older_preferences_missing_newer_fields_use_safe_record_defaults()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(_settingsPath, "{\"Theme\":\"Light\"}");
+
+        var preferences = new JsonAppPreferences(_settingsPath);
+
+        Assert.AreEqual("Light", preferences.Theme);
+        Assert.IsFalse(preferences.ReducedMotion);
+        Assert.IsTrue(preferences.ConfirmPermanentDelete);
+    }
 }
