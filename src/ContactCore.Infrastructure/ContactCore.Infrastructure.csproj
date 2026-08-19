@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../ContactCore.Application/ContactCore.Application.csproj" />
+    <ProjectReference Include="../ContactCore.Domain/ContactCore.Domain.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+</Project>
