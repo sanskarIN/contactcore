@@ -74,8 +74,9 @@ public sealed class ContactDraftViewModelTests
         draft.Emails[0].Address = "  edited@example.test  ";
         draft.Addresses[0].City = "Manchester";
         draft.Organizations[0].Title = "Principal Engineer";
-        draft.GroupsText = "Friends, Project Team, friends";
-        draft.TagsText = "Important; Client";
+        draft.Groups.Add(new GroupDraftViewModel { Name = "Project Team" });
+        draft.Groups.Add(new GroupDraftViewModel { Name = "friends" });
+        draft.Tags.Add(new TagDraftViewModel { Name = "Client" });
 
         var roundTrip = draft.ToContact();
 
@@ -99,22 +100,46 @@ public sealed class ContactDraftViewModelTests
     }
 
     [TestMethod]
+    public void Group_and_tag_names_with_delimiters_round_trip_exactly()
+    {
+        var group = new ContactGroup(Guid.NewGuid(), "Research, Team; East");
+        var tag = new ContactTag(Guid.NewGuid(), "Priority; A, B");
+        var source = new Contact { GivenName = "Delimiter" };
+        source.Groups.Add(group);
+        source.Tags.Add(tag);
+
+        var draft = new ContactDraftViewModel();
+        draft.Load(source);
+        var roundTrip = draft.ToContact();
+
+        Assert.AreEqual(1, roundTrip.Groups.Count);
+        Assert.AreEqual(group, roundTrip.Groups.Single());
+        Assert.AreEqual(1, roundTrip.Tags.Count);
+        Assert.AreEqual(tag, roundTrip.Tags.Single());
+    }
+
+    [TestMethod]
     public void Removing_rich_rows_removes_only_the_selected_values()
     {
         var firstPhone = new ContactPhone(Guid.NewGuid(), "Mobile", "1111111", ContactFieldKind.Mobile);
         var secondPhone = new ContactPhone(Guid.NewGuid(), "Work", "2222222", ContactFieldKind.Work);
         var firstEmail = new ContactEmail(Guid.NewGuid(), "Personal", "first@example.test", ContactFieldKind.Home);
         var secondEmail = new ContactEmail(Guid.NewGuid(), "Work", "second@example.test", ContactFieldKind.Work);
+        var firstGroup = new ContactGroup(Guid.NewGuid(), "One");
+        var secondGroup = new ContactGroup(Guid.NewGuid(), "Two");
         var source = new Contact { GivenName = "Multiple" };
         source.Phones.Add(firstPhone);
         source.Phones.Add(secondPhone);
         source.Emails.Add(firstEmail);
         source.Emails.Add(secondEmail);
+        source.Groups.Add(firstGroup);
+        source.Groups.Add(secondGroup);
 
         var draft = new ContactDraftViewModel();
         draft.Load(source);
         draft.Phones.RemoveAt(0);
         draft.Emails.RemoveAt(0);
+        draft.Groups.RemoveAt(0);
 
         var roundTrip = draft.ToContact();
 
@@ -122,6 +147,22 @@ public sealed class ContactDraftViewModelTests
         Assert.AreEqual(secondPhone, roundTrip.Phones.Single());
         Assert.AreEqual(1, roundTrip.Emails.Count);
         Assert.AreEqual(secondEmail, roundTrip.Emails.Single());
+        Assert.AreEqual(1, roundTrip.Groups.Count);
+        Assert.AreEqual(secondGroup, roundTrip.Groups.Single());
+    }
+
+    [TestMethod]
+    public void Label_only_existing_address_is_preserved()
+    {
+        var address = new ContactAddress(Guid.NewGuid(), "Legacy label", "", "", "", "", "");
+        var source = new Contact { GivenName = "Legacy" };
+        source.Addresses.Add(address);
+
+        var draft = new ContactDraftViewModel();
+        draft.Load(source);
+        var roundTrip = draft.ToContact();
+
+        Assert.AreEqual(address, roundTrip.Addresses.Single());
     }
 
     [TestMethod]
@@ -133,6 +174,8 @@ public sealed class ContactDraftViewModelTests
         draft.Emails.Add(new EmailDraftViewModel());
         draft.Addresses.Add(new AddressDraftViewModel());
         draft.Organizations.Add(new OrganizationDraftViewModel());
+        draft.Groups.Add(new GroupDraftViewModel());
+        draft.Tags.Add(new TagDraftViewModel());
 
         var contact = draft.ToContact();
 
@@ -140,5 +183,7 @@ public sealed class ContactDraftViewModelTests
         Assert.AreEqual(0, contact.Emails.Count);
         Assert.AreEqual(0, contact.Addresses.Count);
         Assert.AreEqual(0, contact.Organizations.Count);
+        Assert.AreEqual(0, contact.Groups.Count);
+        Assert.AreEqual(0, contact.Tags.Count);
     }
 }
