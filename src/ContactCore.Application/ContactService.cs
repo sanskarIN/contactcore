@@ -5,6 +5,7 @@ namespace ContactCore.Application;
 public sealed class ContactService(IContactRepository repository)
 {
     public Task InitializeAsync(CancellationToken cancellationToken = default) => repository.InitializeAsync(cancellationToken);
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) => repository.CountAsync(cancellationToken);
 
     public Task<IReadOnlyList<Contact>> SearchAsync(ContactQuery query, CancellationToken cancellationToken = default)
     {
@@ -19,8 +20,7 @@ public sealed class ContactService(IContactRepository repository)
         ArgumentNullException.ThrowIfNull(contact);
         NormalizeInPlace(contact);
         contact.UpdatedAt = DateTimeOffset.UtcNow;
-        var issues = ContactValidation.Validate(contact);
-        if (issues.Count > 0) throw new ContactValidationException(issues);
+        ValidateOrThrow(contact);
         await repository.UpsertAsync(contact, cancellationToken).ConfigureAwait(false);
     }
 
@@ -51,6 +51,21 @@ public sealed class ContactService(IContactRepository repository)
         return normalized.Length;
     }
 
+    public async Task<Contact> MergeAsync(Guid primaryId, Guid secondaryId, CancellationToken cancellationToken = default)
+    {
+        if (primaryId == secondaryId)
+            throw new ArgumentException("A contact cannot be merged with itself.", nameof(secondaryId));
+
+        var primary = await RequireAsync(primaryId, cancellationToken).ConfigureAwait(false);
+        var secondary = await RequireAsync(secondaryId, cancellationToken).ConfigureAwait(false);
+        var merged = new ContactMerger().Merge(primary, secondary);
+        NormalizeInPlace(merged);
+        merged.UpdatedAt = DateTimeOffset.UtcNow;
+        ValidateOrThrow(merged);
+        await repository.MergeAsync(merged, secondaryId, cancellationToken).ConfigureAwait(false);
+        return merged;
+    }
+
     public async Task SetFavoriteAsync(Guid id, bool value, CancellationToken cancellationToken = default)
     {
         var contact = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
@@ -71,6 +86,12 @@ public sealed class ContactService(IContactRepository repository)
         => await repository.GetAsync(id, cancellationToken).ConfigureAwait(false)
            ?? throw new KeyNotFoundException("The contact no longer exists.");
 
+    private static void ValidateOrThrow(Contact contact)
+    {
+        var issues = ContactValidation.Validate(contact);
+        if (issues.Count > 0) throw new ContactValidationException(issues);
+    }
+
     private static void NormalizeInPlace(Contact contact)
     {
         contact.GivenName = contact.GivenName.Trim();
@@ -81,6 +102,33 @@ public sealed class ContactService(IContactRepository repository)
             contact.Phones[i] = contact.Phones[i] with { Label = contact.Phones[i].Label.Trim(), Number = contact.Phones[i].Number.Trim() };
         for (var i = 0; i < contact.Emails.Count; i++)
             contact.Emails[i] = contact.Emails[i] with { Label = contact.Emails[i].Label.Trim(), Address = contact.Emails[i].Address.Trim() };
+        for (var i = 0; i < contact.Addresses.Count; i++)
+        {
+            var address = contact.Addresses[i];
+            contact.Addresses[i] = address with
+            {
+                Label = address.Label.Trim(),
+                Street = address.Street.Trim(),
+                City = address.City.Trim(),
+                Region = address.Region.Trim(),
+                PostalCode = address.PostalCode.Trim(),
+                Country = address.Country.Trim()
+            };
+        }
+        for (var i = 0; i < contact.Organizations.Count; i++)
+        {
+            var organization = contact.Organizations[i];
+            contact.Organizations[i] = organization with
+            {
+                Name = organization.Name.Trim(),
+                Title = string.IsNullOrWhiteSpace(organization.Title) ? null : organization.Title.Trim(),
+                Department = string.IsNullOrWhiteSpace(organization.Department) ? null : organization.Department.Trim()
+            };
+        }
+        for (var i = 0; i < contact.Groups.Count; i++)
+            contact.Groups[i] = contact.Groups[i] with { Name = contact.Groups[i].Name.Trim() };
+        for (var i = 0; i < contact.Tags.Count; i++)
+            contact.Tags[i] = contact.Tags[i] with { Name = contact.Tags[i].Name.Trim() };
     }
 }
 
