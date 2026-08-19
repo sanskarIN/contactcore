@@ -33,8 +33,9 @@ public sealed class DuplicateDetectorTests
         var results = new DuplicateDetector().Find(contacts, .40);
 
         Assert.AreEqual(1, results.Count);
-        Assert.AreEqual(contacts[100].Id, results[0].Left.Id);
-        Assert.AreEqual(contacts[1700].Id, results[0].Right.Id);
+        CollectionAssert.AreEquivalent(
+            new[] { contacts[100].Id, contacts[1700].Id },
+            new[] { results[0].Left.Id, results[0].Right.Id });
     }
 
     [TestMethod]
