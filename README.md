@@ -19,6 +19,7 @@ ContactCore keeps a useful address book on your own computer without mandatory a
 
 - Create and edit contact basics: names, birthday, phone, email, notes, favorite, and archived state.
 - Domain/storage model for multiple phones, emails, addresses, organizations, groups, and tags.
+- Compact desktop editing that preserves additional/unexposed rich child fields when an existing contact is saved.
 - Local search across names, phones, and emails; favorites/archive filters; A–Z navigation.
 - CSV and focused vCard 4.0 import/export codecs.
 - Whole-batch import validation plus one-transaction persistence.
@@ -35,9 +36,11 @@ ContactCore keeps a useful address book on your own computer without mandatory a
 
 ## Important current UI limitations
 
-The rich `Contact` domain/database model is ahead of the current desktop editor. Today, the main editor exposes **one phone and one email** and does not yet expose addresses, organizations, groups, tags, or additional repeated phone/email rows.
+The rich `Contact` domain/database model is still ahead of the current desktop editor. Today, the main editor exposes **one phone and one email** and does not yet expose addresses, organizations, groups, tags, or additional repeated phone/email rows.
 
-Because repository saves treat the supplied contact as the complete desired aggregate, opening and saving a contact that already contains richer unexposed child data can discard those hidden child collections. Full rich-field preservation/editing is therefore a correctness roadmap item and is documented explicitly in [`docs/desktop-ui.md`](docs/desktop-ui.md) and [`docs/troubleshooting.md`](docs/troubleshooting.md).
+The compact draft now starts from a deep copy of the complete loaded aggregate, changes only the scalar/visible primary phone/email fields, and preserves additional phones/emails plus addresses, organizations, groups, and tags during ordinary edit/save operations. Clearing the visible primary phone/email removes only that primary value while retaining remaining values. Regression tests cover this preservation behavior.
+
+This prevents the prior hidden-field data-loss risk, but it is **not** a claim of full rich-field editing: additional values can be preserved yet still cannot be edited from the current main editor. See [`docs/desktop-ui.md`](docs/desktop-ui.md).
 
 The **Find duplicates** button currently reports candidate count/highest score. The application layer contains merge logic, but a complete interactive pair-review/merge screen is not yet present.
 
