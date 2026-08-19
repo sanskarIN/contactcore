@@ -83,9 +83,12 @@
                 <StackPanel><TextBlock Text="Nickname" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Nickname, Mode=TwoWay}" /></StackPanel>
                 <StackPanel Grid.Column="1"><TextBlock Text="Birthday (yyyy-MM-dd)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.BirthdayText, Mode=TwoWay}" /></StackPanel>
               </Grid>
-              <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <StackPanel><TextBlock Text="Phone" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Phone, Mode=TwoWay}" /></StackPanel>
-                <CheckBox Grid.Column="1" Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="0,0,0,9" />
+                <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Bottom" Margin="0,0,0,7">
+                  <CheckBox Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" />
+                  <CheckBox Content="Archived" IsChecked="{Binding Draft.IsArchived, Mode=TwoWay}" />
+                </StackPanel>
               </Grid>
               <StackPanel Grid.Row="4"><TextBlock Text="Email" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Email, Mode=TwoWay}" /></StackPanel>
               <StackPanel Grid.Row="5"><TextBlock Text="Notes" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap" /></StackPanel>
