@@ -1,38 +1,43 @@
 # Import and Export
 
-ContactCore currently includes two interchange codecs in `src/ContactCore.Application/ImportExport.cs`: CSV and vCard 4.0. The desktop application exposes file-based import/export actions and routes imported contacts through the application service before persistence.
+ContactCore includes CSV and focused vCard 4.0 interchange codecs in `src/ContactCore.Application/ImportExport.cs`. The desktop application exposes file-based import/export actions and routes parsed contacts through `ContactService` before persistence.
+
+These formats are designed for interoperability. They are **not** substitutes for a verified SQLite backup when complete ContactCore fidelity is required.
 
 ## Import pipeline
 
 The safe import path is:
 
-1. Read the selected text file.
-2. Decode it with the format-specific codec.
-3. Return parsed `Contact` objects plus non-fatal warnings.
-4. Deep-copy and normalize each contact through `ContactService.ImportAsync`.
-5. Validate every normalized contact.
-6. If any validation issue exists, reject the batch before repository persistence.
-7. Set a consistent import-time `UpdatedAt` value.
-8. Persist all contacts through `IContactRepository.UpsertManyAsync`.
-9. The SQLite repository writes the entire collection in one transaction.
+1. Read one selected text file through the desktop picker.
+2. Enforce the desktop text-size limit before accepting the complete string.
+3. Decode with the format-specific codec.
+4. Return parsed `Contact` objects plus non-fatal warnings.
+5. Deep-copy and normalize every parsed contact in `ContactService.ImportAsync`.
+6. Validate the complete normalized batch.
+7. If any validation issue exists, reject the batch before repository persistence.
+8. Apply one consistent import-time `UpdatedAt` value.
+9. Persist all contacts through `IContactRepository.UpsertManyAsync`.
+10. `SqliteContactRepository` writes the entire batch in one transaction.
 
-The combination of whole-batch validation and one database transaction prevents a normal validation or database error from silently leaving only part of the selected batch imported.
+This combination prevents normal validation/database failures from silently leaving only part of an import committed.
+
+## Desktop input limit and encoding
+
+`MainWindow.axaml.cs` reads `.csv`, `.vcf`, and `.vcard` files with UTF-8 `StreamReader` and BOM detection. The selected text is bounded at **5,000,000 characters**. Oversized input raises a controlled `InvalidDataException` rather than being read without limit.
+
+The codecs operate on .NET strings after this boundary. Arbitrary legacy encodings are not claimed as supported unless a conversion path is explicitly implemented and tested.
 
 ## CSV
 
-### Exported columns
+### Supported header and export columns
 
-The current header is:
+The ContactCore CSV header is:
 
 ```text
 GivenName,FamilyName,Nickname,Email,Phone,Birthday,Notes
 ```
 
-Each field is always quoted. Embedded quotes are doubled. Commas and newlines inside quoted values survive round-trip tests.
-
-### Current field coverage
-
-CSV export writes:
+Export writes:
 
 - given name;
 - family name;
@@ -42,38 +47,52 @@ CSV export writes:
 - birthday as `yyyy-MM-dd`;
 - notes.
 
-The current CSV format does **not** serialize every repeated email/phone, postal addresses, organizations, groups, tags, favorite/archive flags, IDs, or timestamps. It should therefore be viewed as a simple interoperability/export format rather than a full-fidelity backup format.
+Every exported field is quoted. Embedded quotes are doubled. Quoted commas and newlines are supported by the parser/round-trip tests.
 
-Use database backup for full-fidelity recovery.
+CSV does **not** serialize all repeated phones/emails, addresses, organizations, groups, tags, favorite/archive flags, ContactCore IDs, or timestamps.
 
-### Import behavior
+### Header handling
 
-- The first parsed row is treated as the header.
+Import treats the first parsed row as the header.
+
 - Header names are trimmed and matched case-insensitively.
-- Missing expected columns resolve to empty values.
-- Unknown columns are ignored.
-- Blank rows are skipped.
-- Email and phone values, when present, become one imported repeated field each.
-- Birthday accepts exact `yyyy-MM-dd`.
-- An invalid non-empty birthday adds a warning such as `Row N: birthday was not yyyy-MM-dd.` and leaves birthday unset.
+- Supported names are `GivenName`, `FamilyName`, `Nickname`, `Email`, `Phone`, `Birthday`, and `Notes`.
+- Unknown columns are ignored when at least one supported column is present.
+- If a header name occurs more than once, the **first** column wins and a warning is returned.
+- If the file contains **no recognized ContactCore columns**, the importer returns zero contacts plus a warning instead of turning unrelated rows into `Unnamed contact` records.
+- Blank data rows are skipped.
 
-The CSV parser tracks quoted fields, doubled quotes, commas, CR/LF, and final unterminated rows. A deterministic randomized-Unicode test repeatedly feeds arbitrary input to the parser to check that it does not throw for ordinary malformed text.
+### Row handling
 
-### Spreadsheet formula safety
+For each accepted data row:
 
-CSV is often opened in spreadsheet programs, which may interpret cells beginning with characters such as `=`, `+`, `-`, or `@` as formulas depending on the application and settings. ContactCore currently performs standard CSV quoting but does not add spreadsheet-specific formula neutralization.
+- missing supported columns resolve to empty values;
+- one nonblank email becomes one imported `ContactEmail`;
+- one nonblank phone becomes one imported `ContactPhone`;
+- birthday accepts exact `yyyy-MM-dd`;
+- invalid nonblank birthday adds `Row N: birthday was not yyyy-MM-dd.` and leaves birthday unset;
+- parser warnings remain separate from later domain-validation errors.
+
+The parser tracks quoted fields, doubled quotes, commas, CR/LF, and a final non-newline-terminated row. Randomized malformed/unicode input tests exercise the no-crash boundary.
+
+### Spreadsheet-formula warning
+
+Some spreadsheet software may interpret text beginning with `=`, `+`, `-`, or `@` as a formula depending on application/settings.
+
+ContactCore currently **preserves the original text** rather than modifying contact data for spreadsheet-specific neutralization. When CSV import sees a supported text value whose first non-whitespace character is one of those formula prefixes, it returns a warning reminding the user that the value is stored as text by ContactCore but may require care if exported/opened in spreadsheet software.
 
 Therefore:
 
-- treat exported CSV as data, not trusted spreadsheet instructions;
-- use caution when opening exports containing untrusted contact text in spreadsheet software;
-- do not claim formula-injection mitigation until a deliberate compatibility/safety policy is implemented and tested.
+- treat CSV as data, not trusted spreadsheet instructions;
+- do not claim formula-injection mitigation;
+- review untrusted contact text before opening an export in spreadsheet software;
+- prefer another workflow if spreadsheet interpretation would be risky.
 
 ## vCard
 
 ### Export format
 
-Each contact produces:
+Each contact produces CRLF-delimited vCard 4.0 text:
 
 ```text
 BEGIN:VCARD
@@ -86,77 +105,88 @@ Supported exported properties are:
 
 - `N` for family/given name;
 - `FN` for display name;
-- repeated `TEL` values with a lower-case field-kind `TYPE`;
-- repeated `EMAIL` values with a lower-case field-kind `TYPE`;
+- repeated `TEL` with lower-case field-kind `TYPE`;
+- repeated `EMAIL` with lower-case field-kind `TYPE`;
 - optional `BDAY` as `yyyyMMdd`;
 - optional `NOTE`.
 
-Text escaping covers backslash, newline, comma, and semicolon for exported values.
+Text escaping covers backslash, newline, comma, and semicolon.
 
 ### Import behavior
 
 The importer:
 
-- recognizes `BEGIN:VCARD` and `END:VCARD` case-insensitively;
+- recognizes `BEGIN:VCARD` / `END:VCARD` case-insensitively;
 - unfolds continuation lines beginning with a space or tab;
 - splits each property at the first colon;
-- ignores property parameters after the base property name for dispatch;
-- reads `FN`, `N`, `TEL`, `EMAIL`, `BDAY`, and `NOTE`;
-- strips hyphens from birthday text before exact `yyyyMMdd` parsing;
-- records a warning for an invalid birthday;
-- records a warning and ignores a final vCard missing `END:VCARD`.
-
-Imported phone/email labels are currently `Imported`; the importer does not map all vCard `TYPE` parameter variants back to `ContactFieldKind`.
+- dispatches by the base property name before parameters;
+- reads `FN`, structured `N`, `TEL`, `EMAIL`, `BDAY`, and `NOTE`;
+- splits structured `N` on **unescaped** semicolons so escaped name delimiters survive;
+- unescapes backslash/newline/comma/semicolon character-by-character;
+- maps common `TYPE` tokens (`home`, `work`, `cell`/`mobile`, `other`) to `ContactFieldKind`;
+- uses the parsed field kind as the imported phone/email label;
+- accepts birthday in `YYYYMMDD` or hyphenated `YYYY-MM-DD` form;
+- returns a generic invalid-birthday warning without echoing the imported value;
+- warns when a nested `BEGIN:VCARD` abandons an incomplete previous card;
+- warns and ignores a final card that never reaches `END:VCARD`.
 
 ### Scope limitations
 
-This is intentionally a focused vCard subset, not a complete RFC implementation. Current limitations include no complete support for:
+This remains a focused subset, not a complete implementation of the vCard ecosystem. It does not claim full support for:
 
-- all structured/parameterized properties;
+- every structured/parameterized property;
+- every RFC parameter/escaping corner case;
 - advanced encodings;
 - media/photo properties;
-- organization/address round-trip;
-- groups/tags;
-- stable ContactCore IDs;
-- every escaping/parameter corner case in the vCard ecosystem.
+- postal-address or organization round-trip;
+- ContactCore groups/tags;
+- ContactCore IDs/timestamps/archive/favorite metadata;
+- custom/extension properties from every client.
 
-Interoperability changes should be backed by examples from multiple real clients, but any fixtures committed to this public repository must use fictional data.
+Interoperability changes should use fictional fixtures from representative clients and add focused regression tests.
 
 ## Validation after parsing
 
-Codec parsing and domain validation are separate concerns. A file may parse successfully yet contain an invalid email or phone. `ContactService.ImportAsync` performs the domain validation pass before persistence and prefixes validation fields with the one-based imported contact position, for example `Contact[2].Email`.
+Codec parsing and domain validation are separate concerns. A file may parse successfully but produce a contact with an invalid email/phone/name constraint. `ContactService.ImportAsync` performs domain validation for the complete batch before persistence and prefixes issue fields with the one-based imported position, for example `Contact[2].Email`.
 
-Validation messages intentionally avoid repeating the invalid contact value.
+Validation/error messages are designed not to echo invalid contact values where avoidable.
 
 ## Duplicate handling
 
-Import does not automatically merge duplicates. IDs generated while decoding normally produce new aggregate identities. Duplicate review/merge is a separate application workflow so the user can inspect candidates instead of silently losing information.
+Import does not silently merge contacts. Decoder-generated IDs normally create new aggregate identities. Duplicate detection/review is a separate user-controlled workflow with side-by-side evidence, survivor choice, confirmation, and atomic repository merge.
 
-## Character encoding
+This separation avoids converting an import heuristic into an automatic destructive action.
 
-The codecs operate on .NET strings. Desktop file handling should use a clearly defined text encoding (normally UTF-8) and must avoid claiming compatibility with arbitrary legacy encodings unless conversion is implemented and tested.
+## Export behavior
+
+Desktop export queries with `IncludeArchived: true`, so archived contacts are included. The user chooses the destination; text is written UTF-8 without a BOM.
+
+CSV and vCard should be used for interchange. Use ContactCore's verified SQLite backup path when complete repeated fields, relationship tables, IDs, archive/favorite state, and schema-compatible recovery matter.
 
 ## Privacy and security
 
-Import files and exports may contain personal data. Follow these rules:
+Import files and exports may contain personal data.
 
-- never commit real exports;
-- never attach real exports to public issues;
-- use fictional samples in tests/docs;
-- validate file size and resource behavior before expanding import to very large files;
-- treat unexpected external files as untrusted input;
-- do not use CSV/vCard as a substitute for a verified full database backup.
+- Never commit real exports.
+- Never attach real exports to public issues.
+- Use fictional samples in tests and documentation.
+- Treat external files as untrusted input.
+- Keep the desktop input bound in place when adding new formats.
+- Keep validation and batch persistence atomic.
+- Do not echo secrets/contact values unnecessarily in parse/validation errors.
+- Do not use CSV/vCard as a substitute for a verified database backup.
 
-## Adding a new import/export format
+## Adding another interchange format
 
 A new codec should include:
 
 - a documented supported-field matrix;
 - deterministic escaping/encoding rules;
 - malformed-input tests;
-- round-trip tests for supported fields;
-- size/resource limits when appropriate;
-- domain validation through the same service layer;
-- atomic persistence for a batch import;
-- explicit privacy/security notes;
-- updates to the user guide, testing guide, repository reference, and changelog.
+- supported-field round-trip tests;
+- explicit size/resource limits where appropriate;
+- domain validation through the same application service;
+- one-transaction persistence for batch import;
+- privacy/security notes;
+- UI picker/export integration where intended;
+- updates to the user guide, testing guide, repository reference, roadmap/changelog, and `what_changed.md` when relevant.
