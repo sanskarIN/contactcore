@@ -8,7 +8,7 @@ namespace ContactCore.Desktop.Tests;
 public sealed class ContactDraftViewModelTests
 {
     [TestMethod]
-    public void Draft_round_trip_preserves_archive_and_favorite_flags()
+    public void Draft_round_trip_preserves_identity_archive_and_favorite_flags()
     {
         var source = new Contact
         {
@@ -27,6 +27,17 @@ public sealed class ContactDraftViewModelTests
         Assert.AreEqual(source.CreatedAt, roundTrip.CreatedAt);
         Assert.IsTrue(roundTrip.IsFavorite);
         Assert.IsTrue(roundTrip.IsArchived);
+        Assert.IsTrue(draft.IsPersisted);
+    }
+
+    [TestMethod]
+    public void New_draft_can_be_marked_unsaved_even_with_generated_contact_id()
+    {
+        var draft = new ContactDraftViewModel();
+        draft.Load(new Contact(), isPersisted: false);
+
+        Assert.AreNotEqual(Guid.Empty, draft.Id);
+        Assert.IsFalse(draft.IsPersisted);
     }
 
     [TestMethod]
@@ -38,22 +49,18 @@ public sealed class ContactDraftViewModelTests
     }
 
     [TestMethod]
-    public void Draft_edit_preserves_unexposed_rich_fields_and_additional_values()
+    public void Rich_editor_round_trip_preserves_ids_and_applies_all_supported_changes()
     {
-        var firstPhone = new ContactPhone(Guid.NewGuid(), "Mobile", "+44 20 1000 0001", ContactFieldKind.Mobile);
-        var secondPhone = new ContactPhone(Guid.NewGuid(), "Work", "+44 20 1000 0002", ContactFieldKind.Work);
-        var firstEmail = new ContactEmail(Guid.NewGuid(), "Personal", "first@example.test", ContactFieldKind.Home);
-        var secondEmail = new ContactEmail(Guid.NewGuid(), "Work", "second@example.test", ContactFieldKind.Work);
+        var phone = new ContactPhone(Guid.NewGuid(), "Mobile", "+44 20 1000 0001", ContactFieldKind.Mobile);
+        var email = new ContactEmail(Guid.NewGuid(), "Personal", "first@example.test", ContactFieldKind.Home);
         var address = new ContactAddress(Guid.NewGuid(), "Home", "1 Fictional Street", "London", "London", "N1 1AA", "UK");
         var organization = new ContactOrganization(Guid.NewGuid(), "Example Org", "Engineer", "Research");
         var group = new ContactGroup(Guid.NewGuid(), "Friends");
         var tag = new ContactTag(Guid.NewGuid(), "Important");
 
         var source = new Contact { GivenName = "Original", FamilyName = "Person" };
-        source.Phones.Add(firstPhone);
-        source.Phones.Add(secondPhone);
-        source.Emails.Add(firstEmail);
-        source.Emails.Add(secondEmail);
+        source.Phones.Add(phone);
+        source.Emails.Add(email);
         source.Addresses.Add(address);
         source.Organizations.Add(organization);
         source.Groups.Add(group);
@@ -62,37 +69,37 @@ public sealed class ContactDraftViewModelTests
         var draft = new ContactDraftViewModel();
         draft.Load(source);
         draft.GivenName = "Edited";
-        draft.Phone = "  +44 20 9999 0001  ";
-        draft.Email = "  edited@example.test  ";
+        draft.Phones[0].Number = "  +44 20 9999 0001  ";
+        draft.Phones[0].Label = " Personal ";
+        draft.Emails[0].Address = "  edited@example.test  ";
+        draft.Addresses[0].City = "Manchester";
+        draft.Organizations[0].Title = "Principal Engineer";
+        draft.GroupsText = "Friends, Project Team, friends";
+        draft.TagsText = "Important; Client";
 
         var roundTrip = draft.ToContact();
 
         Assert.AreEqual("Edited", roundTrip.GivenName);
-        Assert.AreEqual(2, roundTrip.Phones.Count);
-        Assert.AreEqual(firstPhone.Id, roundTrip.Phones[0].Id);
-        Assert.AreEqual(firstPhone.Label, roundTrip.Phones[0].Label);
-        Assert.AreEqual(firstPhone.Kind, roundTrip.Phones[0].Kind);
-        Assert.AreEqual("+44 20 9999 0001", roundTrip.Phones[0].Number);
-        Assert.AreEqual(secondPhone, roundTrip.Phones[1]);
+        Assert.AreEqual(phone.Id, roundTrip.Phones.Single().Id);
+        Assert.AreEqual("Personal", roundTrip.Phones.Single().Label);
+        Assert.AreEqual("+44 20 9999 0001", roundTrip.Phones.Single().Number);
+        Assert.AreEqual(email.Id, roundTrip.Emails.Single().Id);
+        Assert.AreEqual("edited@example.test", roundTrip.Emails.Single().Address);
+        Assert.AreEqual(address.Id, roundTrip.Addresses.Single().Id);
+        Assert.AreEqual("Manchester", roundTrip.Addresses.Single().City);
+        Assert.AreEqual(organization.Id, roundTrip.Organizations.Single().Id);
+        Assert.AreEqual("Principal Engineer", roundTrip.Organizations.Single().Title);
+        Assert.AreEqual(2, roundTrip.Groups.Count);
+        Assert.AreEqual(group.Id, roundTrip.Groups.Single(x => x.Name == "Friends").Id);
+        Assert.AreEqual(2, roundTrip.Tags.Count);
+        Assert.AreEqual(tag.Id, roundTrip.Tags.Single(x => x.Name == "Important").Id);
 
-        Assert.AreEqual(2, roundTrip.Emails.Count);
-        Assert.AreEqual(firstEmail.Id, roundTrip.Emails[0].Id);
-        Assert.AreEqual(firstEmail.Label, roundTrip.Emails[0].Label);
-        Assert.AreEqual(firstEmail.Kind, roundTrip.Emails[0].Kind);
-        Assert.AreEqual("edited@example.test", roundTrip.Emails[0].Address);
-        Assert.AreEqual(secondEmail, roundTrip.Emails[1]);
-
-        Assert.AreEqual(address, roundTrip.Addresses.Single());
-        Assert.AreEqual(organization, roundTrip.Organizations.Single());
-        Assert.AreEqual(group, roundTrip.Groups.Single());
-        Assert.AreEqual(tag, roundTrip.Tags.Single());
-
-        Assert.AreEqual(firstPhone.Number, source.Phones[0].Number, "Editing the draft must not mutate the loaded source aggregate.");
-        Assert.AreEqual(firstEmail.Address, source.Emails[0].Address, "Editing the draft must not mutate the loaded source aggregate.");
+        Assert.AreEqual(phone.Number, source.Phones[0].Number, "Editing the draft must not mutate the source aggregate.");
+        Assert.AreEqual(address.City, source.Addresses[0].City, "Editing the draft must not mutate address records in the source aggregate.");
     }
 
     [TestMethod]
-    public void Clearing_primary_phone_and_email_preserves_additional_values()
+    public void Removing_rich_rows_removes_only_the_selected_values()
     {
         var firstPhone = new ContactPhone(Guid.NewGuid(), "Mobile", "1111111", ContactFieldKind.Mobile);
         var secondPhone = new ContactPhone(Guid.NewGuid(), "Work", "2222222", ContactFieldKind.Work);
@@ -106,8 +113,8 @@ public sealed class ContactDraftViewModelTests
 
         var draft = new ContactDraftViewModel();
         draft.Load(source);
-        draft.Phone = "";
-        draft.Email = "";
+        draft.Phones.RemoveAt(0);
+        draft.Emails.RemoveAt(0);
 
         var roundTrip = draft.ToContact();
 
@@ -115,5 +122,23 @@ public sealed class ContactDraftViewModelTests
         Assert.AreEqual(secondPhone, roundTrip.Phones.Single());
         Assert.AreEqual(1, roundTrip.Emails.Count);
         Assert.AreEqual(secondEmail, roundTrip.Emails.Single());
+    }
+
+    [TestMethod]
+    public void Blank_new_rich_rows_are_ignored_on_save_conversion()
+    {
+        var draft = new ContactDraftViewModel();
+        draft.Load(new Contact(), isPersisted: false);
+        draft.Phones.Add(new PhoneDraftViewModel());
+        draft.Emails.Add(new EmailDraftViewModel());
+        draft.Addresses.Add(new AddressDraftViewModel());
+        draft.Organizations.Add(new OrganizationDraftViewModel());
+
+        var contact = draft.ToContact();
+
+        Assert.AreEqual(0, contact.Phones.Count);
+        Assert.AreEqual(0, contact.Emails.Count);
+        Assert.AreEqual(0, contact.Addresses.Count);
+        Assert.AreEqual(0, contact.Organizations.Count);
     }
 }
