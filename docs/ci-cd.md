@@ -2,6 +2,8 @@
 
 ContactCore uses GitHub Actions for cross-platform build/test checks, CodeQL analysis, and tag-driven release publishing. The workflows live under `.github/workflows/`.
 
+The current source/application version is **2.0.12**, centralized in `Directory.Build.props`.
+
 ## CI workflow
 
 `.github/workflows/ci.yml` runs on pushes to `main` and pull requests targeting `main`.
@@ -53,37 +55,113 @@ Like CI, CodeQL cancels obsolete runs for the same PR/ref.
 
 ## Release workflow
 
-`.github/workflows/release.yml` runs when a tag matches `v*.*.*`.
+`.github/workflows/release.yml` runs when a tag matches `v*.*.*`, but syntactic tag matching alone is no longer enough to publish.
+
+### Release preflight
+
+The `preflight` job:
+
+1. checks out the tagged commit;
+2. installs the SDK from `global.json`;
+3. resolves `ContactCore.Desktop`'s `Version` through MSBuild;
+4. verifies that the pushed tag exactly equals `v<Version>`;
+5. exposes the resolved version to downstream jobs.
+
+For the current source tree the only correct release tag is:
+
+```text
+v2.0.12
+```
+
+A tag such as `v2.0.13` fails preflight rather than publishing mismatched binaries.
+
+### Publish matrix
 
 The publish matrix targets:
 
-| Runner | Runtime identifier |
-|---|---|
-| Windows | `win-x64` |
-| Ubuntu | `linux-x64` |
-| macOS | `osx-x64` |
-| macOS | `osx-arm64` |
+| Runner | Runtime identifier | Package |
+|---|---|---|
+| Windows | `win-x64` | `.zip` |
+| Ubuntu | `linux-x64` | `.tar.gz` |
+| macOS | `osx-x64` | `.tar.gz` |
+| macOS | `osx-arm64` | `.tar.gz` |
 
-For each target the workflow:
+Each matrix job:
 
 1. checks out the tag;
-2. installs .NET 10.x;
+2. installs the SDK from `global.json`;
 3. restores the solution;
 4. runs the full solution tests in Release;
-5. publishes `ContactCore.Desktop` as a self-contained, single-file application for the matrix RID;
-6. uploads the publish directory as a GitHub Actions artifact.
+5. publishes `ContactCore.Desktop` as a self-contained, single-file-targeted application for the matrix RID;
+6. packages Windows output as a ZIP and Linux/macOS output as a tar.gz archive;
+7. uploads the packaged archive as a GitHub Actions artifact.
 
-After all publish jobs succeed, the `release` job downloads all artifacts and creates/updates the GitHub Release using generated release notes and the produced files.
+Packaging Unix output before `actions/upload-artifact` preserves executable metadata inside the tar archive instead of depending on Actions artifact permission preservation.
 
-The release workflow requires `contents: write` so it can create release assets.
+The resulting 2.0.12 package names are:
+
+```text
+contactcore-v2.0.12-win-x64.zip
+contactcore-v2.0.12-linux-x64.tar.gz
+contactcore-v2.0.12-osx-x64.tar.gz
+contactcore-v2.0.12-osx-arm64.tar.gz
+```
+
+### Final release job
+
+After all publish jobs succeed, the `release` job:
+
+1. downloads and merges the four packaged artifacts into one directory;
+2. generates `SHA256SUMS.txt` with SHA-256 hashes of `contactcore-*` archives;
+3. prints the checksums in the job output;
+4. creates/updates the GitHub Release with generated release notes;
+5. attaches the four archives and checksum file.
+
+### Release permissions
+
+The workflow defaults to:
+
+```text
+contents: read
+```
+
+Only the final `release` job receives:
+
+```text
+contents: write
+```
+
+This follows least privilege more closely than granting write permission to test/publish jobs.
+
+### Release concurrency
+
+The release workflow uses a tag-ref concurrency group with `cancel-in-progress: false`. A release that has started is not intentionally cancelled merely because another event for the same ref appears.
 
 ## Important release claims
 
-The workflow currently creates self-contained files, but repository documentation must **not** describe them as code-signed, notarized, installer-packaged, or store-certified unless those steps are explicitly added and verified. A single-file binary can still trigger operating-system reputation/security warnings when unsigned.
+The workflow creates self-contained/single-file-targeted publishes and packages them for download, but repository documentation must **not** describe them as code-signed, notarized, installer-packaged, store-certified, or cryptographically authenticated binaries unless those steps are explicitly added and verified.
+
+`SHA256SUMS.txt` provides byte-integrity checking relative to the published checksum file; it is not a substitute for trusted code signing/notarization.
 
 ## SDK consistency
 
-Development and CI use the repository SDK policy in `global.json`. The release workflow currently requests `10.0.x` directly rather than `global-json-file`. Maintainers should keep those compatible and preferably converge the release workflow on the same pinned SDK policy when practical.
+Development, CI, CodeQL build preparation, and release automation all use the repository SDK policy in `global.json`. This removes the previous release-only `10.0.x` selector and reduces CI/release SDK drift.
+
+The current baseline is SDK `10.0.100` with `latestFeature` roll-forward and prereleases disabled.
+
+## Versioning policy
+
+`Directory.Build.props` currently defines:
+
+```text
+VersionPrefix        2.0.12
+Version              2.0.12
+AssemblyVersion      2.0.12.0
+FileVersion          2.0.12.0
+InformationalVersion 2.0.12
+```
+
+When preparing the next release, update this metadata and the changelog/docs before tagging. The release preflight should remain the guard preventing tag/project-version divergence.
 
 ## Dependency automation
 
@@ -101,7 +179,7 @@ Before merging code-changing work, reviewers should require at minimum:
 - documentation is updated for changed behavior;
 - no real contact data, databases, exports, credentials, signing material, or private endpoints were committed.
 
-If repository branch-protection settings do not formally require these checks, maintainers should still apply this policy manually.
+For release-preparation work, additionally verify the exact final branch/main commit after version/documentation/workflow edits. A green result for an earlier commit is not evidence for a newer head.
 
 ## Diagnosing failures
 
@@ -131,9 +209,28 @@ Use the uploaded OS-specific `TestResults` artifacts where available. Reproduce 
 
 Follow the data/control path to determine whether the finding is exploitable, false-positive, or defense-in-depth. Prefer code changes over blanket suppressions. Any necessary suppression should be narrow, justified in code/review, and revisited later.
 
-### Release failure
+### Release preflight failure
 
-Do not retag over an ambiguous partial release without understanding what assets were produced. Fix the workflow/code, verify normal CI, and use a clean version/tag policy consistent with the changelog.
+If the message says the tag does not match the project version:
+
+- inspect `Directory.Build.props`;
+- inspect the pushed tag;
+- decide which version is actually intended;
+- correct the release preparation instead of weakening/removing the check.
+
+For 2.0.12, the tag must be exactly `v2.0.12`.
+
+### Packaging failure
+
+On Windows, inspect the `Compress-Archive` step and publish-directory contents. On Linux/macOS, inspect the `tar` step, path, and file permissions. Do not switch Unix packaging to an approach that loses executable metadata without understanding the consequence.
+
+### Checksum/release failure
+
+The final job expects all publish jobs to succeed and all packaged files to be downloaded. If `sha256sum contactcore-*` finds no files, investigate artifact naming/download rather than publishing a checksum-less partial release silently.
+
+### Partial release
+
+Do not retag over an ambiguous public partial release without understanding what assets were produced. Fix workflow/code, verify normal CI, and use a clean version/tag policy consistent with the changelog.
 
 ## Workflow-change checklist
 
@@ -141,9 +238,12 @@ When changing GitHub Actions:
 
 - use least-privilege permissions;
 - pin to maintained major action versions and review upstream release/security notices;
-- preserve timeouts;
+- preserve sensible timeouts;
 - preserve or improve concurrency controls;
+- keep release tags tied to source version metadata;
 - avoid exposing secrets to untrusted pull-request code;
+- package Unix executables in a permission-preserving format;
+- publish checksums for release archives;
 - keep generated artifacts free of real user data;
-- document newly added release/signing requirements;
-- update this file, `docs/release.md`, and `what_changed.md`.
+- document newly added signing/notarization requirements honestly;
+- update this file, `docs/release.md`, `README.md`, `CHANGELOG.md`, and `what_changed.md`.
