@@ -11,38 +11,42 @@
 
 ## Why ContactCore
 
-ContactCore keeps a useful address book on your own computer without mandatory accounts, telemetry, advertising, or cloud synchronization. It combines an Avalonia desktop UI with a layered C# architecture, transactional SQLite persistence, atomic imports, and verified backup/restore safeguards.
+ContactCore keeps a useful address book on your own computer without mandatory accounts, telemetry, advertising, or cloud synchronization. It combines an Avalonia desktop UI with a layered C# architecture, transactional SQLite persistence, atomic imports and duplicate merges, plus verified backup/restore safeguards.
 
 > **Made by the Sanskar**
 
 ## Current capabilities
 
-- Create and edit contact basics: names, birthday, phone, email, notes, favorite, and archived state.
-- Domain/storage model for multiple phones, emails, addresses, organizations, groups, and tags.
-- Compact desktop editing that preserves additional/unexposed rich child fields when an existing contact is saved.
-- Local search across names, phones, and emails; favorites/archive filters; A–Z navigation.
-- CSV and focused vCard 4.0 import/export codecs.
-- Whole-batch import validation plus one-transaction persistence.
-- Duplicate scoring and deterministic application-layer merge logic.
-- SQLite schema migrations, foreign keys, indexed queries, aggregate transactions, and future-schema rejection.
+- Create and edit names, nickname, birthday, notes, favorite state, and archive state.
+- Add, edit, and remove **multiple** phone numbers and email addresses while preserving each child record identity.
+- Add, edit, and remove postal addresses and organization affiliations.
+- Add, edit, and remove groups and tags as independent rows, including names containing commas or semicolons.
+- Preserve contact IDs, creation timestamps, repeated-field IDs, and complete aggregate state through the editor.
+- Distinguish unsaved drafts from persisted contacts so discarding a new draft never invokes permanent database deletion.
+- Local search across names, phones, and emails; favorites/archive filters; A–Z navigation; race-safe debounced search.
+- CSV and focused vCard 4.0 import/export codecs with bounded desktop import, parser warnings, whole-batch validation, and atomic persistence.
+- Duplicate scoring with an interactive candidate list, matching evidence, side-by-side record preview, explicit survivor choice, destructive confirmation, and one-transaction merge/delete persistence.
+- SQLite schema migrations, foreign keys, indexed queries, aggregate transactions, literal wildcard escaping, and future-schema rejection.
 - SQLite-native backups with integrity/schema-identity verification.
 - Staged restore with pre-restore recovery snapshots, migration/verification before switch, and rollback handling.
 - Optional fail-closed integration point for a maintained SQLCipher-compatible SQLite provider.
 - Runtime-only database key handling; normal JSON preferences do not serialize the key.
 - System/Light/Dark themes, visible keyboard focus, shortcuts, local safety preferences, and reduced-motion preference.
-- Permanent-delete confirmation enabled by default; restore always requires desktop confirmation.
-- Cross-platform CI on Windows, Ubuntu, and macOS plus CodeQL analysis.
+- Permanent-delete confirmation enabled by default; restore and duplicate merges require desktop confirmation.
+- Cross-platform CI definitions for Windows, Ubuntu, and macOS plus CodeQL analysis.
 - Offline-first: no mandatory account, cloud service, analytics, or advertising dependency.
 
-## Important current UI limitations
+## Current limitations and boundaries
 
-The rich `Contact` domain/database model is still ahead of the current desktop editor. Today, the main editor exposes **one phone and one email** and does not yet expose addresses, organizations, groups, tags, or additional repeated phone/email rows.
+The contact editor now exposes the full persisted aggregate used by the current data model, but repeated fields are **add/edit/remove** rather than drag-reorderable. Groups and tags are editable per contact; there is not yet a separate global taxonomy-management screen.
 
-The compact draft now starts from a deep copy of the complete loaded aggregate, changes only the scalar/visible primary phone/email fields, and preserves additional phones/emails plus addresses, organizations, groups, and tags during ordinary edit/save operations. Clearing the visible primary phone/email removes only that primary value while retaining remaining values. Regression tests cover this preservation behavior.
+Duplicate merge is intentionally destructive after confirmation. The selected survivor keeps its identity and preferred existing scalar values while unique child values are combined; the secondary record is removed in the same SQLite transaction. There is no general-purpose undo stack. Use verified backups for recovery needs.
 
-This prevents the prior hidden-field data-loss risk, but it is **not** a claim of full rich-field editing: additional values can be preserved yet still cannot be edited from the current main editor. See [`docs/desktop-ui.md`](docs/desktop-ui.md).
+CSV and vCard are **interchange formats, not full-fidelity backups**. CSV writes a limited scalar field set plus the first phone/email. vCard support is a focused subset and does not round-trip every vCard property, address, organization, group, tag, media field, custom extension, or ContactCore identity. CSV formula-like text is preserved rather than spreadsheet-neutralized, so treat exports as data and use care when opening untrusted contact text in spreadsheet software.
 
-The **Find duplicates** button currently reports candidate count/highest score. The application layer contains merge logic, but a complete interactive pair-review/merge screen is not yet present.
+The default `Microsoft.Data.Sqlite` provider is ordinary SQLite. Setting `CONTACTCORE_DATABASE_KEY` fails closed unless a SQLCipher-compatible provider can actually report cipher support; this repository does not claim encryption-at-rest in the default build.
+
+Release artifacts are not described as signed or notarized, and desktop accessibility/platform behavior still requires manual release validation before any conformance claim. See the documentation index for exact implementation boundaries.
 
 ## Documentation
 
@@ -69,7 +73,7 @@ Key guides:
 
 ## Screenshots
 
-Real screenshots are intentionally deferred until a verified desktop build is captured. When added, they must use fictional sample contacts only and be reviewed for private paths/notifications/metadata before publication.
+Real screenshots are intentionally deferred until a verified desktop build is captured. When added, they must use fictional sample contacts only and be reviewed for private paths, notifications, and metadata before publication.
 
 ## Supported release targets
 
@@ -136,11 +140,15 @@ See [`docs/storage-backup-recovery.md`](docs/storage-backup-recovery.md) and [`d
 
 CSV and vCard are interoperability formats, not full-fidelity ContactCore backups. CSV currently exports only the first phone/email and a limited field set; vCard support is intentionally focused.
 
+The CSV importer rejects files with no recognized ContactCore columns instead of creating meaningless contacts, warns on duplicate recognized headers, and warns when imported text starts with a spreadsheet formula character. The vCard importer handles supported escaped delimiters/newlines, maps common `TYPE` parameters, and avoids echoing invalid birthday values in warnings.
+
 Use the verified SQLite backup workflow for full database recovery. The desktop importer bounds selected text at 5,000,000 characters.
 
 ## Architecture
 
-The solution is a modular monolith with Domain, Application, Infrastructure, and Desktop layers. Business rules do not depend on Avalonia or SQLite; infrastructure implements application abstractions; Desktop is the composition root/platform adapter.
+The solution is a modular monolith with Domain, Application, Infrastructure, and Desktop layers. Business rules do not depend on Avalonia or SQLite; Infrastructure implements Application abstractions; Desktop is the composition root/platform adapter.
+
+Destructive duplicate merge crosses the same boundaries deliberately: Application computes and validates the merged aggregate, then the repository updates the survivor and deletes the secondary record in one SQLite transaction.
 
 Read [`docs/architecture.md`](docs/architecture.md) and the [`docs/adr/`](docs/adr/) records.
 
