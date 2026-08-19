@@ -19,7 +19,7 @@ This roadmap distinguishes **implemented** behavior from future intent. A checke
 
 ## 0.2 — Data safety and desktop workflow hardening
 
-- [x] Transactional bulk import (`UpsertManyAsync`) with rollback of successful prefix on failure.
+- [x] Transactional bulk import (`UpsertManyAsync`) with rollback on failure.
 - [x] Whole-batch normalization/validation before import persistence.
 - [x] Literal SQL `LIKE` wildcard escaping for user search text.
 - [x] Future-schema rejection.
@@ -30,61 +30,75 @@ This roadmap distinguishes **implemented** behavior from future intent. A checke
 - [x] Final active-database verification and rollback path.
 - [x] Unique backup/recovery artifact names.
 - [x] Runtime database key excluded from persisted preferences.
-- [x] Atomic-ish preferences write through temp-file replacement.
-- [x] Safe defaults for corrupted settings.
+- [x] Runtime database key loaded on first launch even when settings do not yet exist.
+- [x] Preferences temp-file replacement and safe defaults for corrupted JSON.
 - [x] Permanent-delete confirmation preference, enabled by default.
 - [x] Restore confirmation.
 - [x] Native file-picker import/export UI.
 - [x] Native/stream-backed backup picker handling.
 - [x] 5,000,000-character desktop import bound.
-- [x] Data tools view for import/export/backup/restore.
+- [x] Data Tools view for import/export/backup/restore.
 - [x] Dedicated Settings/About/privacy surface.
 - [x] System/Light/Dark theme switching.
 - [x] Reduced-motion preference persistence.
 - [x] Desktop keyboard shortcuts and explicit visible focus styles.
+- [x] `Ctrl+S` restricted to the active contact editor.
 - [x] Desktop draft regression test project.
-- [x] Compact-editor preservation of additional phones/emails, addresses, organizations, groups, and tags.
-- [x] Regression tests proving compact phone/email edits and clears preserve the rest of the rich aggregate.
+- [x] Full rich-field editor for multiple phones/emails/addresses/organizations/groups/tags.
+- [x] Stable repeated-row identity preservation through edit/save.
+- [x] Explicit unsaved/persisted draft state and safe unsaved discard.
+- [x] Atomic duplicate survivor-update + secondary-delete persistence.
+- [x] Interactive duplicate review with evidence, preview, survivor choice, and confirmation.
 
 ## 0.3 — Documentation completeness
 
 - [x] Documentation hub/index.
 - [x] Deep user/setup/architecture/data-model guides.
-- [x] Deep desktop UI guide with exact current limitations.
+- [x] Deep desktop UI guide aligned with the full editor/duplicate workflow.
 - [x] Import/export format and security limitations.
 - [x] Storage/backup/recovery guide with failure paths.
 - [x] Expanded threat model/security guide.
 - [x] Expanded testing/accessibility/performance/CI/release/troubleshooting guides.
 - [x] Maintainer engineering guide.
-- [x] Expanded ADRs for modular monolith, SQLite, and encryption-provider boundary.
+- [x] ADRs for modular monolith, SQLite, and encryption-provider boundary.
 - [x] Exhaustive tracked-file repository reference.
-- [ ] Keep root README/changelog/policy docs synchronized on every later behavior change.
+- [x] Root README/changelog/roadmap synchronized for this checkpoint; future behavior changes must keep them synchronized.
 
 ## 0.4 — Rich UX completion
 
-The data-loss risk from saving a rich contact through the compact editor is now protected by deep-copy preservation and regression tests. The remaining work is direct rich-field editing and stronger workflow UX.
+The prior compact-editor preservation phase has been superseded by a complete editor for the repeated collections represented by the current domain model.
 
-- [ ] Full multi-value phone/email editor.
-- [ ] Address editor.
-- [ ] Organization editor.
-- [ ] Group/tag assignment and management screens.
-- [ ] Add/edit/remove/reorder tests for every rich field as controls are introduced.
-- [ ] Explicit unsaved/new-contact state so destructive actions present as Cancel rather than permanent delete of a non-persisted ID.
-- [ ] Interactive duplicate candidate list.
-- [ ] Duplicate comparison/merge-preview dialog.
-- [ ] User-confirmed merge workflow wired to `ContactMerger`.
+- [x] Full multi-value phone/email add/edit/remove editor.
+- [x] Address add/edit/remove editor.
+- [x] Organization add/edit/remove editor.
+- [x] Per-contact group/tag add/edit/remove assignment.
+- [x] Exact delimiter-containing group/tag names without text-splitting loss.
+- [x] Add/edit/remove and blank-row regression tests for current rich controls.
+- [x] Explicit unsaved/new-contact state.
+- [x] Interactive duplicate candidate list.
+- [x] Side-by-side duplicate comparison/merge preview.
+- [x] User-confirmed merge workflow wired through `ContactService`/`ContactMerger`.
+- [x] Explicit user choice of which duplicate record survives.
+- [x] One-transaction duplicate merge/delete with rollback if the secondary row disappeared.
+- [ ] Drag/drop or other reorder controls for repeated rich fields.
+- [ ] Dedicated global group/tag taxonomy-management screen.
 - [ ] Undo/recovery UX for high-impact contact modifications where practical.
 
 ## 0.5 — Test and resilience expansion
 
-- [ ] Test literal search characters `%`, `_`, and backslash.
-- [ ] Complete tag/group/StartsWith repository filter tests.
-- [ ] Full address/organization/group/tag repository round-trip tests.
-- [ ] Restore rejection test for valid non-ContactCore SQLite file.
+- [x] Test literal search characters `%`, `_`, and backslash.
+- [x] Tag/group/StartsWith repository filter tests.
+- [x] Full address/organization/group/tag repository round-trip/replacement tests.
+- [x] Restore rejection test for valid non-ContactCore SQLite file.
+- [x] Missing-backup and same-active-path restore tests.
+- [x] Atomic duplicate-merge success and missing-secondary rollback tests.
+- [x] Import parser tests for unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard fields, TYPE mapping, and non-echoing birthday warnings.
+- [x] Desktop rich-field tests for IDs, exact group/tag names, blank rows, removal semantics, and label-only legacy address preservation.
+- [x] App-path environment/fallback tests.
+- [x] Redaction truncation/PII-shape tests.
 - [ ] Forced post-switch restore verification failure/rollback test.
-- [ ] Restore staging/temp cleanup failure-path tests.
-- [ ] Missing/same-active-path backup restore tests.
-- [ ] ContactService normalization and indexed import-validation tests.
+- [ ] Restore staging/temp cleanup failure-path tests beyond current successful/invalid-source flows.
+- [ ] ContactService normalization and indexed import-validation unit tests for every rich field.
 - [ ] Search debounce/cancellation view-model tests.
 - [ ] Destructive-action and restore confirmation view-model tests.
 - [ ] Native/Avalonia integration tests where stable and valuable.
@@ -115,17 +129,17 @@ The data-loss risk from saving a rich contact through the compact editor is now 
 - [ ] Windows signing pipeline when credentials/policy are available.
 - [ ] macOS Developer ID signing and notarization when credentials/policy are available.
 - [ ] Decide installer/package formats per platform.
-- [ ] Align release workflow SDK resolution directly with `global.json`.
+- [ ] Align release workflow SDK resolution directly with `global.json` if the workflow still duplicates SDK selection.
 - [ ] Publish a repeatable release smoke-test record/template.
 
 ## Future product exploration
 
-Only after data-preservation and release fundamentals are strong:
+Only after data-preservation, test, scale, and release fundamentals remain strong:
 
 - [ ] Optional contact photos with local storage/privacy rules.
 - [ ] More complete vCard interoperability.
 - [ ] User-configurable custom fields.
 - [ ] Optional local reminders/birthday views.
-- [ ] Explicitly opt-in synchronization architecture only if it can preserve the offline-first product identity.
+- [ ] Explicitly opt-in synchronization architecture only if it preserves the offline-first product identity.
 
 Any future cloud/sync feature requires a new privacy/security architecture review and must not silently replace the local-first default.
