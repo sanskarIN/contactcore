@@ -26,7 +26,7 @@ jobs:
       - run: dotnet restore ContactCore.slnx
       - run: dotnet test ContactCore.slnx -c Release --no-restore
       - run: dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o artifacts/${{ matrix.rid }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: contactcore-${{ matrix.rid }}
           path: artifacts/${{ matrix.rid }}
