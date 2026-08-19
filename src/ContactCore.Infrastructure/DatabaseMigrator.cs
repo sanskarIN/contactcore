@@ -115,12 +115,12 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
 
         EnsureRequiredTables(existingTables, VersionOneTables);
 
-        if (current >= 2)
-        {
-            if (!existingTables.Contains("app_metadata"))
-                throw new InvalidDataException("The existing database is missing the ContactCore schema identity table. No schema changes were applied.");
+        // A normal v1 database has no app_metadata table. If one is already present, require it
+        // to identify ContactCore before migration 2 is allowed to mutate migration history.
+        if (existingTables.Contains("app_metadata"))
             await EnsureSchemaIdentityAsync(connection, cancellationToken).ConfigureAwait(false);
-        }
+        else if (current >= 2)
+            throw new InvalidDataException("The existing database is missing the ContactCore schema identity table. No schema changes were applied.");
     }
 
     private static async Task<IReadOnlySet<string>> ReadUserTablesAsync(
@@ -145,7 +145,6 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
 
     private static async Task EnsureSchemaIdentityAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        if (LatestSchemaVersion < 2) return;
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT value FROM app_metadata WHERE key='schema_family' LIMIT 1;";
         var family = Convert.ToString(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
