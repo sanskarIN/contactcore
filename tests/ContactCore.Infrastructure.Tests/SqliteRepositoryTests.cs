@@ -168,6 +168,36 @@ public sealed class SqliteRepositoryTests
     }
 
     [TestMethod]
+    public async Task Initialize_rejects_conflicting_legacy_identity_without_recording_v2_migration()
+    {
+        var databasePath = Path.Combine(_dir, "legacy-conflict.db");
+        var factory = new SqliteConnectionFactory(databasePath);
+        var migrator = new DatabaseMigrator(factory);
+        await migrator.ApplyAsync();
+
+        await using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var tamper = connection.CreateCommand();
+            tamper.CommandText = """
+                DELETE FROM schema_migrations WHERE version=2;
+                UPDATE app_metadata SET value='different-application' WHERE key='schema_family';
+                """;
+            await tamper.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => migrator.ApplyAsync());
+
+        await using var verify = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+        await verify.OpenAsync();
+        await using var versionCheck = verify.CreateCommand();
+        versionCheck.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;";
+        Assert.AreEqual(1L, Convert.ToInt64(await versionCheck.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
+        versionCheck.CommandText = "SELECT value FROM app_metadata WHERE key='schema_family';";
+        Assert.AreEqual("different-application", Convert.ToString(await versionCheck.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [TestMethod]
     public async Task Search_treats_percent_underscore_and_backslash_as_literal_text()
     {
         var percent = new Contact { GivenName = "Percent%Literal" };
