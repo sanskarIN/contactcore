@@ -1,21 +1,21 @@
 # Troubleshooting
 
-This guide starts with low-risk checks and avoids telling users to delete contact data as a first response. If the database contains important contacts, preserve a verified backup/recovery copy before destructive troubleshooting.
+This guide starts with low-risk checks. Do not delete contact data as a first response. If the database contains important contacts, preserve a verified backup/recovery copy before destructive troubleshooting.
 
-## The project will not restore/build
+## The project will not restore or build
 
 ### Check SDK resolution
 
-From the repository directory:
+From the repository root:
 
 ```bash
 dotnet --version
 dotnet --info
 ```
 
-The repository requires the stable .NET 10 SDK policy in `global.json` (`10.0.100`, roll forward to latest compatible feature band, prereleases disabled).
+The repository requires the stable .NET 10 SDK policy in `global.json` (`10.0.100`, latest compatible feature-band roll-forward, prereleases disabled).
 
-If the SDK resolver reports no compatible SDK, install a suitable stable .NET 10 SDK.
+If no compatible SDK is resolved, install a suitable stable .NET 10 SDK.
 
 ### Restore packages explicitly
 
@@ -23,33 +23,29 @@ If the SDK resolver reports no compatible SDK, install a suitable stable .NET 10
 dotnet restore ContactCore.slnx
 ```
 
-If restore fails, inspect the first NuGet error, network/package source configuration, and central versions in `Directory.Packages.props`.
+If restore fails, inspect the first NuGet error, package-source/network configuration, and centralized versions in `Directory.Packages.props`.
 
-### Clean generated build output
+### Clean generated output only
 
-For a source checkout with no uncommitted generated files you need, close the IDE/app and remove project `bin`/`obj` directories, then restore/build again. Do not delete the ContactCore data directory while cleaning build output.
+Close the IDE/application, remove project `bin`/`obj` directories if needed, then restore/build again. **Do not delete the ContactCore data directory while cleaning build output.**
 
 ## Build fails because of warnings
 
-The repository has `TreatWarningsAsErrors=true`. Fix the underlying warning rather than disabling the policy globally.
-
-Run:
+`TreatWarningsAsErrors=true` is intentional. Fix the underlying warning rather than disabling the repository-wide policy.
 
 ```bash
 dotnet build ContactCore.slnx -c Release
 ```
 
-Read the first actionable compiler/analyzer diagnostic; later errors may be cascades.
+Start with the first actionable diagnostic; later compiler errors may be cascades.
 
 ## Format check fails
-
-To apply repository formatting:
 
 ```bash
 dotnet format ContactCore.slnx
 ```
 
-Then inspect `git diff` and rerun:
+Review `git diff`, then rerun:
 
 ```bash
 dotnet format ContactCore.slnx --verify-no-changes
@@ -62,17 +58,17 @@ Check:
 - `dotnet --info`;
 - terminal exception output;
 - graphical desktop/session availability on Linux;
-- Avalonia/native runtime prerequisites for the OS;
+- Avalonia/native runtime prerequisites;
 - whether `CONTACTCORE_DATABASE_KEY` was set accidentally;
 - whether `CONTACTCORE_DATA_PATH` points to a writable directory.
 
-If the status/error indicates encryption was requested but no SQLCipher-compatible provider is active, see the encryption section below.
+If the error says encryption was requested but no SQLCipher-compatible provider is active, see the next section.
 
-## Database encryption requested but startup is blocked
+## Encryption requested but startup is blocked
 
-This is expected fail-closed behavior when `CONTACTCORE_DATABASE_KEY` is non-empty but the loaded SQLite implementation does not report `PRAGMA cipher_version`.
+This is expected fail-closed behavior when `CONTACTCORE_DATABASE_KEY` is non-empty but `PRAGMA cipher_version` cannot prove a compatible provider is active.
 
-If you did **not** intend to use encrypted SQLite, remove the environment variable from the process/shell and restart.
+If encryption was not intended, remove the environment variable from the process/shell and restart.
 
 PowerShell current-process check:
 
@@ -86,13 +82,19 @@ Bash/zsh:
 printenv CONTACTCORE_DATABASE_KEY
 ```
 
-Do not solve this by changing code to ignore the failed cipher check. For actual encryption integration, use a maintained SQLCipher-compatible provider and follow `security.md`.
+Do not “fix” this by bypassing cipher verification. A real encrypted build requires a maintained SQLCipher-compatible provider and corresponding packaging/integration tests.
+
+## Encryption key appears ignored on first launch
+
+Current code reads the runtime database key before checking whether `settings.json` exists. A first launch with `CONTACTCORE_DATABASE_KEY` should therefore still request keyed behavior and fail closed if the provider is not compatible.
+
+If a build silently ignores the key only on first launch, verify the exact commit/release: that behavior indicates an older build or regression.
 
 ## ContactCore is using the wrong data directory
 
 Open Settings and inspect **Local data directory**.
 
-Also inspect `CONTACTCORE_DATA_PATH`. It is interpreted as a directory. ContactCore creates/uses:
+`CONTACTCORE_DATA_PATH` is a directory override. ContactCore derives:
 
 ```text
 <directory>/contactcore.db
@@ -100,11 +102,11 @@ Also inspect `CONTACTCORE_DATA_PATH`. It is interpreted as a directory. ContactC
 <directory>/backups/
 ```
 
-If testing multiple profiles, use distinct directories and label them clearly.
+Use distinct clearly named directories when testing multiple profiles.
 
-## Settings are ignored/reset
+## Settings are ignored or reset
 
-`settings.json` may be missing or malformed. Malformed JSON intentionally falls back to safe defaults rather than crashing:
+Malformed/missing `settings.json` intentionally falls back to safe defaults:
 
 - System theme;
 - reduced motion off;
@@ -112,11 +114,11 @@ If testing multiple profiles, use distinct directories and label them clearly.
 
 The database key is never loaded from `settings.json`; it is runtime-only.
 
-If preferences repeatedly fail to save, check write permissions for the data directory and whether another tool is locking/replacing files.
+If preferences repeatedly fail to save, check data-directory write permissions and external file locking.
 
 ## Search does not find what I expect
 
-Search currently covers:
+Free-text search covers:
 
 - given name;
 - family name;
@@ -124,60 +126,70 @@ Search currently covers:
 - phone number;
 - email address.
 
-Normal views hide archived contacts. Use Archived when looking for archived records.
+Normal views hide archived contacts. Use **Archived** for archived-only display.
 
-`%`, `_`, and backslash in user search text are escaped for literal SQL `LIKE` behavior.
-
-The current desktop does not expose group/tag search controls even though repository-level filters exist.
+`%`, `_`, and backslash are escaped for literal SQLite `LIKE` behavior. The repository can filter by exact group/tag names, but dedicated group/tag search controls are not currently exposed in the sidebar.
 
 ## Search results lag while typing
 
-Search is intentionally debounced by 180 ms and cancels an older pending request when text changes. A very large database can still take longer because the current repository materializes full matching aggregates and loads child collections per contact.
+Search is intentionally debounced by 180 ms and older pending requests are cancelled as text changes.
 
-See `performance.md` if this is reproducible at scale.
+Large databases can still become slow because the current repository loads complete matching aggregates and child collections, and duplicate scanning is currently pairwise in memory. See `performance.md` before treating scale work as a UI-only issue.
 
-## Rich fields are not visible in the compact editor
+## A rich field is missing after editing
 
-The underlying model/storage supports multiple phones/emails/addresses/organizations/groups/tags, but the **current desktop editor directly exposes one phone and one email and does not yet expose controls for the other rich collections**.
+The current editor directly represents phones, emails, addresses, organizations, groups, and tags. Losing an unchanged repeated field is therefore a **data-integrity bug**, not an intentional compact-editor limitation.
 
-Current branch behavior preserves those unexposed values during an ordinary compact edit/save:
+Current invariants include:
 
-- the draft keeps a deep copy of the complete loaded aggregate;
-- editing the visible first phone/email changes only that first item's value while preserving its ID/label/kind;
-- clearing the visible first phone/email removes only that first item;
-- additional phone/email entries remain;
-- addresses, organizations, groups, and tags remain unchanged.
+- existing repeated row IDs are preserved;
+- removing one row should remove only that row;
+- group/tag names containing comma/semicolon characters remain exact;
+- blank newly added rows do not create meaningless children;
+- an existing label-only address remains preservable.
 
-So not seeing a rich field in the editor does not mean the current code intentionally deletes it. Full direct editing is still planned.
+If a current build violates these invariants:
 
-If you are using an **older build from before the preservation fix** and suspect fields were previously removed, or if you reproduce a preservation regression in the current branch:
-
-1. stop making repeated edits to that contact;
-2. preserve the active database and any verified backups;
-3. note the exact ContactCore version/commit;
+1. stop repeated edits to the affected contact;
+2. preserve the active database and verified backups;
+3. note the exact commit/release;
 4. reproduce with fictional data if possible;
-5. restore the appropriate verified backup only if that is the correct recovery point;
-6. keep the original backup until recovered data has been verified.
+5. keep the original recovery material until the repaired data is verified;
+6. report the minimal fictional reproduction without uploading real contact files.
 
-A current-branch regression that drops unexposed rich fields should be treated as a data-integrity bug because preservation is now covered by desktop tests and documented as an invariant.
+## Group or tag containing commas/semicolons changes unexpectedly
 
-## New unsaved contact shows permanent delete
+Current builds use independent group/tag rows rather than delimiter-separated text. Names such as `Research, Team; East` should round-trip exactly.
 
-A newly created `Contact` receives a generated GUID before first persistence. The current desktop delete flow therefore cannot yet distinguish “unsaved draft” solely by `Guid.Empty`, and the UI can present the permanent-delete confirmation even though no database row exists yet.
+If a build splits such a name, verify that it predates the independent-row editor fix or report a regression with a fictional group/tag name.
 
-Confirming in that situation attempts deletion of a non-persisted ID and closes/refreshes the draft; it does not delete another contact. Explicit unsaved/new-contact state is a roadmap UX improvement.
+## Blank address row is saved unexpectedly
 
-Use `Esc`/Cancel when you simply want to abandon a new draft.
+A completely blank newly added address row should be ignored. Existing legacy rows that contain only a label are intentionally preserved.
+
+If a blank new address becomes persisted, record whether any label/value was entered before save and provide a fictional reproduction.
+
+## New unsaved contact asks for permanent deletion
+
+Current builds explicitly track `IsPersisted`. **Delete / discard** on an unsaved new contact should discard the draft without database deletion or permanent-delete confirmation.
+
+If a new draft still produces permanent-delete confirmation, verify the exact build; that indicates an older version or regression.
+
+## `Ctrl+S` saves while Settings/Data Tools/Duplicate Review is open
+
+Current shortcut handling requires `IsEditorVisible` before executing the contact save command. Pressing `Ctrl+S` outside the editor should not create/update a contact.
+
+If this occurs, capture the active surface and exact commit with fictional data; it is a desktop workflow regression.
 
 ## Birthday is rejected
 
-The desktop editor requires exact:
+The editor requires exact:
 
 ```text
 yyyy-MM-dd
 ```
 
-Example fictional date:
+Fictional example:
 
 ```text
 2000-01-02
@@ -185,126 +197,170 @@ Example fictional date:
 
 Inputs such as `02/01/2000` are rejected by the current draft parser.
 
-## CSV import fails
+## CSV import creates no contacts
 
-Check:
+Check the first row. ContactCore requires at least one recognized header:
 
-- the selected file is `.csv` (anything other than `.vcf`/`.vcard` is decoded as CSV after the picker filters it);
-- text is compatible with UTF-8/BOM detection;
-- the file is at most 5,000,000 characters;
-- expected header names such as `GivenName`, `FamilyName`, `Email`, etc.;
-- every parsed contact passes domain email/phone validation.
+- `GivenName`
+- `FamilyName`
+- `Nickname`
+- `Email`
+- `Phone`
+- `Birthday`
+- `Notes`
 
-The service validates the whole parsed batch. One invalid contact can reject persistence of the complete batch, which is intentional atomic behavior.
+A CSV with no supported headers intentionally imports **zero** contacts and returns a warning rather than manufacturing unnamed contacts from unrelated data.
 
-Invalid birthday text can be a non-fatal parser warning, but invalid email/phone values become validation errors later.
+## CSV has duplicate headers
+
+Duplicate header names are accepted defensively: the first occurrence is used and a warning is returned. If this is not what you intended, fix the source CSV before importing.
+
+## CSV import fails completely because one contact is invalid
+
+The service validates the whole parsed batch before persistence. One invalid domain value can reject the whole batch. This is intentional all-or-nothing behavior.
+
+Parser warnings such as an invalid birthday may be non-fatal, while domain-invalid email/phone data can fail batch validation.
+
+## CSV warns about spreadsheet formulas
+
+ContactCore preserves formula-like contact text rather than changing the data. A value whose first non-whitespace character is `=`, `+`, `-`, or `@` can trigger a spreadsheet-safety warning.
+
+This warning does **not** mean ContactCore executed a formula. It means downstream spreadsheet software might interpret exported text specially. Treat external/contact-derived CSV as untrusted data when opening it in spreadsheets.
+
+## CSV import file is rejected as too large
+
+Desktop input is bounded to **5,000,000 characters**. Oversized text raises a controlled error. Split/clean the source using a trusted workflow, or use a different import approach designed for large data rather than removing the bound casually.
 
 ## vCard import loses unsupported fields
 
-The current codec is a focused vCard 4.0 subset. It primarily handles `N`, `FN`, `TEL`, `EMAIL`, `BDAY`, and `NOTE`. Addresses, organizations, photos, every parameter/encoding variant, groups, and other advanced properties are not full-fidelity today.
+The codec is a focused vCard 4.0 subset centered on `N`, `FN`, `TEL`, `EMAIL`, `BDAY`, and `NOTE` plus common TYPE mapping/unfolding/escaping behavior.
 
-Use a database backup rather than vCard as the full-fidelity ContactCore recovery format.
+It does not claim full fidelity for addresses, organizations, photos, custom properties, ContactCore groups/tags/IDs, or every vCard encoding/parameter variant.
 
-## CSV looks dangerous in a spreadsheet
+Use a verified SQLite backup—not vCard—for complete ContactCore recovery.
 
-ContactCore quotes CSV values but does not currently neutralize spreadsheet formula prefixes. Spreadsheet programs can interpret some leading characters as formulas.
+## vCard birthday warning does not show the invalid value
 
-Treat external/contact-derived CSV text as untrusted data in spreadsheet software. Do not enable macros/active content merely because the file was exported by ContactCore.
+This is intentional privacy behavior. The parser reports that the birthday could not be parsed without echoing the imported value into UI/log-facing warning text.
 
 ## Backup creation fails
 
-Backup creation opens the active database, uses SQLite's backup API, then verifies the destination database. Common causes include:
+Backup creation uses SQLite's backup API and verifies the destination before reporting success. Common causes include:
 
-- destination directory permissions;
+- destination permissions;
 - storage full/unavailable;
-- SQLite/provider error;
+- SQLite/provider errors;
 - integrity/identity verification failure;
-- keyed provider mismatch.
+- incompatible keyed-provider behavior.
 
-A backup path should not be treated as successfully created until ContactCore reports verified success.
+Do not treat a backup as successful until ContactCore reports verified success.
 
 ## Restore says the file is not a ContactCore backup
 
-The restore source must be a valid supported ContactCore database. The service checks SQLite integrity, required tables, schema version, and schema-family identity rules.
+A restore source must be valid supported ContactCore SQLite data. The service checks SQLite integrity, required schema structures/version, and ContactCore schema-family identity.
 
-A random `.db` file can be perfectly valid SQLite and still be correctly rejected.
+A random `.db` may be valid SQLite and still be correctly rejected.
 
 ## Restore rejects a newer schema
 
-ContactCore rejects a backup whose schema version is newer than the running build supports. Install/run a build that supports that database or restore a backup from a schema version supported by the current build.
+A database version newer than the running build supports is rejected. Use a build that supports that schema or a backup from a supported version.
 
-Do not manually delete rows from `schema_migrations` to force an unsupported downgrade on real data.
+Do not manually edit `schema_migrations` on real data to force a downgrade.
 
 ## Restore fails before replacement
 
-The service validates and stages the selected backup before replacing the active database. If verification/migration fails while staging, the original active database should remain in place.
+The service validates/stages/migrates/verifies the source before replacing the active database. A failure during those stages should leave the original active database in place.
 
-Preserve the failing backup separately if it may be useful for diagnosis, but never upload a real one publicly.
+Preserve the failing source privately if it is useful for diagnosis; reproduce publicly with fictional data.
 
 ## Restore fails after replacement attempt
 
-BackupService performs final verification after switching. If that verification fails, it attempts to:
+After switching, `BackupService` verifies the active database again. On final-verification failure it attempts to:
 
-- move the failed restored database into `backups/failed-restore-*.db`;
-- copy the verified `pre-restore-*.db` snapshot back to the active path.
+- retain the failed restored database as `backups/failed-restore-*.db`;
+- copy the verified `pre-restore-*.db` snapshot back to the active database path.
 
-Inspect the `backups/` directory carefully. Do not delete these files until you have identified which database contains the desired data.
-
-If reporting a bug publicly, reproduce with a fictional database instead of attaching these real recovery artifacts.
+Do not delete recovery artifacts until you have identified which file contains the desired state.
 
 ## Restore temporary file remains
 
-The staging `.restore-*.tmp` file is cleaned in a `finally` block. If the native picker had to create a stream-backed temporary copy, deletion is also attempted after the restore workflow.
+The staging `.restore-*.tmp` file is cleaned in a `finally` block. A stream-backed picker may also create a temporary local copy whose deletion is attempted after restore.
 
-An abrupt process/OS termination can still leave temp files. Verify their contents/sensitivity before removing them and avoid posting them publicly.
+Abrupt process/OS termination can still leave temp files. Treat them as potentially sensitive until inspected privately.
 
 ## Permanent delete button does nothing
 
-If confirmation is enabled and a confirmation callback cannot be provided, deletion is intentionally blocked.
+For a persisted contact, if confirmation is enabled and the confirmation callback is unavailable, deletion is intentionally blocked.
 
-If a dialog appears, only affirmative confirmation proceeds. Cancel/close leaves a persisted contact intact.
+If a dialog appears, only affirmative confirmation proceeds. Cancel/close leaves the contact intact.
 
-For a new unsaved draft, see the dedicated section above: current UI state can still present the confirmation even though the generated ID has no persisted row.
+For an unsaved contact, Delete / discard should close the draft without a database operation.
 
-## Duplicate command does not let me merge
+## Find duplicates shows no candidates
 
-The main-window **Find duplicates** command currently reports candidate count/highest score. The application layer has a `ContactMerger`, but the full interactive review/merge UI is not yet implemented in the current main-window workflow.
+Duplicate scoring uses specific signals/thresholds; similar-looking contacts may not cross the current threshold. It is safer for this heuristic to miss a possible duplicate than to automatically destroy data.
 
-This is a known product limitation, not a hidden shortcut.
+No candidate is merged automatically.
+
+## I selected the wrong duplicate survivor but have not confirmed
+
+Cancel the confirmation dialog. No merge is persisted until confirmation succeeds.
+
+## I merged the wrong duplicate
+
+A confirmed duplicate merge is destructive and there is no general-purpose undo stack. The repository does make the survivor update and secondary deletion atomic, but atomicity is not undo.
+
+Use a verified backup/recovery point if restoration is appropriate. Keep any current backup and recovery copies until you have verified the restored data.
+
+## Duplicate merge fails because a contact disappeared
+
+The repository requires the secondary contact to still exist. If another operation removed it between review and commit, the merge transaction rolls back instead of committing only the survivor update. Refresh duplicate candidates and review again.
+
+## Duplicate scan is slow
+
+Current candidate generation is pairwise in memory, so cost grows roughly quadratically with contact count. This is a documented scale limitation; see `performance.md`/`ROADMAP.md` for candidate-generation optimization work.
 
 ## Theme change is not persisted
 
-Use **Save settings** after selecting System/Light/Dark. Closing/canceling the Settings surface does not intentionally save the draft setting.
+Use **Save settings** after selecting System/Light/Dark. Closing/cancelling Settings does not intentionally persist the draft change.
 
-Unknown theme values in the preferences model normalize to System.
+Unknown theme values normalize to System.
 
 ## Reduced motion seems to do nothing
 
-The preference is persisted, but the current custom UI contains little bespoke motion. It is primarily a contract for present/future animations, not a system-wide OS animation switch.
+The preference is persisted, but ContactCore currently has little bespoke motion. It is a UI contract for present/future animations, not an operating-system-wide animation switch.
 
 ## Cannot delete a temporary/test database on Windows
 
-SQLite pools/file handles can keep files open briefly. Ensure ContactCore/tests are closed and call/allow connection disposal. The infrastructure tests use `SqliteConnection.ClearAllPools()` in backup test cleanup where needed.
+SQLite pools/file handles may keep files open briefly. Ensure ContactCore/tests are closed and connections disposed. Backup tests explicitly clear pools where needed.
 
-Do not use file-lock workarounds that risk deleting the currently active real profile.
+Do not apply file-lock workarounds to the live user profile.
 
 ## CI passes locally but fails on one platform
 
-Inspect the failing matrix job and its test artifacts. Common differences include path separators/case sensitivity, file locking, native SQLite/Avalonia runtime behavior, and OS-specific file picker/window APIs.
+Inspect the failing matrix job/artifacts. Common differences include:
 
-Treat a single-platform failure as a real compatibility signal until reproduced/explained.
+- path separators and case sensitivity;
+- file locking;
+- newline behavior;
+- SQLite native behavior;
+- Avalonia/native runtime behavior;
+- SDK resolution;
+- generated MVVM source/XAML behavior.
 
-## Safe diagnostic bundle
+Treat a single-platform failure as a compatibility signal until understood.
 
-When asking for public help, include only:
+## Safe public diagnostic bundle
 
-- ContactCore commit/release version;
+Include only:
+
+- ContactCore commit/release;
 - OS/version/architecture;
 - `dotnet --info` with personal paths redacted if necessary;
-- exact commands used;
-- sanitized exception/error text;
-- minimal reproduction using fictional contacts;
-- whether a custom data path or encryption provider is involved.
+- exact commands;
+- sanitized error text;
+- minimal fictional reproduction;
+- whether a custom data path or custom encryption provider is involved.
 
 Do **not** include:
 
@@ -312,17 +368,17 @@ Do **not** include:
 - `-wal`/`-shm` files;
 - backups/recovery copies;
 - real CSV/vCards;
-- database key/environment dump;
-- screenshots showing real contacts or private paths unless fully sanitized.
+- database keys/environment dumps;
+- screenshots containing real contacts/private paths unless fully sanitized.
 
-## Last-resort profile reset
+## Last-resort disposable-profile reset
 
 Only for a profile you are certain is disposable:
 
 1. close ContactCore;
-2. confirm the exact data directory in Settings/environment/configuration;
-3. copy anything needed to a safe location;
-4. delete/rename the disposable directory;
-5. restart to create a fresh database.
+2. confirm the exact data directory;
+3. preserve anything needed;
+4. rename/delete the disposable directory;
+5. restart to create a fresh profile.
 
-Never use profile deletion as the default fix for an unknown database problem involving important contacts.
+Never use profile deletion as the default fix for an unknown issue involving important contacts.
