@@ -113,6 +113,20 @@ public sealed class BackupServiceTests
     }
 
     [TestMethod]
+    public async Task Tampered_schema_identity_is_rejected_without_replacing_active_database()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
+        var backupPath = await _backup.CreateBackupAsync(_paths.BackupDirectory);
+        await TamperSchemaIdentityAsync(backupPath);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => _backup.RestoreBackupAsync(backupPath));
+
+        var contacts = await _repository.SearchAsync(new ContactQuery());
+        Assert.AreEqual(1, contacts.Count);
+        Assert.AreEqual("Keep active", contacts.Single().GivenName);
+    }
+
+    [TestMethod]
     public async Task Legacy_schema_backup_is_migrated_before_replacement()
     {
         await _repository.UpsertAsync(new Contact { GivenName = "Legacy" });
@@ -175,6 +189,16 @@ public sealed class BackupServiceTests
         command.CommandText = "INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $at);";
         command.Parameters.AddWithValue("$version", DatabaseMigrator.LatestSchemaVersion + 100);
         command.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task TamperSchemaIdentityAsync(string path)
+    {
+        SqliteConnection.ClearAllPools();
+        await using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE app_metadata SET value='not-contactcore' WHERE key='schema_family';";
         await command.ExecuteNonQueryAsync();
     }
 }
