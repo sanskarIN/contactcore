@@ -10,11 +10,11 @@ Treat these as product invariants unless an explicit reviewed architecture decis
 2. Domain rules do not depend on Avalonia or SQLite.
 3. User/data SQL values remain parameterized; literal search wildcards remain escaped.
 4. A `Contact` repository write represents the complete desired aggregate.
-5. Existing repeated-field identities survive ordinary editor changes unless that row is intentionally removed/recreated.
+5. Contact-owned phone/email/address/organization identities survive ordinary editor changes unless intentionally removed/recreated; unchanged group/tag assignments retain shared dictionary identity, while a true per-contact group/tag rename is reassignment to a new dictionary identity.
 6. Single-contact aggregate writes, bulk imports, and destructive duplicate merges remain transactional.
 7. An unsaved draft is never treated as a persisted record merely because it has a generated GUID.
 8. Duplicate detection stays advisory; no score automatically performs a destructive merge.
-9. Duplicate merge requires explicit survivor choice and confirmation and must update the survivor/delete the secondary atomically.
+9. Duplicate merge requires explicit survivor choice and confirmation, requires both reviewed records to still exist, and must update the survivor/delete the secondary atomically.
 10. Database upgrades are versioned/forward-only; unsupported future schemas are rejected.
 11. Restore validates before replacement and retains a verified pre-restore recovery path.
 12. Requested database encryption fails closed when a compatible provider is unavailable.
@@ -57,14 +57,19 @@ The current editor directly represents all repeated collections in the present d
 
 Maintain these properties:
 
-- editing an existing row retains its child ID;
+- editing an existing contact-owned phone/email/address/organization row retains its child ID;
+- unchanged group/tag assignments retain their shared dictionary ID;
+- a true per-contact group/tag rename receives a new dictionary identity rather than reusing one shared ID with a different name;
+- a case-only/normalization-equivalent group/tag edit retains the old dictionary identity and canonical stored name;
 - removing one row removes only that intended row/link;
 - blank newly added rows do not create meaningless children;
 - legacy representable values such as a label-only address remain preservable;
 - group/tag names are independent rows and may contain commas or semicolons exactly;
-- duplicate group/tag names in one draft collapse case-insensitively while preserving the first row identity;
+- duplicate group/tag names in one draft collapse case-insensitively while preserving the first applicable identity;
 - the root contact ID and `CreatedAt` survive editing;
 - draft editing does not mutate the source aggregate before save.
+
+Groups/tags are shared dictionaries. Ordinary per-contact editing must not silently become a global taxonomy rename. A future global group/tag management feature must define true rename/delete/orphan-cleanup behavior explicitly and test all linked contacts.
 
 Repeated-field reordering is not currently exposed. If reorder support is added, define whether order is persisted before presenting a visual order as durable.
 
@@ -87,12 +92,13 @@ Current workflow:
 3. show score/reasons and side-by-side summaries;
 4. let the user choose which record survives;
 5. confirm the destructive action;
-6. call `ContactService.MergeAsync`;
-7. persist survivor update + secondary deletion in one repository transaction.
+6. call `ContactService.MergeAsync`, which reloads both records;
+7. inside the repository transaction, require both chosen survivor/primary and secondary to still exist;
+8. persist survivor update + secondary deletion atomically.
 
-`SqliteContactRepository.MergeAsync` requires exactly one secondary row to be deleted. If the secondary disappeared, it throws and rolls back the attempted survivor update.
+If either reviewed record disappeared, `SqliteContactRepository.MergeAsync` throws/cancels before commit. A removed chosen primary must never be resurrected from stale UI data; a missing secondary must never leave only a survivor update committed.
 
-When changing merge logic, test overlapping/distinct phones, emails, addresses, organizations, groups, tags, notes, flags, IDs, self-merge rejection, and missing-secondary rollback. Never convert a heuristic score into automatic deletion.
+When changing merge logic, test overlapping/distinct phones, emails, addresses, organizations, groups, tags, notes, flags, IDs, self-merge rejection, missing-secondary rollback, and missing-primary non-resurrection. Never convert a heuristic score into automatic deletion.
 
 There is no general-purpose undo stack. Verified backups remain the recovery mechanism for destructive cleanup.
 
@@ -162,7 +168,7 @@ Current root + per-contact child loading and leading-wildcard search should be b
 
 For UI changes verify keyboard reachability, visible focus, meaningful labels/names, logical tab order, scaling, non-color-only cues, theme behavior, and reduced-motion handling for custom animation.
 
-The current full editor and duplicate-review pane increase control density; include their add/remove rows, both survivor buttons, confirmation dialog, scrolling, and minimum-window behavior in manual accessibility checks.
+The current full editor and duplicate-review pane increase control density; include their add/remove rows, group/tag reassignment, both survivor buttons, confirmation dialog, scrolling, and minimum-window behavior in manual accessibility checks.
 
 Do not claim formal accessibility conformance without the relevant audit.
 
@@ -176,6 +182,8 @@ Dependabot is an input to review, not automatic approval.
 
 Keep permissions minimal, retain sensible timeouts/concurrency, and treat workflow changes as production/release-integrity code. Pull-request checks must not expose secrets to untrusted code.
 
+For release automation, preserve the source-version/tag equality guard, `global.json` SDK policy, permission-preserving Unix packaging, checksum publication, and least-privilege write permission unless a reviewed stronger design replaces them.
+
 ## Release process
 
 Before a version tag:
@@ -185,10 +193,10 @@ Before a version tag:
 3. verify all user-facing behavior docs match the shipped code;
 4. inspect CI and CodeQL on that exact head;
 5. decide/document unsigned artifact policy;
-6. create the intended semantic `v*.*.*` tag;
-7. inspect all runtime artifacts;
+6. create the intended semantic `v*.*.*` tag matching the source version;
+7. inspect all runtime archives/checksums;
 8. smoke-test supported RIDs with fictional data;
-9. include rich editing, both duplicate survivor directions, import/export, backup/restore, settings, and delete safety in release smoke tests;
+9. include rich editing/group-tag reassignment, both duplicate survivor directions, import/export, backup/restore, settings, and delete safety in release smoke tests;
 10. publish known limitations plainly.
 
 Do not claim signing/notarization if the workflow does not perform it.
