@@ -68,20 +68,33 @@ public sealed partial class ContactDraftViewModel : ObservableObject
             birthday = parsed;
         }
 
-        // Start from the complete loaded aggregate so fields not yet exposed by the compact
-        // desktop editor (additional phone/email values, addresses, organizations, groups,
-        // and tags) survive an otherwise unrelated edit/save operation.
-        var contact = _loadedContact?.DeepCopy() ?? new Contact();
-        contact.Id = Id == Guid.Empty ? Guid.NewGuid() : Id;
-        contact.CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt;
-        contact.GivenName = GivenName;
-        contact.FamilyName = FamilyName;
-        contact.Nickname = Nickname;
-        contact.Birthday = birthday;
-        contact.Notes = Notes;
-        contact.IsFavorite = IsFavorite;
-        contact.IsArchived = IsArchived;
-        contact.UpdatedAt = DateTimeOffset.UtcNow;
+        // Preserve all child collections from the complete loaded aggregate, then overlay
+        // only the fields exposed by the compact editor. Contact identity fields are init-only,
+        // so construct the outgoing aggregate with the desired identity up front.
+        var baseline = _loadedContact?.DeepCopy();
+        var contact = new Contact
+        {
+            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
+            CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt,
+            GivenName = GivenName,
+            FamilyName = FamilyName,
+            Nickname = Nickname,
+            Birthday = birthday,
+            Notes = Notes,
+            IsFavorite = IsFavorite,
+            IsArchived = IsArchived,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        if (baseline is not null)
+        {
+            contact.Phones.AddRange(baseline.Phones);
+            contact.Emails.AddRange(baseline.Emails);
+            contact.Addresses.AddRange(baseline.Addresses);
+            contact.Organizations.AddRange(baseline.Organizations);
+            contact.Groups.AddRange(baseline.Groups);
+            contact.Tags.AddRange(baseline.Tags);
+        }
 
         ApplyPrimaryPhone(contact, Phone);
         ApplyPrimaryEmail(contact, Email);
