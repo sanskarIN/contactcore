@@ -13,9 +13,10 @@ public sealed partial class MainWindowViewModel
     [RelayCommand]
     private async Task RequestDeleteAsync()
     {
-        if (Draft.Id == Guid.Empty)
+        if (!Draft.IsPersisted)
         {
             CancelEdit();
+            StatusMessage = "Unsaved contact discarded.";
             return;
         }
 
@@ -75,7 +76,7 @@ public sealed partial class MainWindowViewModel
             await _backup.RestoreBackupAsync(picked.Path);
             await _service.InitializeAsync();
             SelectedContact = null;
-            IsEditorVisible = false;
+            HideDetailViews();
             await RefreshAsync();
             StatusMessage = "Backup restored successfully. A pre-restore recovery snapshot was retained.";
         }
