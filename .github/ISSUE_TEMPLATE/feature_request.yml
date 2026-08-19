@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an improvement that fits ContactCore
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: Problem or need }
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes: { label: Proposed solution }
+    validations: { required: true }
+  - type: textarea
+    id: privacy
+    attributes: { label: Privacy/accessibility considerations }
