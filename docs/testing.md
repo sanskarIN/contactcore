@@ -168,17 +168,24 @@ Project: `tests/ContactCore.Desktop.Tests`
 
 - contact ID and creation timestamp survive draft round trip;
 - Favorite and Archived flags survive draft round trip;
-- non-ISO birthday input is rejected.
+- non-ISO birthday input is rejected;
+- editing the compact first phone/email preserves their existing IDs, labels, and field kinds;
+- additional phone/email values survive the compact edit;
+- addresses, organizations, groups, and tags survive the compact edit even though the current editor does not expose them;
+- draft edits do not mutate the source aggregate supplied to `Load`;
+- clearing the visible primary phone/email removes only that first value and preserves remaining values.
 
 These are intentionally non-visual tests.
 
-### Critical editor preservation gap
+### Rich editor preservation guarantee
 
-The current desktop draft exposes only one phone/email and does not expose the domain's other repeated child collections. Before expanding the UI or claiming rich editing, add tests proving that loading/saving a contact with multiple phones/emails/addresses/organizations/groups/tags does not silently discard data.
+The desktop editor still exposes only one phone/email and does not directly edit addresses, organizations, groups, tags, or additional phone/email entries. However, the draft now retains a deep copy of the complete loaded aggregate and regression tests explicitly protect those unexposed values from being lost during ordinary edit/save conversion.
+
+Treat this preservation behavior as a correctness invariant. As the richer editor is implemented, extend the tests to cover adding, editing, removing, and reordering every exposed collection without regressing preservation of untouched values.
 
 Recommended desktop/view-model tests:
 
-- new-contact defaults;
+- new-contact defaults and explicit unsaved-draft behavior;
 - search debounce/cancellation races;
 - All/Favorites/Archived filter orchestration;
 - settings load/save and theme callback;
@@ -187,7 +194,8 @@ Recommended desktop/view-model tests:
 - picker cancellation;
 - import warning/status behavior;
 - export includes archived records;
-- temporary backup-picker copy cleanup.
+- temporary backup-picker copy cleanup;
+- full multi-value editor behavior once those controls are added.
 
 Avalonia integration tests may be added for focus/keyboard behavior where reliable; manual accessibility/platform testing is still required.
 
