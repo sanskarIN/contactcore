@@ -1,0 +1,104 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ContactCore.Desktop.MainWindow"
+        Title="ContactCore" Width="1180" Height="760" MinWidth="850" MinHeight="560"
+        x:CompileBindings="False">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Classes="TopBar" Grid.Row="0">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Border Classes="Logo"><TextBlock Text="CC" FontWeight="Bold" /></Border>
+          <StackPanel>
+            <TextBlock Text="ContactCore" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock Text="Private, offline-first contacts" Classes="Muted" FontSize="11" />
+          </StackPanel>
+        </StackPanel>
+        <TextBox Grid.Column="1" Watermark="Search names, phones, or emails…" Text="{Binding SearchText, Mode=TwoWay}" MaxWidth="520" HorizontalAlignment="Stretch" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button Content="New contact" Command="{Binding NewContactCommand}" Classes="Primary" />
+          <Button Content="Settings" Command="{Binding ShowSettingsCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="220,360,*">
+      <Border Classes="Sidebar" Grid.Column="0">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Browse" Classes="SectionLabel" />
+          <ToggleButton Content="All contacts" IsChecked="{Binding ShowAll}" Command="{Binding ShowAllCommand}" />
+          <ToggleButton Content="Favorites" IsChecked="{Binding FavoritesOnly}" Command="{Binding FavoritesCommand}" />
+          <ToggleButton Content="Archived" IsChecked="{Binding ArchivedOnly}" Command="{Binding ArchivedCommand}" />
+          <Separator Margin="0,12" />
+          <TextBlock Text="Alphabet" Classes="SectionLabel" />
+          <ItemsControl ItemsSource="{Binding Alphabet}">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate><DataTemplate><Button Content="{Binding}" Command="{Binding $parent[Window].DataContext.FilterLetterCommand}" CommandParameter="{Binding}" Classes="Letter" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Separator Margin="0,12" />
+          <Button Content="Import / Export" Command="{Binding ShowDataToolsCommand}" />
+          <Button Content="Find duplicates" Command="{Binding FindDuplicatesCommand}" />
+          <TextBlock Margin="0,16,0,0" Text="Made by the Sanskar" Classes="Muted" FontSize="11" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1" Classes="ListPane">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <TextBlock Text="{Binding ListHeading}" FontWeight="SemiBold" FontSize="18" />
+            <TextBlock Grid.Column="1" Text="{Binding ResultCountText}" Classes="Muted" VerticalAlignment="Center" />
+          </Grid>
+          <ListBox Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedContact, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="48,*,Auto" Margin="2,7">
+                  <Border Width="40" Height="40" CornerRadius="20" Classes="Avatar"><TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" /></Border>
+                  <StackPanel Grid.Column="1" Margin="10,0">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Subtitle}" Classes="Muted" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="★" IsVisible="{Binding IsFavorite}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Classes="DetailPane">
+        <ScrollViewer>
+          <Grid IsVisible="{Binding IsEditorVisible}" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBlock Text="{Binding EditorTitle}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Save" Command="{Binding SaveCommand}" Classes="Primary" />
+                <Button Content="Delete" Command="{Binding DeleteCommand}" />
+              </StackPanel>
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
+              <StackPanel><TextBlock Text="Given name" Classes="FieldLabel"/><TextBox Text="{Binding Draft.GivenName, Mode=TwoWay}" /></StackPanel>
+              <StackPanel Grid.Column="1"><TextBlock Text="Family name" Classes="FieldLabel"/><TextBox Text="{Binding Draft.FamilyName, Mode=TwoWay}" /></StackPanel>
+            </Grid>
+            <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
+              <StackPanel><TextBlock Text="Nickname" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Nickname, Mode=TwoWay}" /></StackPanel>
+              <StackPanel Grid.Column="1"><TextBlock Text="Birthday (yyyy-MM-dd)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.BirthdayText, Mode=TwoWay}" /></StackPanel>
+            </Grid>
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <StackPanel><TextBlock Text="Phone" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Phone, Mode=TwoWay}" /></StackPanel>
+              <CheckBox Grid.Column="1" Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="0,0,0,9" />
+            </Grid>
+            <StackPanel Grid.Row="4"><TextBlock Text="Email" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Email, Mode=TwoWay}" /></StackPanel>
+            <StackPanel Grid.Row="5"><TextBlock Text="Notes" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap" /></StackPanel>
+            <TextBlock Grid.Row="6" Text="{Binding StatusMessage}" Classes="Status" TextWrapping="Wrap" />
+          </Grid>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="2" Classes="StatusBar">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding FooterText}" Classes="Muted" />
+        <TextBlock Grid.Column="1" Text="Local data • no mandatory cloud" Classes="Muted" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
