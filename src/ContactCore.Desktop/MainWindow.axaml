@@ -108,11 +108,12 @@
 
               <Border Classes="SettingsCard">
                 <StackPanel Spacing="10">
-                  <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="Appearance &amp; accessibility" FontSize="18" FontWeight="SemiBold" />
                   <TextBlock Text="Theme" Classes="FieldLabel" />
                   <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" MinWidth="180" HorizontalAlignment="Left" />
                   <CheckBox Content="Reduce nonessential motion" IsChecked="{Binding ReducedMotion, Mode=TwoWay}" />
-                  <TextBlock Text="Theme changes are saved locally. System follows your operating-system preference." Classes="Muted" TextWrapping="Wrap" />
+                  <CheckBox Content="Confirm before permanently deleting a contact" IsChecked="{Binding ConfirmPermanentDelete, Mode=TwoWay}" />
+                  <TextBlock Text="Theme changes and safety preferences are saved locally. System follows your operating-system theme preference." Classes="Muted" TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
 
