@@ -54,17 +54,17 @@ Pins SDK baseline `10.0.100`, allows `latestFeature` roll-forward, and disables 
 
 ### `README.md`
 
-Primary project landing page. Summarizes offline-first purpose, actual current capabilities, important desktop-editor/duplicate-UI limitations, supported release RIDs, toolchain, quick-start commands, data/security notes, documentation links, contribution/license/support/funding information.
+Primary project landing page. Summarizes offline-first purpose, actual current capabilities, compact-editor preservation/full-rich-editing distinction, duplicate-UI limitation, supported release RIDs, toolchain, quick-start commands, data/security notes, documentation links, contribution/license/support/funding information.
 
 It must not overclaim encryption, signing, accessibility certification, test coverage, or rich editor behavior.
 
 ### `CHANGELOG.md`
 
-Human-readable release/change history. Update user-visible features, fixes, security/data migrations, compatibility changes, and notable limitations under an appropriate version/unreleased heading.
+Human-readable release/change history. Records current hardening, rich-field preservation fix, test additions, known limitations, and release/documentation changes under `Unreleased` until a version is tagged.
 
 ### `ROADMAP.md`
 
-Forward-looking priorities. Roadmap entries are intent, not completed-feature claims. Keep high-risk correctness gaps—such as full rich-field desktop preservation—visible until completed/tested.
+Forward-looking priorities. It marks compact rich-field preservation/tests complete and keeps full multi-value editing, explicit unsaved-draft state, duplicate merge UX, additional resilience tests, performance, encryption-provider maturity, and release signing/audits as future work.
 
 ### `CONTRIBUTING.md`
 
@@ -72,19 +72,19 @@ Contributor entry point: branch/quality/test/documentation expectations and cont
 
 ### `CODE_OF_CONDUCT.md`
 
-Community behavior expectations and enforcement/contact guidance. Keep contribution/community interactions consistent with this policy.
+Community behavior expectations and enforcement/contact guidance, including privacy-respecting handling of accidentally shared contact data. Keep contribution/community interactions consistent with this policy.
 
 ### `SECURITY.md`
 
-Public vulnerability-reporting policy and supported-version/security-contact guidance. It should route sensitive reports away from public issues and remain consistent with `docs/security.md`.
+Public vulnerability-reporting policy and supported-version/security-contact guidance. It routes undisclosed vulnerabilities away from public issues and remains consistent with `docs/security.md`.
 
 ### `PRIVACY.md`
 
-User-facing privacy posture: local/offline-first data handling, exports/backups, no mandatory telemetry/cloud, and responsibilities around local files. Update when any remote service or data collection is introduced.
+User-facing privacy posture: local/offline-first data handling, exports/backups, temporary files, runtime-key behavior, no mandatory telemetry/cloud, and responsibilities around local files. Update when any remote service or data collection is introduced.
 
 ### `SUPPORT.md`
 
-Support channels and what diagnostic information to provide safely. It should discourage posting real contact databases/exports/keys publicly.
+Support channels and privacy-minimized diagnostic guidance. It discourages posting real contact databases/exports/backups/keys publicly and routes security reports to `SECURITY.md`.
 
 ### `LICENSE`
 
@@ -138,7 +138,7 @@ Documentation index and navigation hub for users, contributors, maintainers, rev
 
 ### `docs/user-guide.md`
 
-End-user workflows for startup, current editor scope, search/filters, favorites/archive/delete, duplicate detection, import/export, backup/restore, settings, paths, encryption, privacy habits, shortcuts, and accessibility notes.
+End-user workflows for startup, compact editor scope and rich-field preservation, search/filters, favorites/archive/delete, duplicate detection, import/export, backup/restore, settings, paths, encryption, privacy habits, shortcuts, and accessibility notes.
 
 ### `docs/setup.md`
 
@@ -146,7 +146,7 @@ Source setup/installation guide: SDK resolution, clone/restore/build/run/test, d
 
 ### `docs/architecture.md`
 
-Detailed layered architecture, dependency direction, startup/read/write/import/backup/restore flows, schema ownership, connection/preferences/platform-service/error boundaries, security principles, test architecture, and evolution rules.
+Detailed layered architecture, dependency direction, startup/read/write/import/backup/restore flows, compact-editor aggregate-preservation invariant, schema ownership, connection/preferences/platform-service/error boundaries, security principles, test architecture, and evolution rules.
 
 ### `docs/data-model.md`
 
@@ -154,7 +154,7 @@ Domain-to-SQLite mapping reference for contact scalar fields, child records, gro
 
 ### `docs/desktop-ui.md`
 
-Exact current Avalonia UI/view-model behavior: composition, three-column layout, search/debounce, browse modes, current simplified draft fields, destructive actions, duplicate-command limitation, data tools, file-picker limits, settings, shortcuts, focus/style, callbacks, error handling, and UI-test priorities.
+Exact current Avalonia UI/view-model behavior: composition, three-column layout, search/debounce, browse modes, compact draft fields, preservation of unexposed rich data, destructive actions, unsaved-draft delete caveat, duplicate-command limitation, data tools, file-picker limits, settings, shortcuts, focus/style, callbacks, error handling, and UI-test priorities.
 
 ### `docs/import-export.md`
 
@@ -178,11 +178,11 @@ Current search/loading/duplicate/import/export/backup characteristics, known sca
 
 ### `docs/development.md`
 
-Contributor engineering workflow: shared build policy, package management, layer placement, aggregate/migration/import/UI/security rules, formatting/quality commands, test placement, Git discipline, PR requirements, documentation definition of done.
+Contributor engineering workflow: shared build policy, package management, layer placement, complete-aggregate preservation, migration/import/UI/security rules, formatting/quality commands, test placement, Git discipline, PR requirements, documentation definition of done.
 
 ### `docs/testing.md`
 
-Test architecture and concrete coverage map for every test source file, plus recommended missing cases, deterministic/temp-data rules, coverage policy, manual release verification matrix, CI-only failure diagnosis, and regression-test process.
+Test architecture and concrete coverage map for every test source file, including compact-editor rich-child preservation tests, plus recommended missing cases, deterministic/temp-data rules, coverage policy, manual release verification matrix, CI-only failure diagnosis, and regression-test process.
 
 ### `docs/ci-cd.md`
 
@@ -194,11 +194,11 @@ End-to-end release process: current RIDs, tag trigger, pre-release checks, local
 
 ### `docs/troubleshooting.md`
 
-Safety-first diagnosis for SDK/build/format/startup, encryption mismatch, paths/preferences/search, rich-editor data-preservation risk, imports, backups/restores/recovery artifacts, delete/duplicate/theme/motion behavior, platform CI issues, diagnostic bundle, and last-resort disposable-profile reset.
+Safety-first diagnosis for SDK/build/format/startup, encryption mismatch, paths/preferences/search, current rich-field preservation plus older-build regression recovery, unsaved-draft delete UX, imports, backups/restores/recovery artifacts, duplicate/theme/motion behavior, platform CI issues, diagnostic bundle, and last-resort disposable-profile reset.
 
 ### `docs/maintainer-guide.md`
 
-Long-term ownership guide: invariants, branch/review, fields/migrations, backup/restore, encryption, preferences, import/export, editor/search/duplicates/accessibility, dependencies, actions, releases, security reports, documentation and repository hygiene, deprecation.
+Long-term ownership guide: invariants, branch/review, fields/migrations, backup/restore, encryption, preferences, import/export, compact-editor preservation/full-rich-editor evolution, search/duplicates/accessibility, dependencies, actions, releases, security reports, documentation and repository hygiene, deprecation.
 
 ## Architecture decision records
 
@@ -222,7 +222,7 @@ Minimal Domain project definition. Relies on shared repository build settings an
 
 ### `src/ContactCore.Domain/ContactModels.cs`
 
-Core contact types: `ContactFieldKind`, phone/email/address/organization/group/tag records, and `Contact`. Implements display-name fallback and `DeepCopy`. Changes here can affect persistence, codecs, merge behavior, UI, and migrations.
+Core contact types: `ContactFieldKind`, phone/email/address/organization/group/tag records, and `Contact`. Implements display-name fallback and `DeepCopy`. Changes here can affect persistence, codecs, merge behavior, UI, and migrations. `Id` and `CreatedAt` are init-only identity/history fields, so callers constructing transformed contacts must supply them during initialization.
 
 ### `src/ContactCore.Domain/ContactValidation.cs`
 
@@ -274,7 +274,7 @@ Schema authority. Creates migration tracking, applies ordered transactional migr
 
 ### `src/ContactCore.Infrastructure/SqliteContactRepository.cs`
 
-Concrete `IContactRepository`: count/get/search/delete, literal-wildcard escaping, parameterized filters, transactional single/bulk upsert, aggregate child/link replacement, group/tag relationship insertion, and aggregate materialization.
+Concrete `IContactRepository`: count/get/search/delete, literal-wildcard escaping, parameterized filters, transactional single/bulk upsert, aggregate child/link replacement, group/tag relationship insertion, and aggregate materialization. Its replacement semantics are why upstream partial editors must preserve unedited child collections.
 
 ### `src/ContactCore.Infrastructure/BackupService.cs`
 
@@ -308,7 +308,7 @@ Desktop composition root. Creates paths/preferences/SQLite repository/service/ba
 
 ### `src/ContactCore.Desktop/MainWindow.axaml`
 
-Primary visual tree: top search/actions, browse sidebar, contact list, editor, Settings, Data tools, backup/restore/import/export controls, status/footer. Also exposes current rich-editor limitation by only binding one phone/email field.
+Primary visual tree: top search/actions, browse sidebar, contact list, editor, Settings, Data tools, backup/restore/import/export controls, status/footer. The current editor binds one visible phone/email field even though the underlying aggregate can contain richer collections.
 
 ### `src/ContactCore.Desktop/MainWindow.axaml.cs`
 
@@ -316,11 +316,11 @@ Platform adapter for view-model delegates: native import/export/backup pickers, 
 
 ### `src/ContactCore.Desktop/ViewModels.cs`
 
-`PickedTextFile`, list item/draft/main view models. Handles draft conversion, browse/search/debounce, selection, save, duplicate summary, import/export, backup creation, settings, status messaging, and refresh. Current draft handles one phone/email only.
+`PickedTextFile`, list item/draft/main view models. Handles draft conversion, browse/search/debounce, selection, save, duplicate summary, import/export, backup creation, settings, status messaging, and refresh. `ContactDraftViewModel` retains a deep-copy baseline of the complete contact, constructs outgoing identity fields safely in an object initializer, copies every child collection, and then applies compact first-phone/first-email edits so unexposed data survives.
 
 ### `src/ContactCore.Desktop/DataSafetyCommands.cs`
 
-Partial `MainWindowViewModel` destructive/recovery commands. Implements confirmation-aware permanent delete and confirmation-required restore plus temporary picker-file cleanup/status/refresh behavior.
+Partial `MainWindowViewModel` destructive/recovery commands. Implements confirmation-aware permanent delete and confirmation-required restore plus temporary picker-file cleanup/status/refresh behavior. Current unsaved drafts already have generated IDs, so explicit new/persisted state remains a future UX refinement.
 
 ### `src/ContactCore.Desktop/ConfirmDialog.axaml`
 
@@ -388,7 +388,7 @@ Desktop MSTest project configuration and reference to the desktop code for non-v
 
 ### `tests/ContactCore.Desktop.Tests/ContactDraftViewModelTests.cs`
 
-Tests preservation of ID/creation timestamp/favorite/archive flags through draft conversion and rejection of non-ISO birthday input.
+Tests preservation of ID/creation timestamp/favorite/archive flags, rejection of non-ISO birthday input, preservation of additional phones/emails/addresses/organizations/groups/tags while editing the visible primary phone/email, non-mutation of the loaded source aggregate, and retention of remaining values when the visible primary phone/email is cleared.
 
 ## Cross-file change map
 
@@ -402,7 +402,7 @@ Use this map when deciding what else must change with a source edit:
 | Backup/restore | BackupService, connection/migrator, DataSafetyCommands/MainWindow picker, tests, storage/security/troubleshooting docs |
 | Preference | Abstraction, JsonAppPreferences, App/Main VM/XAML, tests, user/desktop/accessibility docs |
 | Search | ContactQuery/service/repository, desktop debounce/filter, tests, performance/user docs |
-| Desktop field | ViewModels/XAML/styles, Application/Domain if behavior changes, desktop tests, accessibility/user docs |
+| Desktop field | ViewModels/XAML/styles, aggregate-preservation logic, Application/Domain if behavior changes, desktop tests, accessibility/user docs |
 | Dependency | Directory.Packages.props/project file, CI/release, tests, setup/security/license review |
 | Workflow | `.github/workflows/*`, CI/release docs, permissions/security review |
 | New/removed file | This repository reference and relevant documentation index/maintainer handoff |
