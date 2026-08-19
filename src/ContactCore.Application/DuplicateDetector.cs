@@ -8,6 +8,9 @@ public sealed class DuplicateDetector
 {
     public IReadOnlyList<DuplicateCandidate> Find(IReadOnlyList<Contact> contacts, double minimumScore = 0.55)
     {
+        ArgumentNullException.ThrowIfNull(contacts);
+        minimumScore = Math.Clamp(minimumScore, 0, 1);
+
         var result = new List<DuplicateCandidate>();
         for (var i = 0; i < contacts.Count; i++)
         for (var j = i + 1; j < contacts.Count; j++)
@@ -20,6 +23,9 @@ public sealed class DuplicateDetector
 
     public DuplicateCandidate Compare(Contact left, Contact right)
     {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+
         var reasons = new List<string>();
         var score = 0d;
         var leftName = TextNormalizer.SearchKey(left.DisplayName);
@@ -41,6 +47,10 @@ public sealed class ContactMerger
 {
     public Contact Merge(Contact primary, Contact secondary)
     {
+        ArgumentNullException.ThrowIfNull(primary);
+        ArgumentNullException.ThrowIfNull(secondary);
+        if (primary.Id == secondary.Id) throw new ArgumentException("A contact cannot be merged with itself.", nameof(secondary));
+
         var merged = primary.DeepCopy();
         if (string.IsNullOrWhiteSpace(merged.GivenName)) merged.GivenName = secondary.GivenName;
         if (string.IsNullOrWhiteSpace(merged.FamilyName)) merged.FamilyName = secondary.FamilyName;
@@ -50,12 +60,32 @@ public sealed class ContactMerger
         else if (!string.IsNullOrWhiteSpace(secondary.Notes) && !merged.Notes.Contains(secondary.Notes, StringComparison.Ordinal))
             merged.Notes += Environment.NewLine + Environment.NewLine + secondary.Notes;
         merged.IsFavorite |= secondary.IsFavorite;
-        merged.Phones.AddRange(secondary.Phones.Where(x => !merged.Phones.Any(y => TextNormalizer.PhoneKey(y.Number) == TextNormalizer.PhoneKey(x.Number))));
-        merged.Emails.AddRange(secondary.Emails.Where(x => !merged.Emails.Any(y => TextNormalizer.SearchKey(y.Address) == TextNormalizer.SearchKey(x.Address))));
-        merged.Addresses.AddRange(secondary.Addresses.Where(x => !merged.Addresses.Any(y => y.Label == x.Label && y.Street == x.Street && y.City == x.City)));
-        merged.Organizations.AddRange(secondary.Organizations.Where(x => !merged.Organizations.Any(y => TextNormalizer.SearchKey(y.Name) == TextNormalizer.SearchKey(x.Name))));
+
+        foreach (var phone in secondary.Phones.Where(x => !merged.Phones.Any(y => TextNormalizer.PhoneKey(y.Number) == TextNormalizer.PhoneKey(x.Number))))
+            merged.Phones.Add(phone with { Id = Guid.NewGuid() });
+        foreach (var email in secondary.Emails.Where(x => !merged.Emails.Any(y => TextNormalizer.SearchKey(y.Address) == TextNormalizer.SearchKey(x.Address))))
+            merged.Emails.Add(email with { Id = Guid.NewGuid() });
+        foreach (var address in secondary.Addresses.Where(x => !merged.Addresses.Any(y => SameAddress(y, x))))
+            merged.Addresses.Add(address with { Id = Guid.NewGuid() });
+        foreach (var organization in secondary.Organizations.Where(x => !merged.Organizations.Any(y => SameOrganization(y, x))))
+            merged.Organizations.Add(organization with { Id = Guid.NewGuid() });
+
         merged.Groups.AddRange(secondary.Groups.Where(x => !merged.Groups.Any(y => y.Id == x.Id || TextNormalizer.SearchKey(y.Name) == TextNormalizer.SearchKey(x.Name))));
         merged.Tags.AddRange(secondary.Tags.Where(x => !merged.Tags.Any(y => y.Id == x.Id || TextNormalizer.SearchKey(y.Name) == TextNormalizer.SearchKey(x.Name))));
+        merged.UpdatedAt = DateTimeOffset.UtcNow;
         return merged;
     }
+
+    private static bool SameAddress(ContactAddress left, ContactAddress right) =>
+        TextNormalizer.SearchKey(left.Label) == TextNormalizer.SearchKey(right.Label) &&
+        TextNormalizer.SearchKey(left.Street) == TextNormalizer.SearchKey(right.Street) &&
+        TextNormalizer.SearchKey(left.City) == TextNormalizer.SearchKey(right.City) &&
+        TextNormalizer.SearchKey(left.Region) == TextNormalizer.SearchKey(right.Region) &&
+        TextNormalizer.SearchKey(left.PostalCode) == TextNormalizer.SearchKey(right.PostalCode) &&
+        TextNormalizer.SearchKey(left.Country) == TextNormalizer.SearchKey(right.Country);
+
+    private static bool SameOrganization(OrganizationAffiliation left, OrganizationAffiliation right) =>
+        TextNormalizer.SearchKey(left.Name) == TextNormalizer.SearchKey(right.Name) &&
+        TextNormalizer.SearchKey(left.Title ?? string.Empty) == TextNormalizer.SearchKey(right.Title ?? string.Empty) &&
+        TextNormalizer.SearchKey(left.Department ?? string.Empty) == TextNormalizer.SearchKey(right.Department ?? string.Empty);
 }
