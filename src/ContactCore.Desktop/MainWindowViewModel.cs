@@ -12,6 +12,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly DuplicateService _duplicates;
     private readonly IBackupService _backups;
     private Contact? _editingContact;
+    private bool _refreshPending;
 
     public MainWindowViewModel(ContactService contacts, DuplicateService duplicates, IBackupService backups)
     {
@@ -57,7 +58,12 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (IsBusy) return;
+        if (IsBusy)
+        {
+            _refreshPending = true;
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -75,6 +81,11 @@ public partial class MainWindowViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            if (_refreshPending)
+            {
+                _refreshPending = false;
+                _ = RefreshAsync();
+            }
         }
     }
 
@@ -85,6 +96,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             ValidationMessage = string.Empty;
             IsBusy = true;
+            var wasNew = SelectedContact is null;
             var contact = (_editingContact ?? SelectedContact ?? new Contact()).DeepCopy();
             contact.GivenName = GivenName;
             contact.FamilyName = FamilyName;
@@ -100,7 +112,7 @@ public partial class MainWindowViewModel : ObservableObject
             IsBusy = false;
             await RefreshAsync();
             SelectedContact = Items.FirstOrDefault(item => item.Id == saved.Id);
-            StatusMessage = duplicateMatches.Count > 0 && contact.Id != SelectedContact?.Id
+            StatusMessage = wasNew && duplicateMatches.Count > 0
                 ? $"Contact saved; {duplicateMatches.Count} possible duplicate match{(duplicateMatches.Count == 1 ? string.Empty : "es")} found."
                 : "Contact saved";
         }
