@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: osx-x64
+            os: macos-latest
+          - rid: osx-arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore ContactCore.slnx
+
+      - name: Test
+        run: dotnet test ContactCore.slnx -c Release --no-restore
+
+      - name: Publish
+        shell: bash
+        run: >-
+          dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o artifacts/${{ matrix.rid }}
+
+      - name: Package
+        shell: bash
+        run: |
+          cd artifacts
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "contactcore-${{ github.ref_name }}-${{ matrix.rid }}.zip" "${{ matrix.rid }}/*"
+          else
+            tar -czf "contactcore-${{ github.ref_name }}-${{ matrix.rid }}.tar.gz" "${{ matrix.rid }}"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: contactcore-${{ matrix.rid }}
+          path: artifacts/contactcore-${{ github.ref_name }}-${{ matrix.rid }}.*
+
+  release:
+    name: GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: contactcore-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release-assets/*
