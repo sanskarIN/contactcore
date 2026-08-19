@@ -1,8 +1,12 @@
 # Changelog
 
-All notable changes to ContactCore are documented here. The project intends to use Semantic Versioning for published releases. Until a version is tagged, work remains under **Unreleased**.
+All notable changes to ContactCore are documented here. The project follows Semantic Versioning for published releases.
 
 ## [Unreleased]
+
+No changes have been recorded after the 2.0.12 release-preparation checkpoint.
+
+## [2.0.12] - 2026-08-19
 
 ### Added
 
@@ -21,8 +25,17 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Settings/About/privacy surface with System/Light/Dark theme, reduced-motion preference, and permanent-delete confirmation preference.
 - Keyboard shortcuts (`Ctrl+N`, editor-only `Ctrl+S`, `Ctrl+F`, `Esc`) and explicit visible-focus styling.
 - Cross-platform GitHub Actions CI definitions, CodeQL, Dependabot, and tag-driven release publishing.
+- Version-checked release preflight: release tags must match the project version resolved from `Directory.Build.props`.
+- Platform-specific packaged release archives (`.zip` on Windows, `.tar.gz` on Linux/macOS) and generated `SHA256SUMS.txt` checksums.
 - Documentation hub plus user/setup/architecture/data model/desktop UI/import-export/storage/security/accessibility/performance/development/testing/CI/release/troubleshooting/maintainer/ADR/repository-reference documentation.
 - Regression tests across all four layers, including rich-editor identity/data behavior, atomic duplicate merge rollback, parser hardening, paths/preferences/redaction, repository rich-field/query behavior, and backup/restore safety.
+
+### Versioning
+
+- Centralized the source version at **2.0.12** in `Directory.Build.props`.
+- Set `Version`/`VersionPrefix` to `2.0.12`, `AssemblyVersion`/`FileVersion` to `2.0.12.0`, and `InformationalVersion` to `2.0.12`.
+- Release automation now reads the built project version and refuses mismatched tags such as attempting to publish `v2.0.13` from 2.0.12 source metadata.
+- Reduced release-job permissions: build/publish jobs use read-only repository access and only the final GitHub Release job receives `contents: write`.
 
 ### Changed
 
@@ -30,13 +43,13 @@ All notable changes to ContactCore are documented here. The project intends to u
 - `ContactService.ImportAsync` normalizes and validates the complete batch before persistence and prefixes validation fields with the imported contact index.
 - `ContactService.MergeAsync` loads both records, uses `ContactMerger`, normalizes/validates the survivor aggregate, and delegates the destructive write to the repository transaction.
 - `SqliteContactRepository.MergeAsync` writes the complete survivor aggregate and deletes the secondary contact in one transaction; a missing secondary row causes rollback.
-- Contact-service normalization now covers addresses, organizations, groups, and tags in addition to scalar/phone/email fields.
+- Contact-service normalization covers addresses, organizations, groups, and tags in addition to scalar/phone/email fields.
 - User search text is trimmed and SQLite `LIKE` wildcard characters `%`, `_`, and backslash are escaped as literals.
 - Duplicate matching/merge logic has null/self-merge safeguards, threshold clamping, normalized comparison, structural de-duplication for richer child records, and fresh IDs for copied secondary child rows.
 - The editor preserves original contact ID, creation timestamp, and repeated child IDs for rows that remain.
 - Blank newly added rich rows are ignored; legacy label-only addresses remain preservable.
 - Case-insensitive duplicate group/tag rows are collapsed at draft conversion while the first row identity is retained.
-- Unsaved **Delete / discard** now discards locally rather than flowing through database deletion/confirmation.
+- Unsaved **Delete / discard** discards locally rather than flowing through database deletion/confirmation.
 - `Ctrl+S` is restricted to the visible contact editor so Settings/Data Tools/Duplicate Review cannot accidentally save a stale draft.
 - Preferences use temp-file replacement; malformed JSON falls back to safe defaults.
 - Runtime database key loading occurs even when no settings file exists yet and is excluded from serialized `settings.json`.
@@ -44,7 +57,8 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Backup/recovery filenames include timestamp plus random identity to avoid collisions.
 - Desktop import is bounded at 5,000,000 characters and supports storage-provider portability for backup picker inputs.
 - Desktop error/status presentation sanitizes likely PII patterns and caps diagnostic output.
-- README and deep documentation now describe the implemented full editor and interactive duplicate merge rather than the retired compact-editor limitation.
+- README and deep documentation describe the implemented full editor and interactive duplicate merge rather than the retired compact-editor limitation.
+- Temporary documentation addenda created during the audit were folded into the canonical guides/reference and removed.
 
 ### Import/export hardening
 
@@ -80,6 +94,7 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Batch import is validated before one-transaction persistence.
 - Validation/parser messages avoid intentionally echoing invalid private values.
 - CSV spreadsheet-formula neutralization is **not** claimed; formula-like text is preserved and warning/documentation make the boundary explicit.
+- Release workflow permissions follow least privilege until the release-creation step.
 
 ### Testing
 
@@ -107,4 +122,4 @@ All notable changes to ContactCore are documented here. The project intends to u
 
 ### Documentation checkpoint
 
-The documentation pass is being kept synchronized with the implemented branch. See `docs/README.md` for navigation, `docs/repository-reference.md` for tracked-file coverage, and `what_changed.md` for the continuation/audit checkpoint and verification state.
+The 2.0.12 documentation pass is synchronized with the intended release branch. See `docs/README.md` for navigation, `docs/repository-reference.md` for tracked-file coverage, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
