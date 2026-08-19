@@ -5,6 +5,7 @@ namespace ContactCore.Application;
 public sealed class ContactService(IContactRepository repository)
 {
     public Task InitializeAsync(CancellationToken cancellationToken = default) => repository.InitializeAsync(cancellationToken);
+    public Task<int> CountAsync(CancellationToken cancellationToken = default) => repository.CountAsync(cancellationToken);
 
     public Task<IReadOnlyList<Contact>> SearchAsync(ContactQuery query, CancellationToken cancellationToken = default) =>
         repository.SearchAsync(query, cancellationToken);
@@ -21,6 +22,30 @@ public sealed class ContactService(IContactRepository repository)
         var issues = ContactValidation.Validate(contact);
         if (issues.Count > 0) throw new ContactValidationException(issues);
         await repository.UpsertAsync(contact, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<int> ImportAsync(IEnumerable<Contact> contacts, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(contacts);
+        var count = 0;
+        foreach (var contact in contacts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await SaveAsync(contact, cancellationToken).ConfigureAwait(false);
+            count++;
+        }
+        return count;
+    }
+
+    public async Task<Contact> MergeAsync(Guid primaryId, Guid secondaryId, CancellationToken cancellationToken = default)
+    {
+        if (primaryId == secondaryId) throw new ArgumentException("A contact cannot be merged with itself.");
+        var primary = await RequireAsync(primaryId, cancellationToken).ConfigureAwait(false);
+        var secondary = await RequireAsync(secondaryId, cancellationToken).ConfigureAwait(false);
+        var merged = new ContactMerger().Merge(primary, secondary);
+        await SaveAsync(merged, cancellationToken).ConfigureAwait(false);
+        await repository.DeleteAsync(secondaryId, cancellationToken).ConfigureAwait(false);
+        return merged;
     }
 
     public async Task SetFavoriteAsync(Guid id, bool value, CancellationToken cancellationToken = default)

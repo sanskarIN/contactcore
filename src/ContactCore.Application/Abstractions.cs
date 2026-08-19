@@ -25,6 +25,7 @@ public interface IAppPreferences
     string Theme { get; set; }
     bool ReducedMotion { get; set; }
     bool ConfirmPermanentDelete { get; set; }
+    bool HasCompletedOnboarding { get; set; }
     string? DatabaseKey { get; set; }
     void Save();
 }
