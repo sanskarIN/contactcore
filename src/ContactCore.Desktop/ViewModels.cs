@@ -131,6 +131,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string footerText = "Ready";
     [ObservableProperty] private string selectedTheme = "System";
     [ObservableProperty] private bool reducedMotion;
+    [ObservableProperty] private bool confirmPermanentDelete = true;
     private char? _letter;
 
     partial void OnSearchTextChanged(string value) => _ = DebouncedRefreshAsync();
@@ -181,29 +182,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             await _service.SaveAsync(Draft.ToContact());
             StatusMessage = "Saved locally.";
-            await RefreshAsync();
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = RedactingLog.Sanitize(ex.Message);
-        }
-    }
-
-    [RelayCommand]
-    private async Task DeleteAsync()
-    {
-        if (Draft.Id == Guid.Empty)
-        {
-            CancelEdit();
-            return;
-        }
-
-        try
-        {
-            await _service.DeleteAsync(Draft.Id);
-            IsEditorVisible = false;
-            SelectedContact = null;
-            StatusMessage = "Contact permanently deleted.";
             await RefreshAsync();
         }
         catch (Exception ex)
@@ -353,6 +331,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IsDataToolsVisible = false;
         SelectedTheme = NormalizeTheme(_preferences.Theme);
         ReducedMotion = _preferences.ReducedMotion;
+        ConfirmPermanentDelete = _preferences.ConfirmPermanentDelete;
         IsSettingsVisible = true;
         StatusMessage = "";
     }
@@ -363,6 +342,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         SelectedTheme = NormalizeTheme(SelectedTheme);
         _preferences.Theme = SelectedTheme;
         _preferences.ReducedMotion = ReducedMotion;
+        _preferences.ConfirmPermanentDelete = ConfirmPermanentDelete;
         _preferences.Save();
         ThemeChangeRequested?.Invoke(SelectedTheme);
         IsSettingsVisible = false;
