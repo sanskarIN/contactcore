@@ -7,6 +7,8 @@ using ContactCore.Infrastructure;
 
 namespace ContactCore.Desktop;
 
+public sealed record PickedTextFile(string Name, string Content);
+
 public sealed partial class ContactListItemViewModel(Contact contact) : ObservableObject
 {
     public Contact Model { get; } = contact;
@@ -99,11 +101,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public Action? FocusSearchRequested { get; set; }
     public Action<string>? ThemeChangeRequested { get; set; }
+    public Func<Task<PickedTextFile?>>? PickImportTextRequested { get; set; }
+    public Func<string, string, Task<bool>>? SaveTextRequested { get; set; }
     public ObservableCollection<ContactListItemViewModel> Contacts { get; } = [];
     public IReadOnlyList<string> Alphabet { get; }
     public IReadOnlyList<string> ThemeOptions { get; }
     public ContactDraftViewModel Draft { get; }
     public string DataDirectory => _paths.DataDirectory;
+    public string BackupDirectory => _paths.BackupDirectory;
     public string AboutSummary => "ContactCore • MIT License • Made by the Sanskar";
     public string SupportSummary => "sanskarin@outlook.in • supportramsandesh@gmail.com";
     public string ProjectSummary => "github.com/sanskarIN/contactcore • buymeacoffee.com/sanskarIN";
@@ -115,6 +120,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool showAll = true;
     [ObservableProperty] private bool isEditorVisible;
     [ObservableProperty] private bool isSettingsVisible;
+    [ObservableProperty] private bool isDataToolsVisible;
     [ObservableProperty] private string editorTitle = "Contact details";
     [ObservableProperty] private string statusMessage = "";
     [ObservableProperty] private string listHeading = "All contacts";
@@ -130,6 +136,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         if (value is null) return;
         IsSettingsVisible = false;
+        IsDataToolsVisible = false;
         Draft.Load(value.Model.DeepCopy());
         IsEditorVisible = true;
         EditorTitle = value.DisplayName;
@@ -157,6 +164,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         SelectedContact = null;
         IsSettingsVisible = false;
+        IsDataToolsVisible = false;
         Draft.Load(new Contact());
         IsEditorVisible = true;
         EditorTitle = "New contact";
@@ -204,9 +212,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void CancelEdit()
     {
-        if (IsSettingsVisible)
+        if (IsSettingsVisible || IsDataToolsVisible)
         {
             IsSettingsVisible = false;
+            IsDataToolsVisible = false;
             StatusMessage = "";
             return;
         }
@@ -268,13 +277,64 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ShowDataToolsAsync()
+    private void ShowDataTools()
+    {
+        SelectedContact = null;
+        IsEditorVisible = false;
+        IsSettingsVisible = false;
+        IsDataToolsVisible = true;
+        StatusMessage = "";
+    }
+
+    [RelayCommand]
+    private async Task ImportContactsAsync()
+    {
+        if (PickImportTextRequested is null)
+        {
+            StatusMessage = "File picker is unavailable on this platform.";
+            return;
+        }
+
+        try
+        {
+            var picked = await PickImportTextRequested();
+            if (picked is null) return;
+            var extension = Path.GetExtension(picked.Name);
+            var parsed = extension.Equals(".vcf", StringComparison.OrdinalIgnoreCase) || extension.Equals(".vcard", StringComparison.OrdinalIgnoreCase)
+                ? VCardCodec.Import(picked.Content)
+                : ContactCsvCodec.Import(picked.Content);
+            var count = await _service.ImportAsync(parsed.Contacts);
+            StatusMessage = parsed.Warnings.Count == 0
+                ? $"Imported {count} {(count == 1 ? "contact" : "contacts")} atomically."
+                : $"Imported {count} {(count == 1 ? "contact" : "contacts")} with {parsed.Warnings.Count} warning(s).";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = RedactingLog.Sanitize(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExportCsvAsync()
+    {
+        await ExportTextAsync("contactcore-contacts.csv", contacts => ContactCsvCodec.Export(contacts));
+    }
+
+    [RelayCommand]
+    private async Task ExportVCardAsync()
+    {
+        await ExportTextAsync("contactcore-contacts.vcf", contacts => VCardCodec.Export(contacts));
+    }
+
+    [RelayCommand]
+    private async Task CreateBackupAsync()
     {
         Directory.CreateDirectory(_paths.BackupDirectory);
         try
         {
             var path = await _backup.CreateBackupAsync(_paths.BackupDirectory);
-            StatusMessage = $"Backup created: {Path.GetFileName(path)}";
+            StatusMessage = $"Verified backup created: {Path.GetFileName(path)}";
         }
         catch (Exception ex)
         {
@@ -287,6 +347,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         SelectedContact = null;
         IsEditorVisible = false;
+        IsDataToolsVisible = false;
         SelectedTheme = NormalizeTheme(_preferences.Theme);
         ReducedMotion = _preferences.ReducedMotion;
         IsSettingsVisible = true;
@@ -303,6 +364,26 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ThemeChangeRequested?.Invoke(SelectedTheme);
         IsSettingsVisible = false;
         StatusMessage = "Settings saved locally.";
+    }
+
+    private async Task ExportTextAsync(string suggestedName, Func<IReadOnlyList<Contact>, string> encode)
+    {
+        if (SaveTextRequested is null)
+        {
+            StatusMessage = "File picker is unavailable on this platform.";
+            return;
+        }
+
+        try
+        {
+            var contacts = await _service.SearchAsync(new ContactQuery(IncludeArchived: true));
+            var saved = await SaveTextRequested(suggestedName, encode(contacts));
+            if (saved) StatusMessage = $"Exported {contacts.Count} {(contacts.Count == 1 ? "contact" : "contacts")}.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = RedactingLog.Sanitize(ex.Message);
+        }
     }
 
     private static string NormalizeTheme(string? value) => value?.Trim().ToLowerInvariant() switch
