@@ -12,7 +12,7 @@ Central versions live in `Directory.Packages.props`:
 - `MSTest`;
 - `coverlet.collector`.
 
-The repository targets .NET 10 and treats build warnings as errors.
+The repository targets .NET 10, identifies the current application version as **2.0.12**, and treats build warnings as errors.
 
 ## Run the full quality sequence
 
@@ -31,13 +31,14 @@ Project: `tests/ContactCore.Domain.Tests`
 
 `ContactValidationTests.cs` covers current validation/normalization behavior including:
 
-- a representative valid contact;
+- representative valid contacts;
 - malformed email detection;
 - non-echoing invalid email/phone validation messages;
 - Unicode/accent search normalization;
-- trimming/lowercasing search keys.
+- trimming/lowercasing search keys;
+- boundary/model behavior represented by the current suite, including display/deep-copy/phone-key cases added during hardening.
 
-Useful future boundary additions include exact name/note length limits, phone length edges, combining-mark cases, `PhoneKey` punctuation/country-code behavior, display-name fallback, and deeper `DeepCopy` independence cases.
+Useful future additions can still target unusual Unicode/combining-mark combinations and any new validation rule introduced after 2.0.12.
 
 ## Application tests
 
@@ -48,6 +49,9 @@ Project: `tests/ContactCore.Application.Tests`
 Current coverage includes:
 
 - save normalization for scalar values, phone label/number, and email label/address;
+- rich-field save normalization for address label/street/city/region/postal/country;
+- organization name/title normalization and whitespace-to-null optional department behavior;
+- group and tag name normalization;
 - timestamp refresh on save;
 - whole-batch import validation before any repository bulk write;
 - imported validation-field indexing such as `Contact[2].Email`;
@@ -56,7 +60,7 @@ Current coverage includes:
 - one shared import update timestamp;
 - search-text trimming while all other query filters are preserved.
 
-The production service additionally normalizes addresses, organizations, groups, and tags. Focused unit assertions for every one of those richer normalization branches remain useful future coverage.
+The service normalization contract for every current repeated collection is therefore directly asserted rather than only inferred from implementation.
 
 ### `DuplicateDetectorTests.cs`
 
@@ -119,9 +123,11 @@ Coverage includes:
 Coverage includes:
 
 - survivor aggregate update plus secondary deletion as one successful operation;
-- rollback of the attempted survivor update when the requested secondary contact no longer exists.
+- rollback of the attempted survivor update when the requested secondary contact no longer exists;
+- rejection when the reviewed primary contact disappeared before persistence, proving a stale merge cannot silently recreate/resurrect that primary;
+- preservation of the remaining secondary record when a missing-primary merge is rejected.
 
-This is the critical consistency regression for destructive duplicate merge.
+Together these tests protect both stale-record directions around the destructive duplicate merge transaction.
 
 ### `BackupServiceTests.cs`
 
@@ -191,6 +197,8 @@ The following remain valuable candidates for future view-model/Avalonia integrat
 - keyboard/focus behavior inside a running Avalonia window;
 - repeated-row reorder behavior if reorder controls are added.
 
+These are documented follow-up test opportunities, not evidence that the current implemented lower-layer consistency tests are incomplete or failing.
+
 ## Temporary-data hygiene
 
 Infrastructure tests should:
@@ -206,7 +214,7 @@ Never point tests at the default ContactCore user data directory.
 
 Prefer behavior-oriented names such as:
 
-`Merge_rolls_back_primary_update_when_secondary_disappeared`
+`Merge_does_not_recreate_primary_when_primary_disappeared`
 
 A good name communicates the precondition/action/observable contract rather than a private implementation detail.
 
