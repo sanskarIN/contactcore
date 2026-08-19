@@ -50,6 +50,24 @@ public sealed class BackupServiceTests
     }
 
     [TestMethod]
+    public async Task Restore_retains_verified_pre_restore_snapshot_of_previous_active_state()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Backup state" });
+        var backupPath = await _backup.CreateBackupAsync(_paths.BackupDirectory);
+        await _repository.UpsertAsync(new Contact { GivenName = "Current before restore" });
+
+        await _backup.RestoreBackupAsync(backupPath);
+
+        var recoveryFiles = Directory.GetFiles(_paths.BackupDirectory, "pre-restore-*.db");
+        Assert.AreEqual(1, recoveryFiles.Length, "One pre-restore snapshot should be retained for this restore attempt.");
+        var recoveryFactory = new SqliteConnectionFactory(recoveryFiles[0]);
+        var recoveryRepository = new SqliteContactRepository(recoveryFactory, new DatabaseMigrator(recoveryFactory));
+        await recoveryRepository.InitializeAsync();
+        var recoveryNames = (await recoveryRepository.SearchAsync(new ContactQuery())).Select(x => x.GivenName).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "Backup state", "Current before restore" }, recoveryNames);
+    }
+
+    [TestMethod]
     public async Task Missing_backup_is_rejected_before_active_database_changes()
     {
         await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
