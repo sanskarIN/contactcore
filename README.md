@@ -23,14 +23,16 @@ ContactCore keeps a useful address book on your own computer without mandatory a
 ## Current capabilities
 
 - Create and edit names, nickname, birthday, notes, favorite state, and archive state.
-- Add, edit, and remove **multiple** phone numbers and email addresses while preserving each child record identity.
-- Add, edit, and remove postal addresses and organization affiliations.
-- Add, edit, and remove groups and tags as independent rows, including names containing commas or semicolons.
-- Preserve contact IDs, creation timestamps, repeated-field IDs, and complete aggregate state through the editor.
+- Add, edit, and remove **multiple** phone numbers and email addresses while preserving each contact-owned child record identity.
+- Add, edit, and remove postal addresses and organization affiliations with stable contact-owned child IDs.
+- Add, edit, and remove groups and tags as independent shared-dictionary assignments, including names containing commas or semicolons.
+- Preserve contact ID, creation timestamp, complete aggregate state, contact-owned repeated IDs, and unchanged group/tag shared identities through the editor.
+- Treat a true per-contact group/tag rename as reassignment to a new shared dictionary identity rather than reusing one global dictionary primary key for a different name.
 - Distinguish unsaved drafts from persisted contacts so discarding a new draft never invokes permanent database deletion.
 - Local search across names, phones, and emails; favorites/archive filters; A–Z navigation; race-safe debounced search.
 - CSV and focused vCard 4.0 import/export codecs with bounded desktop import, parser warnings, whole-batch validation, and atomic persistence.
 - Duplicate scoring with an interactive candidate list, matching evidence, side-by-side record preview, explicit survivor choice, destructive confirmation, and one-transaction merge/delete persistence.
+- Reject stale duplicate merges if either reviewed record disappeared, including protection against recreating a removed chosen survivor from stale UI state.
 - SQLite schema migrations, foreign keys, indexed queries, aggregate transactions, literal wildcard escaping, and future-schema rejection.
 - SQLite-native backups with integrity/schema-identity verification.
 - Staged restore with pre-restore recovery snapshots, migration/verification before switch, and rollback handling.
@@ -44,7 +46,7 @@ ContactCore keeps a useful address book on your own computer without mandatory a
 
 ## Current limitations and boundaries
 
-The contact editor now exposes the full persisted aggregate used by the current data model, but repeated fields are **add/edit/remove** rather than drag-reorderable. Groups and tags are editable per contact; there is not yet a separate global taxonomy-management screen.
+The contact editor exposes the full persisted aggregate used by the current data model, but repeated fields are **add/edit/remove** rather than drag-reorderable. Groups and tags are editable per contact; there is not yet a separate global taxonomy-management/rename/cleanup screen. Because groups/tags are shared dictionaries, ordinary per-contact rename is intentionally implemented as reassignment, and orphaned dictionary rows can remain until a future explicit taxonomy cleanup feature defines deletion semantics.
 
 Duplicate merge is intentionally destructive after confirmation. The selected survivor keeps its identity and preferred existing scalar values while unique child values are combined; the secondary record is removed in the same SQLite transaction. There is no general-purpose undo stack. Use verified backups for recovery needs.
 
@@ -155,7 +157,7 @@ Use the verified SQLite backup workflow for full database recovery. The desktop 
 
 The solution is a modular monolith with Domain, Application, Infrastructure, and Desktop layers. Business rules do not depend on Avalonia or SQLite; Infrastructure implements Application abstractions; Desktop is the composition root/platform adapter.
 
-Destructive duplicate merge crosses the same boundaries deliberately: Application computes and validates the merged aggregate, then the repository updates the survivor and deletes the secondary record in one SQLite transaction.
+Destructive duplicate merge crosses the same boundaries deliberately: Application reloads/computes/validates the merged aggregate, then the repository verifies both reviewed records still exist before updating the survivor and deleting the secondary record in one SQLite transaction.
 
 Read [`docs/architecture.md`](docs/architecture.md) and the [`docs/adr/`](docs/adr/) records.
 
