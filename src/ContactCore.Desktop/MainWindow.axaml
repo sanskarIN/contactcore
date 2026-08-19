@@ -191,16 +191,44 @@
               </Border>
 
               <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                <StackPanel>
-                  <TextBlock Text="Groups" Classes="FieldLabel" />
-                  <TextBox Watermark="Friends, Family, Project Team" Text="{Binding Draft.GroupsText, Mode=TwoWay}" />
-                  <TextBlock Text="Separate names with commas or semicolons." Classes="Muted" FontSize="11" />
-                </StackPanel>
-                <StackPanel Grid.Column="1">
-                  <TextBlock Text="Tags" Classes="FieldLabel" />
-                  <TextBox Watermark="Important, Client" Text="{Binding Draft.TagsText, Mode=TwoWay}" />
-                  <TextBlock Text="Duplicate names are collapsed case-insensitively." Classes="Muted" FontSize="11" />
-                </StackPanel>
+                <Border Classes="SettingsCard">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="Groups" FontSize="18" FontWeight="SemiBold" />
+                      <Button Grid.Column="1" Content="Add group" Command="{Binding Draft.AddGroupCommand}" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Draft.Groups}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
+                            <TextBox Watermark="Group name" Text="{Binding Name, Mode=TwoWay}" />
+                            <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="Names are stored exactly; repeated names are collapsed case-insensitively on save." Classes="Muted" FontSize="11" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="SettingsCard">
+                  <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="Tags" FontSize="18" FontWeight="SemiBold" />
+                      <Button Grid.Column="1" Content="Add tag" Command="{Binding Draft.AddTagCommand}" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Draft.Tags}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
+                            <TextBox Watermark="Tag name" Text="{Binding Name, Mode=TwoWay}" />
+                            <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="Comma and semicolon characters are allowed because each tag is an independent row." Classes="Muted" FontSize="11" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
               </Grid>
 
               <StackPanel>
