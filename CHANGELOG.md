@@ -13,7 +13,7 @@ No changes have been recorded after the 2.0.12 release-preparation checkpoint.
 - Cross-platform Avalonia desktop shell for Windows, macOS, and Linux.
 - Layered Domain/Application/Infrastructure/Desktop solution plus one test project per production layer.
 - Rich contact model for names, birthday, notes, favorite/archive state, multiple phones/emails/addresses/organizations, groups, and tags.
-- Full desktop editing for all repeated contact collections in the current model, including add/edit/remove controls and stable child identities.
+- Full desktop editing for all repeated contact collections in the current model, including add/edit/remove controls and stable contact-owned child identities.
 - Independent group/tag rows so names containing commas or semicolons round-trip exactly.
 - Explicit persisted-versus-unsaved draft state.
 - SQLite contact persistence with ordered schema migrations, foreign keys, indexes, transactional aggregate updates, literal search wildcard handling, and case-insensitive group/tag identities.
@@ -28,7 +28,7 @@ No changes have been recorded after the 2.0.12 release-preparation checkpoint.
 - Version-checked release preflight: release tags must match the project version resolved from `Directory.Build.props`.
 - Platform-specific packaged release archives (`.zip` on Windows, `.tar.gz` on Linux/macOS) and generated `SHA256SUMS.txt` checksums.
 - Documentation hub plus user/setup/architecture/data model/desktop UI/import-export/storage/security/accessibility/performance/development/testing/CI/release/troubleshooting/maintainer/ADR/repository-reference documentation.
-- Regression tests across all four layers, including rich-editor identity/data behavior, atomic duplicate merge rollback, parser hardening, paths/preferences/redaction, repository rich-field/query behavior, and backup/restore safety.
+- Regression tests across all four layers, including rich-editor identity/data behavior, shared group/tag reassignment, atomic duplicate merge races, parser hardening, paths/preferences/redaction, repository rich-field/query behavior, and backup/restore safety.
 
 ### Versioning
 
@@ -41,14 +41,15 @@ No changes have been recorded after the 2.0.12 release-preparation checkpoint.
 
 - `IContactRepository` includes `UpsertManyAsync` for batch writes and `MergeAsync` for survivor-update/secondary-delete atomicity.
 - `ContactService.ImportAsync` normalizes and validates the complete batch before persistence and prefixes validation fields with the imported contact index.
-- `ContactService.MergeAsync` loads both records, uses `ContactMerger`, normalizes/validates the survivor aggregate, and delegates the destructive write to the repository transaction.
-- `SqliteContactRepository.MergeAsync` writes the complete survivor aggregate and deletes the secondary contact in one transaction; a missing secondary row causes rollback.
+- `ContactService.MergeAsync` reloads both records, uses `ContactMerger`, normalizes/validates the survivor aggregate, and delegates the destructive write to the repository transaction.
+- `SqliteContactRepository.MergeAsync` requires both reviewed records to still exist, writes the complete survivor aggregate, and deletes the secondary contact in one transaction; a missing primary or secondary cancels/rolls back the operation.
 - Contact-service normalization covers addresses, organizations, groups, and tags in addition to scalar/phone/email fields.
 - User search text is trimmed and SQLite `LIKE` wildcard characters `%`, `_`, and backslash are escaped as literals.
-- Duplicate matching/merge logic has null/self-merge safeguards, threshold clamping, normalized comparison, structural de-duplication for richer child records, and fresh IDs for copied secondary child rows.
-- The editor preserves original contact ID, creation timestamp, and repeated child IDs for rows that remain.
+- Duplicate matching/merge logic has null/self-merge safeguards, threshold clamping, normalized comparison, structural de-duplication for richer child records, and fresh IDs for copied secondary contact-owned child rows.
+- The editor preserves original contact ID, creation timestamp, and IDs of contact-owned repeated rows that remain.
+- Unchanged group/tag assignments retain their shared dictionary identities; a true per-contact group/tag rename becomes reassignment to a new dictionary identity, while case-only/normalization-equivalent edits keep the original canonical identity/name.
 - Blank newly added rich rows are ignored; legacy label-only addresses remain preservable.
-- Case-insensitive duplicate group/tag rows are collapsed at draft conversion while the first row identity is retained.
+- Case-insensitive duplicate group/tag rows are collapsed at draft conversion while the first applicable identity is retained.
 - Unsaved **Delete / discard** discards locally rather than flowing through database deletion/confirmation.
 - `Ctrl+S` is restricted to the visible contact editor so Settings/Data Tools/Duplicate Review cannot accidentally save a stale draft.
 - Preferences use temp-file replacement; malformed JSON falls back to safe defaults.
@@ -79,7 +80,9 @@ No changes have been recorded after the 2.0.12 release-preparation checkpoint.
 - Fixed unsaved new-contact deletion semantics.
 - Fixed a keyboard shortcut path that could invoke contact save outside the editor.
 - Fixed group/tag delimiter loss by replacing comma/semicolon serialization in the editor with independent rows.
+- Fixed per-contact group/tag rename handling so an edited shared dictionary row no longer reuses its old ID with a different name, avoiding SQLite primary-key conflicts and unintended global-rename semantics.
 - Fixed blank new address rows so they do not become empty persisted address records while still preserving legacy label-only addresses.
+- Fixed stale-primary duplicate merge behavior so a removed chosen survivor cannot be silently recreated from reviewed UI state.
 
 ### Security and data safety
 
@@ -90,7 +93,7 @@ No changes have been recorded after the 2.0.12 release-preparation checkpoint.
 - Permanent deletion defaults to confirmation enabled; when required confirmation is unavailable, deletion is blocked.
 - Restore always requires desktop confirmation.
 - Duplicate merge always requires confirmation independent of permanent-delete preference.
-- Duplicate merge is transactional across survivor update and secondary deletion.
+- Duplicate merge is transactional across survivor update and secondary deletion and rejects stale review state when either record vanished.
 - Batch import is validated before one-transaction persistence.
 - Validation/parser messages avoid intentionally echoing invalid private values.
 - CSV spreadsheet-formula neutralization is **not** claimed; formula-like text is preserved and warning/documentation make the boundary explicit.
@@ -99,18 +102,20 @@ No changes have been recorded after the 2.0.12 release-preparation checkpoint.
 ### Testing
 
 - Duplicate scoring/merge tests cover child-ID safety and self-merge rejection.
-- Atomic SQLite merge tests cover normal merge and rollback when the secondary contact is missing.
+- Atomic SQLite merge tests cover normal merge, missing-secondary rollback, and missing-primary non-resurrection while preserving the secondary record.
 - CSV/vCard tests cover round-trip behavior, malformed/randomized text boundaries, unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard names/notes, common TYPE mapping, and non-echoing birthday warnings.
-- SQLite tests cover aggregate round-trip, cascade deletion, bulk rollback, rich child persistence/query behavior, and merge transactions.
+- SQLite tests cover aggregate round-trip, cascade deletion, bulk rollback, rich child persistence/query behavior, shared group/tag reassignment, and merge transactions.
 - Backup/restore tests cover verified restore, invalid input protection, schema migration/version boundaries, identity checks, and unique backup naming.
 - Preferences tests cover runtime key non-persistence, first-run key behavior, malformed JSON defaults, and theme normalization.
-- Desktop draft tests cover root identity/timestamps/flags, persisted state, exact birthday parsing, complete repeated-field editing, removal semantics, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
+- Desktop draft tests cover root identity/timestamps/flags, persisted state, exact birthday parsing, complete repeated-field editing, contact-owned ID preservation, shared group/tag rename identity rules, removal semantics, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
+- Contact-service tests cover scalar/phone/email and address/organization/group/tag normalization plus whole-batch import validation/indexing.
 - Path/redaction tests cover environment-path handling and sanitization boundaries.
 
 ### Known limitations
 
 - Repeated rich-field rows support add/edit/remove but not drag/drop reordering.
-- Groups/tags are editable per contact; there is no dedicated global group/tag taxonomy-management UI yet.
+- Groups/tags are editable per contact; there is no dedicated global group/tag taxonomy-management UI or global rename/cleanup workflow yet.
+- Orphaned shared group/tag dictionary rows can remain after the last relationship is removed; ordinary per-contact editing does not silently delete them.
 - Duplicate review uses an in-memory pairwise candidate scan; large address books may require indexed candidate generation before high-scale use.
 - Duplicate merge has confirmation and transaction safety but no general-purpose undo stack.
 - CSV remains a limited interchange format (first phone/email and selected scalar fields), not a full-fidelity backup.
