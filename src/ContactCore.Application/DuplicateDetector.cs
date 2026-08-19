@@ -170,6 +170,14 @@ public sealed class ContactMerger
                 TextNormalizer.SearchKey(y.Country) == TextNormalizer.SearchKey(x.Country))));
         merged.Organizations.AddRange(secondary.Organizations.Where(x =>
             !merged.Organizations.Any(y => TextNormalizer.SearchKey(y.Name) == TextNormalizer.SearchKey(x.Name))));
+        merged.Dates.AddRange(secondary.Dates.Where(x =>
+            !merged.Dates.Any(y =>
+                y.Date == x.Date &&
+                TextNormalizer.SearchKey(y.Label) == TextNormalizer.SearchKey(x.Label))));
+        merged.NoteEntries.AddRange(secondary.NoteEntries.Where(x =>
+            !merged.NoteEntries.Any(y =>
+                TextNormalizer.SearchKey(y.Label) == TextNormalizer.SearchKey(x.Label) &&
+                TextNormalizer.SearchKey(y.Content) == TextNormalizer.SearchKey(x.Content))));
         merged.Groups.AddRange(secondary.Groups.Where(x =>
             !merged.Groups.Any(y => y.Id == x.Id || TextNormalizer.SearchKey(y.Name) == TextNormalizer.SearchKey(x.Name))));
         merged.Tags.AddRange(secondary.Tags.Where(x =>
