@@ -1,12 +1,47 @@
 name: Release
+
 on:
   push:
     tags: ['v*.*.*']
+
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - id: version
+        name: Verify release tag matches project version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(dotnet msbuild src/ContactCore.Desktop/ContactCore.Desktop.csproj -nologo -getProperty:Version | tail -n 1 | tr -d '\r')"
+          if [[ -z "$version" ]]; then
+            echo "Could not resolve the ContactCore project version." >&2
+            exit 1
+          fi
+          if [[ "v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "Release tag '$GITHUB_REF_NAME' does not match project version 'v$version'." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   publish:
+    needs: preflight
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -18,27 +53,60 @@ jobs:
           - os: macos-latest
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - run: dotnet restore ContactCore.slnx
       - run: dotnet test ContactCore.slnx -c Release --no-restore
       - run: dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o artifacts/${{ matrix.rid }}
+
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = "contactcore-v${{ needs.preflight.outputs.version }}-${{ matrix.rid }}.zip"
+          Compress-Archive -Path "artifacts/${{ matrix.rid }}/*" -DestinationPath $archive -Force
+
+      - name: Package Unix artifact
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="contactcore-v${{ needs.preflight.outputs.version }}-${{ matrix.rid }}.tar.gz"
+          tar -czf "$archive" -C "artifacts/${{ matrix.rid }}" .
+
       - uses: actions/upload-artifact@v4
         with:
           name: contactcore-${{ matrix.rid }}
-          path: artifacts/${{ matrix.rid }}
+          path: |
+            contactcore-v${{ needs.preflight.outputs.version }}-${{ matrix.rid }}.zip
+            contactcore-v${{ needs.preflight.outputs.version }}-${{ matrix.rid }}.tar.gz
+          if-no-files-found: error
+
   release:
-    needs: publish
+    needs: [preflight, publish]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - run: find artifacts -type f -print
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          sha256sum contactcore-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: artifacts/**/*
+          files: release-assets/*
