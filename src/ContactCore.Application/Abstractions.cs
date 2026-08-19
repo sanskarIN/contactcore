@@ -10,6 +10,7 @@ public interface IContactRepository
     Task<IReadOnlyList<Contact>> SearchAsync(ContactQuery query, CancellationToken cancellationToken = default);
     Task<Contact?> GetAsync(Guid id, CancellationToken cancellationToken = default);
     Task UpsertAsync(Contact contact, CancellationToken cancellationToken = default);
+    Task UpsertManyAsync(IReadOnlyList<Contact> contacts, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<int> CountAsync(CancellationToken cancellationToken = default);
 }
