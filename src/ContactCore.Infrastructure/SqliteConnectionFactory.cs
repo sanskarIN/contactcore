@@ -15,6 +15,8 @@ public sealed class SqliteConnectionFactory
 
     public string DatabasePath { get; }
 
+    public SqliteConnectionFactory ForPath(string databasePath) => new(databasePath, _keyProvider);
+
     public Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken = default) =>
         OpenPathAsync(DatabasePath, readOnly: false, pooling: true, cancellationToken);
 
