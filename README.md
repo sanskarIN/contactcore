@@ -1,7 +1,7 @@
 <div align="center">
   <img src="src/ContactCore.Desktop/Assets/logo.svg" width="128" alt="ContactCore logo" />
   <h1>ContactCore</h1>
-  <p>A polished, private, offline-first contact book for Windows, macOS, and Linux.</p>
+  <p>A private, offline-first desktop contact manager for Windows, macOS, and Linux.</p>
 
 [![CI](https://github.com/sanskarIN/contactcore/actions/workflows/ci.yml/badge.svg)](https://github.com/sanskarIN/contactcore/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/sanskarIN/contactcore/actions/workflows/codeql.yml/badge.svg)](https://github.com/sanskarIN/contactcore/actions/workflows/codeql.yml)
@@ -11,42 +11,87 @@
 
 ## Why ContactCore
 
-ContactCore keeps a useful address book on your own computer without mandatory accounts, telemetry, or cloud synchronization. It combines a modern Avalonia UI with a layered C# architecture and a transactional SQLite store suitable for a serious open-source portfolio project.
+ContactCore keeps a useful address book on your own computer without mandatory accounts, telemetry, advertising, or cloud synchronization. It combines an Avalonia desktop UI with a layered C# architecture, transactional SQLite persistence, atomic imports, and verified backup/restore safeguards.
 
 > **Made by the Sanskar**
 
-## Features
+## Current capabilities
 
-- Create, edit, favorite, archive, and delete contact data.
-- Multiple phone/email/address/organization domain fields plus birthday, notes, groups, and tags.
-- Fast local search, favorites/archive filters, and alphabetical navigation.
-- CSV and vCard 4.0 codecs with edge-case tests.
-- Duplicate scoring and deterministic merge logic.
-- SQLite migrations, transactions, indexed queries, and integrity-checked backups/restores.
+- Create and edit contact basics: names, birthday, phone, email, notes, favorite, and archived state.
+- Domain/storage model for multiple phones, emails, addresses, organizations, groups, and tags.
+- Local search across names, phones, and emails; favorites/archive filters; A–Z navigation.
+- CSV and focused vCard 4.0 import/export codecs.
+- Whole-batch import validation plus one-transaction persistence.
+- Duplicate scoring and deterministic application-layer merge logic.
+- SQLite schema migrations, foreign keys, indexed queries, aggregate transactions, and future-schema rejection.
+- SQLite-native backups with integrity/schema-identity verification.
+- Staged restore with pre-restore recovery snapshots, migration/verification before switch, and rollback handling.
 - Optional fail-closed integration point for a maintained SQLCipher-compatible SQLite provider.
-- Light/dark/system-ready Avalonia styling, keyboard shortcuts, visible focus, and accessibility-oriented form labels.
-- Offline-first: no mandatory cloud, login, analytics, or advertising dependency.
+- Runtime-only database key handling; normal JSON preferences do not serialize the key.
+- System/Light/Dark themes, visible keyboard focus, shortcuts, local safety preferences, and reduced-motion preference.
+- Permanent-delete confirmation enabled by default; restore always requires desktop confirmation.
+- Cross-platform CI on Windows, Ubuntu, and macOS plus CodeQL analysis.
+- Offline-first: no mandatory account, cloud service, analytics, or advertising dependency.
+
+## Important current UI limitations
+
+The rich `Contact` domain/database model is ahead of the current desktop editor. Today, the main editor exposes **one phone and one email** and does not yet expose addresses, organizations, groups, tags, or additional repeated phone/email rows.
+
+Because repository saves treat the supplied contact as the complete desired aggregate, opening and saving a contact that already contains richer unexposed child data can discard those hidden child collections. Full rich-field preservation/editing is therefore a correctness roadmap item and is documented explicitly in [`docs/desktop-ui.md`](docs/desktop-ui.md) and [`docs/troubleshooting.md`](docs/troubleshooting.md).
+
+The **Find duplicates** button currently reports candidate count/highest score. The application layer contains merge logic, but a complete interactive pair-review/merge screen is not yet present.
+
+## Documentation
+
+Start with the complete documentation index: **[`docs/README.md`](docs/README.md)**.
+
+Key guides:
+
+- [User guide](docs/user-guide.md)
+- [Setup](docs/setup.md)
+- [Architecture](docs/architecture.md)
+- [Data model](docs/data-model.md)
+- [Desktop UI](docs/desktop-ui.md)
+- [Import/export](docs/import-export.md)
+- [Storage, backup, and recovery](docs/storage-backup-recovery.md)
+- [Security engineering](docs/security.md)
+- [Testing](docs/testing.md)
+- [Performance](docs/performance.md)
+- [CI/CD](docs/ci-cd.md)
+- [Release](docs/release.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Maintainer guide](docs/maintainer-guide.md)
+- [Repository file reference](docs/repository-reference.md)
+- [Architecture decision records](docs/adr/)
 
 ## Screenshots
 
-Real screenshots are intentionally deferred until the first verified desktop build. When added, they must use fictional sample contacts only. See `what_changed.md` for the exact release checkpoint.
+Real screenshots are intentionally deferred until a verified desktop build is captured. When added, they must use fictional sample contacts only and be reviewed for private paths/notifications/metadata before publication.
 
-## Supported platforms
+## Supported release targets
+
+Current release automation publishes these runtime identifiers:
 
 | Platform | Target |
 |---|---|
-| Windows | x64 desktop |
-| macOS | x64 and arm64 desktop |
-| Linux | x64 desktop |
+| Windows | `win-x64` |
+| Linux | `linux-x64` |
+| macOS Intel | `osx-x64` |
+| macOS Apple Silicon | `osx-arm64` |
+
+These artifacts are currently documented as self-contained/single-file builds, **not** as signed installers or notarized applications.
 
 ## Technology
 
-- C# / .NET 10
+- C# / .NET 10 (`global.json`: SDK 10.0.100 with `latestFeature` roll-forward)
 - Avalonia 12.1.1
 - CommunityToolkit.Mvvm 8.4.2
 - Microsoft.Data.Sqlite 10.0.10
-- MSTest 4 tests
+- MSTest 4.3.3 across **4 test projects**
+- coverlet collector for CI coverage artifacts
 - GitHub Actions, CodeQL, Dependabot
+
+Package versions are centralized in `Directory.Packages.props`; shared compiler/analyzer rules are in `Directory.Build.props`.
 
 ## Quick start
 
@@ -57,33 +102,56 @@ dotnet restore ContactCore.slnx
 dotnet run --project src/ContactCore.Desktop/ContactCore.Desktop.csproj
 ```
 
-Full setup and OS notes: [`docs/setup.md`](docs/setup.md).
+Full setup, SDK, environment, data-directory, and OS notes: [`docs/setup.md`](docs/setup.md).
 
-## Development and testing
+## Quality commands
 
 ```bash
-dotnet format ContactCore.slnx --verify-no-changes
-dotnet build ContactCore.slnx -c Release
-dotnet test ContactCore.slnx -c Release
+dotnet restore ContactCore.slnx
+dotnet format ContactCore.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.slnx -c Release --no-restore
+dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage"
 ```
 
-See [`docs/development.md`](docs/development.md) and [`docs/testing.md`](docs/testing.md).
+CI performs restore/format/build/test on Windows, Ubuntu, and macOS. See [`docs/testing.md`](docs/testing.md) and [`docs/ci-cd.md`](docs/ci-cd.md).
 
-## Build and release
+## Data location and configuration
 
-Release tags matching `v*.*.*` trigger multi-platform self-contained publishing. The workflow creates Windows x64, Linux x64, macOS x64, and macOS arm64 artifacts. See [`docs/release.md`](docs/release.md).
+By default ContactCore stores local data under the operating system's local application-data location in a `ContactCore` directory. The application derives:
+
+```text
+contactcore.db
+settings.json
+backups/
+```
+
+`CONTACTCORE_DATA_PATH` overrides the **directory**. `CONTACTCORE_DATABASE_KEY` requests keyed SQLite behavior but deliberately fails when no SQLCipher-compatible provider can be verified. Do not put real keys into tracked files.
+
+See [`docs/storage-backup-recovery.md`](docs/storage-backup-recovery.md) and [`docs/security.md`](docs/security.md).
+
+## Import/export vs backup
+
+CSV and vCard are interoperability formats, not full-fidelity ContactCore backups. CSV currently exports only the first phone/email and a limited field set; vCard support is intentionally focused.
+
+Use the verified SQLite backup workflow for full database recovery. The desktop importer bounds selected text at 5,000,000 characters.
 
 ## Architecture
 
-The solution is a modular monolith with Domain, Application, Infrastructure, and Desktop layers. Business rules do not depend on Avalonia or SQLite; infrastructure implements application abstractions; the desktop project is the composition root. Read [`docs/architecture.md`](docs/architecture.md) and [`docs/adr/`](docs/adr/).
+The solution is a modular monolith with Domain, Application, Infrastructure, and Desktop layers. Business rules do not depend on Avalonia or SQLite; infrastructure implements application abstractions; Desktop is the composition root/platform adapter.
+
+Read [`docs/architecture.md`](docs/architecture.md) and the [`docs/adr/`](docs/adr/) records.
 
 ## Security and privacy
 
-ContactCore stores contacts locally and contains no telemetry or mandatory cloud integration. Do not post real databases to public issues. Optional database encryption is deliberately fail-closed and requires a supported SQLCipher-compatible native provider; details are in [`docs/security.md`](docs/security.md), [`SECURITY.md`](SECURITY.md), and [`PRIVACY.md`](PRIVACY.md).
+ContactCore stores contacts locally and contains no mandatory cloud/telemetry integration. Local-first does not automatically mean encrypted-at-rest: the default ordinary SQLite provider is plaintext unless a compatible encryption provider is deliberately integrated.
+
+Do not post real databases, backups, exports, contact screenshots, or encryption keys to public issues. Details: [`docs/security.md`](docs/security.md), [`SECURITY.md`](SECURITY.md), and [`PRIVACY.md`](PRIVACY.md).
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md), follow the Code of Conduct, add tests for behavior changes, and keep commits small and meaningful.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md), follow [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), add regression tests for behavior changes, preserve layer boundaries/data-safety invariants, and keep commits small and meaningful.
+
+Maintainers should also read [`docs/maintainer-guide.md`](docs/maintainer-guide.md).
 
 ## License
 
