@@ -139,6 +139,49 @@
               </StackPanel>
             </StackPanel>
           </ScrollViewer>
+
+          <ScrollViewer IsVisible="{Binding IsDataToolsVisible}">
+            <StackPanel Spacing="18" MaxWidth="720" HorizontalAlignment="Stretch">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel>
+                  <TextBlock Text="Data tools" FontSize="26" FontWeight="SemiBold" />
+                  <TextBlock Text="Portable imports, exports, and verified local backups" Classes="Muted" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Close" Command="{Binding CancelEditCommand}" VerticalAlignment="Top" />
+              </Grid>
+
+              <Border Classes="SettingsCard">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="Import" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="Import CSV or vCard files. The complete file is validated before a single transaction writes any contacts, so a failed import does not leave a partial batch." TextWrapping="Wrap" />
+                  <Button Content="Choose CSV or vCard…" Command="{Binding ImportContactsCommand}" HorizontalAlignment="Left" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="SettingsCard">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="Export" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="Exports include archived contacts and are created only when you choose a destination." TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Export CSV…" Command="{Binding ExportCsvCommand}" />
+                    <Button Content="Export vCard…" Command="{Binding ExportVCardCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="SettingsCard">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="Backup" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="Create a SQLite-native snapshot and run an integrity check before it is reported as successful." TextWrapping="Wrap" />
+                  <TextBlock Text="Backup directory" Classes="FieldLabel" />
+                  <TextBlock Text="{Binding BackupDirectory}" FontFamily="Monospace" TextWrapping="Wrap" />
+                  <Button Content="Create verified backup" Command="{Binding CreateBackupCommand}" HorizontalAlignment="Left" />
+                </StackPanel>
+              </Border>
+
+              <TextBlock Text="{Binding StatusMessage}" Classes="Status" TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
         </Grid>
       </Border>
     </Grid>
