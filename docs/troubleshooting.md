@@ -136,20 +136,38 @@ Search is intentionally debounced by 180 ms and cancels an older pending request
 
 See `performance.md` if this is reproducible at scale.
 
-## Saving an existing rich contact removed repeated data
+## Rich fields are not visible in the compact editor
 
-The underlying model/storage supports multiple phones/emails/addresses/organizations/groups/tags, but the **current desktop draft editor only exposes one phone and one email and does not expose the other repeated collections**.
+The underlying model/storage supports multiple phones/emails/addresses/organizations/groups/tags, but the **current desktop editor directly exposes one phone and one email and does not yet expose controls for the other rich collections**.
 
-Because repository saves replace child collections with the aggregate supplied by the editor, editing/saving a rich contact through this simplified draft can drop unexposed repeated fields.
+Current branch behavior preserves those unexposed values during an ordinary compact edit/save:
 
-If this happened and the data matters:
+- the draft keeps a deep copy of the complete loaded aggregate;
+- editing the visible first phone/email changes only that first item's value while preserving its ID/label/kind;
+- clearing the visible first phone/email removes only that first item;
+- additional phone/email entries remain;
+- addresses, organizations, groups, and tags remain unchanged.
 
-1. do not continue destructive edits;
-2. preserve the current database and any pre-change verified backup;
-3. restore the appropriate verified backup through the Data tools restore flow if that is the correct recovery point;
-4. keep the original backup until you have verified the recovered contact data.
+So not seeing a rich field in the editor does not mean the current code intentionally deletes it. Full direct editing is still planned.
 
-This UI preservation gap is documented as a roadmap item; do not assume full rich-field editing is complete.
+If you are using an **older build from before the preservation fix** and suspect fields were previously removed, or if you reproduce a preservation regression in the current branch:
+
+1. stop making repeated edits to that contact;
+2. preserve the active database and any verified backups;
+3. note the exact ContactCore version/commit;
+4. reproduce with fictional data if possible;
+5. restore the appropriate verified backup only if that is the correct recovery point;
+6. keep the original backup until recovered data has been verified.
+
+A current-branch regression that drops unexposed rich fields should be treated as a data-integrity bug because preservation is now covered by desktop tests and documented as an invariant.
+
+## New unsaved contact shows permanent delete
+
+A newly created `Contact` receives a generated GUID before first persistence. The current desktop delete flow therefore cannot yet distinguish “unsaved draft” solely by `Guid.Empty`, and the UI can present the permanent-delete confirmation even though no database row exists yet.
+
+Confirming in that situation attempts deletion of a non-persisted ID and closes/refreshes the draft; it does not delete another contact. Explicit unsaved/new-contact state is a roadmap UX improvement.
+
+Use `Esc`/Cancel when you simply want to abandon a new draft.
 
 ## Birthday is rejected
 
@@ -244,7 +262,9 @@ An abrupt process/OS termination can still leave temp files. Verify their conten
 
 If confirmation is enabled and a confirmation callback cannot be provided, deletion is intentionally blocked.
 
-If a dialog appears, only affirmative confirmation proceeds. Cancel/close leaves the contact intact.
+If a dialog appears, only affirmative confirmation proceeds. Cancel/close leaves a persisted contact intact.
+
+For a new unsaved draft, see the dedicated section above: current UI state can still present the confirmation even though the generated ID has no persisted row.
 
 ## Duplicate command does not let me merge
 
