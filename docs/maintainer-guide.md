@@ -10,12 +10,13 @@ The following properties should be treated as product invariants unless an expli
 2. Domain rules do not depend on Avalonia or SQLite.
 3. User-controlled SQL values remain parameterized.
 4. Contact aggregate writes and bulk imports remain transactional.
-5. Database schema upgrades are versioned and forward-only; unsupported future schemas are rejected.
-6. Restore validates before replacement and retains a verified pre-restore recovery path.
-7. Requested database encryption fails closed when a compatible provider is unavailable.
-8. Runtime database keys are not serialized into normal preferences.
-9. Destructive desktop actions do not silently bypass a configured confirmation requirement.
-10. Documentation does not overclaim platform, accessibility, encryption, signing, or test verification.
+5. A UI that edits only part of a contact must preserve every unedited aggregate field/child collection.
+6. Database schema upgrades are versioned and forward-only; unsupported future schemas are rejected.
+7. Restore validates before replacement and retains a verified pre-restore recovery path.
+8. Requested database encryption fails closed when a compatible provider is unavailable.
+9. Runtime database keys are not serialized into normal preferences.
+10. Destructive desktop actions do not silently bypass a configured confirmation requirement.
+11. Documentation does not overclaim platform, accessibility, encryption, signing, or test verification.
 
 ## Branch and review workflow
 
@@ -42,7 +43,7 @@ When modifying `Contact` or one of its child records:
 4. update repository load/write code;
 5. update deep-copy and merge behavior where relevant;
 6. update import/export formats only when backwards-compatible or explicitly versioned;
-7. update desktop draft/editor behavior or document that the field is not currently editable;
+7. update desktop draft/editor behavior or preserve/document fields that are not yet directly editable;
 8. add domain, repository, and desktop regression tests as appropriate;
 9. update `data-model.md`, `desktop-ui.md`, and this repository's file reference.
 
@@ -126,11 +127,22 @@ When expanding a format, preserve previously exported data interpretation where 
 
 ## Desktop editor changes
 
-The current draft editor exposes only one phone and one email even though the model supports more. This is a particularly important maintenance hazard because repository saves replace the contact's child collections with the aggregate passed in.
+The current editor exposes only one phone and one email even though the model supports multiple phones/emails plus addresses, organizations, groups, and tags.
 
-Before presenting rich existing contacts as fully editable, expand `ContactDraftViewModel` to preserve/edit all child collections and add regression tests that prove opening/saving a rich contact does not drop unexposed data.
+The compact draft now protects data integrity by retaining a deep copy of the complete loaded aggregate and overlaying only visible changes in `ToContact()`. Existing primary phone/email child identity/label/kind are preserved when edited; clearing a primary removes only that item; additional phone/email values and all unexposed rich collections survive. Desktop regression tests cover those behaviors.
 
-Until then, documentation must continue to state this limitation clearly.
+Maintain this as a **non-negotiable preservation invariant** while building the richer UI. The remaining limitation is direct editability, not hidden-field survival.
+
+Before calling rich editing complete:
+
+- expose collection-aware controls for multiple phones/emails;
+- expose addresses and organizations;
+- expose group/tag assignment and management;
+- define add/edit/remove/reorder semantics;
+- preserve child identities appropriately;
+- test that untouched values remain unchanged;
+- test that intentional removals remove only the selected values;
+- manually verify keyboard/focus/scaling behavior.
 
 ## Search changes
 
