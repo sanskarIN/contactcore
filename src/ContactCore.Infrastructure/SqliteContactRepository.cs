@@ -93,6 +93,11 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (!await ContactExistsAsync(connection, tx, mergedContact.Id, cancellationToken).ConfigureAwait(false))
+                throw new KeyNotFoundException("The primary contact no longer exists, so the merge was cancelled.");
+            if (!await ContactExistsAsync(connection, tx, secondaryId, cancellationToken).ConfigureAwait(false))
+                throw new KeyNotFoundException("The secondary contact no longer exists, so the merge was cancelled.");
+
             await UpsertCoreAsync(connection, tx, mergedContact, cancellationToken).ConfigureAwait(false);
 
             await using var delete = connection.CreateCommand();
@@ -157,6 +162,19 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
             await ExecAsync(connection, tx, "INSERT INTO tags(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", tag.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
             await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_tags(contact_id,tag_id) SELECT $contact,id FROM tags WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
         }
+    }
+
+    private static async Task<bool> ContactExistsAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = "SELECT 1 FROM contacts WHERE id=$id LIMIT 1;";
+        cmd.Parameters.AddWithValue("$id", id.ToString());
+        return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null;
     }
 
     private static async Task<IReadOnlyList<Contact>> LoadContactsAsync(SqliteConnection connection, string suffix, IReadOnlyList<SqliteParameter> parameters, CancellationToken cancellationToken)
