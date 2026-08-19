@@ -13,7 +13,7 @@
             <TextBlock Text="Private, offline-first contacts" Classes="Muted" FontSize="11" />
           </StackPanel>
         </StackPanel>
-        <TextBox x:Name="SearchBox" Grid.Column="1" Watermark="Search names, phones, or emails…"
+        <TextBox x:Name="SearchBox" Grid.Column="1" Watermark="Search names, phones, emails, or notes…"
                  Text="{Binding SearchText, Mode=TwoWay}" MaxWidth="560" HorizontalAlignment="Stretch"
                  AutomationProperties.Name="Search contacts" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
@@ -111,7 +111,7 @@
                     </Grid>
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                       <StackPanel><TextBlock Text="Nickname" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Nickname, Mode=TwoWay}" /></StackPanel>
-                      <StackPanel Grid.Column="1"><TextBlock Text="Birthday (yyyy-MM-dd)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.BirthdayText, Mode=TwoWay}" /></StackPanel>
+                      <StackPanel Grid.Column="1"><TextBlock Text="Primary birthday (yyyy-MM-dd)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.BirthdayText, Mode=TwoWay}" /></StackPanel>
                     </Grid>
                     <StackPanel Orientation="Horizontal" Spacing="20">
                       <CheckBox Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" />
@@ -119,7 +119,7 @@
                     </StackPanel>
                     <StackPanel><TextBlock Text="Groups (comma-separated)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.GroupsText, Mode=TwoWay}" Watermark="Family, Coworkers" /></StackPanel>
                     <StackPanel><TextBlock Text="Tags (comma-separated)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.TagsText, Mode=TwoWay}" Watermark="Emergency, Client" /></StackPanel>
-                    <StackPanel><TextBlock Text="Notes" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="150" TextWrapping="Wrap" /></StackPanel>
+                    <StackPanel><TextBlock Text="Primary notes" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap" /></StackPanel>
                   </StackPanel>
                 </TabItem>
 
@@ -149,6 +149,50 @@
                             <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
                             <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
                           </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </TabItem>
+
+                <TabItem Header="Dates &amp; notes">
+                  <StackPanel Spacing="16" Margin="4,14,4,4">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel>
+                        <TextBlock Text="Additional dates" FontWeight="SemiBold" FontSize="17" />
+                        <TextBlock Text="Keep anniversaries, important dates, or additional birthdays without replacing the primary birthday." Classes="Muted" TextWrapping="Wrap" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Content="Add date" Command="{Binding Draft.AddDateCommand}" VerticalAlignment="Top" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Draft.Dates}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Grid ColumnDefinitions="180,*,Auto" ColumnSpacing="8" Margin="0,4">
+                            <TextBox Text="{Binding Label, Mode=TwoWay}" Watermark="Anniversary" />
+                            <TextBox Grid.Column="1" Text="{Binding DateText, Mode=TwoWay}" Watermark="yyyy-MM-dd" />
+                            <Button Grid.Column="2" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveDateCommand}" CommandParameter="{Binding}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Separator />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel>
+                        <TextBlock Text="Additional notes" FontWeight="SemiBold" FontSize="17" />
+                        <TextBlock Text="Use labeled note entries when one primary notes field is not enough." Classes="Muted" TextWrapping="Wrap" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Content="Add note" Command="{Binding Draft.AddNoteEntryCommand}" VerticalAlignment="Top" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Draft.NoteEntries}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Classes="Card" Margin="0,4">
+                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="8" RowSpacing="8">
+                              <TextBox Text="{Binding Label, Mode=TwoWay}" Watermark="Note label" />
+                              <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveNoteEntryCommand}" CommandParameter="{Binding}" />
+                              <TextBox Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Content, Mode=TwoWay}" AcceptsReturn="True" MinHeight="90" TextWrapping="Wrap" Watermark="Note content" />
+                            </Grid>
+                          </Border>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -218,7 +262,7 @@
           <TextBlock Text="Welcome to ContactCore" FontSize="30" FontWeight="SemiBold" />
           <TextBlock Text="A private, offline-first address book. Your contacts are stored locally, and no sign-in is required." TextWrapping="Wrap" Classes="Muted" />
           <StackPanel Spacing="8">
-            <TextBlock Text="• Create contacts with multiple phones, emails, addresses, organizations, groups, and tags." TextWrapping="Wrap" />
+            <TextBlock Text="• Create contacts with multiple phones, emails, addresses, dates, notes, organizations, groups, and tags." TextWrapping="Wrap" />
             <TextBlock Text="• Search quickly, favorite or archive contacts, import/export CSV and vCard, and keep local backups." TextWrapping="Wrap" />
             <TextBlock Text="• Optional database encryption fails closed unless a compatible SQLCipher provider is present." TextWrapping="Wrap" />
           </StackPanel>
@@ -288,7 +332,7 @@
                 <TextBlock Text="{Binding SelectedDuplicate.SecondaryName, StringFormat='Merge and remove: {0}'}" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding SelectedDuplicate.ScoreText, StringFormat='Confidence: {0}'}" />
                 <TextBlock Text="{Binding SelectedDuplicate.ReasonsText}" TextWrapping="Wrap" Classes="Muted" />
-                <TextBlock Text="The merge keeps the first contact as primary, fills missing basic fields, combines unique phones/emails/addresses/organizations/groups/tags, and appends distinct notes." TextWrapping="Wrap" Classes="Muted" />
+                <TextBlock Text="The merge keeps the first contact as primary, fills missing basic fields, combines unique phones/emails/addresses/dates/notes/organizations/groups/tags, and appends distinct primary notes." TextWrapping="Wrap" Classes="Muted" />
               </StackPanel>
             </Border>
           </Grid>
@@ -301,7 +345,7 @@
       <Border Classes="DialogCard" HorizontalAlignment="Center" VerticalAlignment="Center" Width="480">
         <StackPanel Spacing="14">
           <TextBlock Text="Permanently delete this contact?" FontSize="22" FontWeight="SemiBold" />
-          <TextBlock Text="This removes the contact and its local phone, email, address, organization, group, and tag links. Use Archive instead if you may need it later." TextWrapping="Wrap" />
+          <TextBlock Text="This removes the contact and all locally stored phones, emails, addresses, dates, notes, organizations, group links, and tag links. Use Archive instead if you may need it later." TextWrapping="Wrap" />
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
             <Button Content="Delete permanently" Command="{Binding DeleteConfirmedCommand}" Classes="Danger" />
