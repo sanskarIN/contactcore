@@ -157,7 +157,7 @@ public sealed partial class MainWindow : Window
         }
         if (e.Key == Key.S && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
-            if (vm.SaveCommand.CanExecute(null)) vm.SaveCommand.Execute(null);
+            if (vm.IsEditorVisible && vm.SaveCommand.CanExecute(null)) vm.SaveCommand.Execute(null);
             e.Handled = true;
         }
         if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control))
