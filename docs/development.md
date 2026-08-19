@@ -28,7 +28,7 @@ One test project mirrors each layer. `ContactCore.slnx` contains all eight proje
 
 ## Shared compiler/build policy
 
-`Directory.Build.props` applies common policy such as `net10.0`, latest C#, nullable/implicit usings, warnings-as-errors, analyzer level, deterministic builds, and CI metadata.
+`Directory.Build.props` applies common policy such as `net10.0`, latest C#, nullable/implicit usings, warnings-as-errors, analyzer level, deterministic builds, CI metadata, and the centralized application version.
 
 Do not disable warnings globally to make a branch pass. Fix the warning or use the narrowest justified suppression with review context.
 
@@ -71,7 +71,7 @@ When adding/changing a contact field:
 5. update `DeepCopy` and duplicate merge behavior;
 6. update Application service semantics;
 7. update interchange codecs only where intentionally supported;
-8. update the desktop editor while preserving all aggregate data/identities;
+8. update the desktop editor while preserving all aggregate data and correct identity semantics;
 9. add regression tests;
 10. synchronize documentation.
 
@@ -86,17 +86,24 @@ The current desktop editor represents all repeated collections in the current mo
 - groups;
 - tags.
 
+Do not treat all of those IDs identically. Phones/emails/addresses/organizations are contact-owned rows. Groups/tags are shared case-insensitive dictionary rows referenced through link tables.
+
 Development must preserve these invariants:
 
-- unchanged repeated rows retain their IDs;
-- an edited repeated row normally retains its ID;
+- unchanged contact-owned rows retain their IDs;
+- an edited phone/email/address/organization row normally retains its ID;
+- unchanged group/tag assignments retain their shared dictionary ID;
+- a true per-contact group/tag rename is reassignment and receives a fresh dictionary identity instead of reusing the old shared ID with a different name;
+- a case-only/normalization-equivalent group/tag edit retains the old shared identity and canonical stored name;
 - removing one row removes only that intended value/link;
 - blank newly added rows are ignored rather than persisted;
 - an existing label-only address remains representable;
 - group/tag names are independent rows, so commas/semicolons remain exact;
-- case-insensitive duplicate group/tag names collapse before persistence while retaining the first row identity;
+- case-insensitive duplicate group/tag names collapse before persistence while retaining the first applicable identity;
 - root `Id`/`CreatedAt` survive editing;
 - draft changes do not mutate the source aggregate before save.
+
+Do not implement a per-contact group/tag edit as an implicit global taxonomy rename. A future global taxonomy-management feature must define rename/delete/orphan-cleanup semantics explicitly and include migration/relationship tests.
 
 If adding reorder behavior, first decide whether order is a real persisted domain property. Do not promise durable ordering using only visual collection order.
 
@@ -117,13 +124,14 @@ candidate scan
 → user reviews score/reasons and both records
 → user chooses survivor
 → confirmation
-→ ContactService.MergeAsync
-→ repository transaction: upsert survivor + delete secondary
+→ ContactService.MergeAsync reloads both records
+→ repository transaction verifies both reviewed IDs still exist
+→ upsert survivor + delete secondary
 ```
 
-`MergeAsync` must remain all-or-nothing. If the secondary row disappears before commit, the repository throws and rolls back the survivor update.
+`MergeAsync` must remain all-or-nothing and stale-review-safe. If either the chosen survivor/primary or the secondary row disappears before commit, the repository throws and rolls back/cancels. A missing primary must not be recreated from stale reviewed state.
 
-When modifying merge semantics, test self-merge, scalar fill behavior, notes, favorite/archive decisions, duplicate child suppression, copied child IDs, group/tag equivalence, and missing-secondary rollback.
+When modifying merge semantics, test self-merge, scalar fill behavior, notes, favorite/archive decisions, duplicate child suppression, copied child IDs, group/tag equivalence, missing-secondary rollback, and missing-primary non-resurrection.
 
 ## Async and cancellation
 
@@ -138,6 +146,7 @@ Desktop search already cancels superseded debounce/search operations. Avoid unco
 - Never derive SQL table/column identifiers from untrusted input.
 - Keep foreign keys enabled.
 - Keep aggregate, bulk-import, and duplicate-merge writes transactional.
+- Respect shared dictionary versus contact-owned row semantics.
 - Add indexes only for measured query patterns.
 
 ## Migration rules
@@ -188,7 +197,7 @@ Validation/parser messages should identify the problem without unnecessarily ech
 
 Preserve keyboard reachability, visible focus, labels, dynamic theme resources, logical traversal, text wrapping/scaling, reduced-motion behavior for custom animation, and destructive confirmation guarantees.
 
-The full rich editor has many repeated-row controls; manually check focus order/add-remove behavior at representative scaling. The duplicate pane has two explicitly different survivor actions; labels and confirmation text must continue to match the actual merge direction.
+The full rich editor has many repeated-row controls; manually check focus order/add-remove behavior at representative scaling. Include group/tag reassignment in data-integrity smoke tests. The duplicate pane has two explicitly different survivor actions; labels and confirmation text must continue to match the actual merge direction.
 
 If adding a platform service, prefer a narrow callback/interface rather than spreading picker/dialog APIs across business logic.
 
@@ -228,7 +237,7 @@ Prefer the lowest meaningful layer:
 - migration/repository/preferences/backup → Infrastructure;
 - draft/desktop orchestration → Desktop.
 
-Cross-layer data-safety behavior often deserves focused unit tests plus an integration regression.
+Cross-layer data-safety behavior often deserves focused unit tests plus an integration regression. Shared group/tag rename safety is an example: Desktop proves the identity decision; Infrastructure proves reassignment persists against an existing dictionary.
 
 ## Test data
 
@@ -258,6 +267,6 @@ Do not merge until the exact final head's required CI/CodeQL checks are understo
 
 ## Documentation definition of done
 
-For behavior/file changes, update the relevant guides in the same PR. `repository-reference.md` must remain exhaustive whenever tracked files are added/removed/renamed.
+For behavior/file changes, update the relevant guides in the same PR. `repository-reference.md` must remain exhaustive whenever tracked files are added/removed/renamed and should remain accurate when a file's responsibility materially changes.
 
 `what_changed.md` is the continuation/handoff record and must state the exact branch/PR, meaningful changes, verification status, and remaining work without presenting queued/pending checks as passed.
