@@ -3,11 +3,16 @@
   <h1>ContactCore</h1>
   <p>A private, offline-first desktop contact manager for Windows, macOS, and Linux.</p>
 
+[![Version](https://img.shields.io/badge/version-2.0.12-0969da.svg)](CHANGELOG.md)
 [![CI](https://github.com/sanskarIN/contactcore/actions/workflows/ci.yml/badge.svg)](https://github.com/sanskarIN/contactcore/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/sanskarIN/contactcore/actions/workflows/codeql.yml/badge.svg)](https://github.com/sanskarIN/contactcore/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-sanskarIN-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/sanskarIN)
 </div>
+
+## Current source version
+
+**ContactCore 2.0.12**. The version is centralized in `Directory.Build.props` and is applied to project, assembly, file, and informational version metadata. The release workflow refuses a tag whose semantic version does not match that project version.
 
 ## Why ContactCore
 
@@ -34,6 +39,7 @@ ContactCore keeps a useful address book on your own computer without mandatory a
 - System/Light/Dark themes, visible keyboard focus, shortcuts, local safety preferences, and reduced-motion preference.
 - Permanent-delete confirmation enabled by default; restore and duplicate merges require desktop confirmation.
 - Cross-platform CI definitions for Windows, Ubuntu, and macOS plus CodeQL analysis.
+- Version-checked release automation with packaged platform archives and SHA-256 checksum publication.
 - Offline-first: no mandatory account, cloud service, analytics, or advertising dependency.
 
 ## Current limitations and boundaries
@@ -79,17 +85,18 @@ Real screenshots are intentionally deferred until a verified desktop build is ca
 
 Current release automation publishes these runtime identifiers:
 
-| Platform | Target |
-|---|---|
-| Windows | `win-x64` |
-| Linux | `linux-x64` |
-| macOS Intel | `osx-x64` |
-| macOS Apple Silicon | `osx-arm64` |
+| Platform | Target | Package |
+|---|---|---|
+| Windows | `win-x64` | `contactcore-v2.0.12-win-x64.zip` |
+| Linux | `linux-x64` | `contactcore-v2.0.12-linux-x64.tar.gz` |
+| macOS Intel | `osx-x64` | `contactcore-v2.0.12-osx-x64.tar.gz` |
+| macOS Apple Silicon | `osx-arm64` | `contactcore-v2.0.12-osx-arm64.tar.gz` |
 
-These artifacts are currently documented as self-contained/single-file builds, **not** as signed installers or notarized applications.
+The release job also produces `SHA256SUMS.txt` covering packaged artifacts. These artifacts are currently documented as self-contained/single-file publishes packaged for distribution, **not** as signed installers or notarized applications.
 
 ## Technology
 
+- ContactCore **2.0.12**
 - C# / .NET 10 (`global.json`: SDK 10.0.100 with `latestFeature` roll-forward)
 - Avalonia 12.1.1
 - CommunityToolkit.Mvvm 8.4.2
@@ -98,7 +105,7 @@ These artifacts are currently documented as self-contained/single-file builds, *
 - coverlet collector for CI coverage artifacts
 - GitHub Actions, CodeQL, Dependabot
 
-Package versions are centralized in `Directory.Packages.props`; shared compiler/analyzer rules are in `Directory.Build.props`.
+Package versions are centralized in `Directory.Packages.props`; shared compiler/analyzer/version rules are in `Directory.Build.props`.
 
 ## Quick start
 
