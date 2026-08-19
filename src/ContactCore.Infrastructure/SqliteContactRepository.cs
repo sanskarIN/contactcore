@@ -83,6 +83,35 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         }
     }
 
+    public async Task MergeAsync(Contact mergedContact, Guid secondaryId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mergedContact);
+        if (mergedContact.Id == secondaryId)
+            throw new ArgumentException("The secondary contact must be different from the merged primary contact.", nameof(secondaryId));
+
+        await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await UpsertCoreAsync(connection, tx, mergedContact, cancellationToken).ConfigureAwait(false);
+
+            await using var delete = connection.CreateCommand();
+            delete.Transaction = tx;
+            delete.CommandText = "DELETE FROM contacts WHERE id=$id;";
+            delete.Parameters.AddWithValue("$id", secondaryId.ToString());
+            var affected = await delete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            if (affected != 1)
+                throw new KeyNotFoundException("The secondary contact no longer exists, so the merge was cancelled.");
+
+            await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+    }
+
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
