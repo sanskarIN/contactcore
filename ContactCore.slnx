@@ -9,5 +9,6 @@
     <Project Path="tests/ContactCore.Domain.Tests/ContactCore.Domain.Tests.csproj" />
     <Project Path="tests/ContactCore.Application.Tests/ContactCore.Application.Tests.csproj" />
     <Project Path="tests/ContactCore.Infrastructure.Tests/ContactCore.Infrastructure.Tests.csproj" />
+    <Project Path="tests/ContactCore.Desktop.Tests/ContactCore.Desktop.Tests.csproj" />
   </Folder>
 </Solution>
