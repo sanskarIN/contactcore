@@ -19,6 +19,7 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Keyboard shortcuts (`Ctrl+N`, `Ctrl+S`, `Ctrl+F`, `Esc`) and explicit visible-focus styling.
 - Cross-platform GitHub Actions CI, CodeQL, Dependabot, and tag-driven self-contained release publishing.
 - Documentation hub plus deep user, setup, architecture, data model, desktop UI, import/export, storage/recovery, security, accessibility, performance, development, testing, CI/CD, release, troubleshooting, maintainer, ADR, and exhaustive file-reference documentation.
+- Desktop regression tests proving that compact edits preserve additional/unexposed rich contact child data.
 
 ### Changed
 
@@ -33,7 +34,10 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Desktop import uses native file pickers and bounds selected text at 5,000,000 characters.
 - Restore supports storage-provider files that do not expose a normal local path by creating a temporary local picker copy and deleting it after use on a best-effort basis.
 - Desktop error/status presentation sanitizes email-shaped/long-number-shaped text and caps displayed diagnostic messages at 2,000 characters.
-- Documentation now distinguishes the rich domain/database model from the current simplified desktop editor instead of implying full multi-value editing is already complete.
+- `ContactDraftViewModel` now retains a deep copy of the complete loaded contact and overlays compact-editor changes onto that aggregate before save.
+- Editing the visible first phone/email preserves its existing child ID, label, and field kind; clearing it removes only that first value while keeping remaining values.
+- Additional phones/emails plus addresses, organizations, groups, and tags now survive ordinary compact edit/save conversion even though those values are not yet directly editable in the main UI.
+- Documentation now distinguishes **rich-field preservation** (implemented) from **full rich-field editing controls** (still planned).
 
 ### Security and data-safety
 
@@ -44,7 +48,8 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Restore requires desktop confirmation.
 - Validation messages avoid echoing invalid email/phone values.
 - Tests assert database keys are not persisted in normal JSON settings.
-- CSV spreadsheet-formula neutralization is **not** currently implemented; documentation now calls this out explicitly so standard quoting is not misrepresented as formula-safety mitigation.
+- Compact desktop edits no longer rebuild a rich contact from only the visible first phone/email; unexposed child collections are preserved through a deep-copy baseline.
+- CSV spreadsheet-formula neutralization is **not** currently implemented; documentation calls this out explicitly so standard quoting is not misrepresented as formula-safety mitigation.
 
 ### Testing
 
@@ -54,11 +59,12 @@ All notable changes to ContactCore are documented here. The project intends to u
 - Added backup/restore tests for verified restore, invalid backup rejection without replacing active data, legacy schema migration, future schema rejection, and unique backup names.
 - Added preferences tests for non-persistence of database key, malformed-JSON safe defaults, and theme normalization.
 - Added desktop draft tests for preservation of ID/creation/favorite/archive state and exact ISO birthday parsing.
+- Added desktop draft tests for rich-child preservation during compact phone/email edits and clears, including source-aggregate non-mutation.
 
 ### Known limitations
 
-- The current desktop editor exposes one phone and one email and does not yet expose addresses, organizations, groups, tags, or additional phone/email rows even though the model/database can store them.
-- Because repository saves replace child collections with the supplied aggregate, opening/saving a previously rich contact through the simplified editor can discard unexposed child data. Full preservation/editing is a high-priority roadmap item.
+- The current desktop editor directly exposes one phone and one email and does not yet provide controls to edit addresses, organizations, groups, tags, or additional phone/email rows. Those hidden values are now preserved across compact edit/save operations but remain read-only from the main editor.
+- A newly created in-memory draft already has a generated contact ID, so the current delete surface can still present a permanent-delete confirmation before the contact has actually been persisted. Explicit new/unsaved draft state is planned.
 - The main-window **Find duplicates** command reports likely-pair count/highest score; a full interactive duplicate review/merge screen is not yet wired even though merge logic exists in Application.
 - CSV is a limited interchange format (first phone/email and selected scalar fields), not a full-fidelity backup.
 - vCard support is intentionally focused and not a complete implementation of every property/encoding/parameter.
