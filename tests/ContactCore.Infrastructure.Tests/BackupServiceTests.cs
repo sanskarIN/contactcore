@@ -50,6 +50,27 @@ public sealed class BackupServiceTests
     }
 
     [TestMethod]
+    public async Task Missing_backup_is_rejected_before_active_database_changes()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
+        var missing = Path.Combine(_dir, "missing.db");
+
+        await Assert.ThrowsAsync<FileNotFoundException>(() => _backup.RestoreBackupAsync(missing));
+
+        Assert.AreEqual("Keep active", (await _repository.SearchAsync(new ContactQuery())).Single().GivenName);
+    }
+
+    [TestMethod]
+    public async Task Active_database_cannot_be_selected_as_its_own_restore_source()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _backup.RestoreBackupAsync(_paths.DatabasePath));
+
+        Assert.AreEqual("Keep active", (await _repository.SearchAsync(new ContactQuery())).Single().GivenName);
+    }
+
+    [TestMethod]
     public async Task Invalid_backup_never_replaces_active_database()
     {
         await _repository.UpsertAsync(new Contact { GivenName = "Keep me" });
