@@ -94,19 +94,20 @@ public partial class MainWindowViewModel : ObservableObject
             ReplacePrimaryPhone(contact, Phone);
 
             var duplicateMatches = await _duplicates.FindPotentialDuplicatesAsync(contact, 0.70);
-            if (duplicateMatches.Count > 0 && SelectedContact is null)
-                StatusMessage = $"Saved with {duplicateMatches.Count} possible duplicate match{(duplicateMatches.Count == 1 ? string.Empty : "es")}.";
-
             var saved = await _contacts.SaveAsync(contact);
             _editingContact = saved;
+
+            IsBusy = false;
             await RefreshAsync();
             SelectedContact = Items.FirstOrDefault(item => item.Id == saved.Id);
-            if (duplicateMatches.Count == 0) StatusMessage = "Contact saved";
+            StatusMessage = duplicateMatches.Count > 0 && contact.Id != SelectedContact?.Id
+                ? $"Contact saved; {duplicateMatches.Count} possible duplicate match{(duplicateMatches.Count == 1 ? string.Empty : "es")} found."
+                : "Contact saved";
         }
         catch (ContactValidationException ex)
         {
             ValidationMessage = string.Join(Environment.NewLine, ex.Issues.Select(issue => $"{issue.Field}: {issue.Message}"));
-            StatusMessage = "Please fix the highlighted contact data";
+            StatusMessage = "Please fix the contact data";
         }
         catch (Exception ex)
         {
@@ -128,6 +129,7 @@ public partial class MainWindowViewModel : ObservableObject
             var id = SelectedContact.Id;
             await _contacts.DeleteAsync(id);
             _editingContact = null;
+            IsBusy = false;
             await RefreshAsync();
             StatusMessage = "Contact deleted";
         }
