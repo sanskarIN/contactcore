@@ -55,9 +55,18 @@ Duplicate merge equivalence compares normalized organization name/title/departme
 
 ### Groups and tags
 
-`ContactGroup` and `ContactTag` each contain an ID and name. SQLite enforces case-insensitive unique dictionary names with `COLLATE NOCASE`; link tables use `(contact_id, group_id)` / `(contact_id, tag_id)` composite primary keys.
+`ContactGroup` and `ContactTag` each contain an ID and name. Unlike phone/email/address/organization rows, group and tag IDs identify **shared dictionary rows** rather than contact-owned rows. SQLite enforces case-insensitive unique dictionary names with `COLLATE NOCASE`; link tables use `(contact_id, group_id)` / `(contact_id, tag_id)` composite primary keys.
 
 The desktop editor models each group/tag as an independent row rather than delimiter-separated text. Therefore names containing commas or semicolons are valid exact names. During draft conversion, case-insensitive duplicates on the same contact collapse to the first row identity.
+
+A true per-contact group/tag rename is modeled as **reassignment**, not as an in-place rename of the shared dictionary ID. `GroupDraftViewModel`/`TagDraftViewModel` retain `OriginalName` from the loaded relationship:
+
+- if the edited name is normalization-equivalent to the original name, the existing dictionary ID and original canonical name are retained;
+- if the name is materially different, `ToContact()` assigns a fresh dictionary ID for the requested name;
+- Infrastructure then inserts-or-reuses the dictionary entry by case-insensitive name and links the contact to that entry;
+- the old dictionary row can remain orphaned after its last link is removed, consistent with the current no-global-taxonomy-cleanup policy.
+
+This avoids reusing one shared dictionary primary key for a different name, which would otherwise conflict with the existing global row or accidentally imply a global rename.
 
 ## Schema tables
 
@@ -99,12 +108,15 @@ This means the aggregate passed to Infrastructure is authoritative. Presentation
 
 ## Desktop identity preservation
 
-`ContactDraftViewModel.Load` projects every current repeated collection into editable row view models while preserving IDs. `ToContact()` reconstructs the aggregate with the root `Id`/`CreatedAt` and preserves child IDs for rows that remain.
+`ContactDraftViewModel.Load` projects every current repeated collection into editable row view models while preserving identity metadata. `ToContact()` reconstructs the aggregate with the root `Id`/`CreatedAt`.
 
 Current intended semantics:
 
-- edits preserve existing row identity;
-- intentional removal omits that row from the next complete aggregate;
+- edits to contact-owned phone/email/address/organization rows preserve their IDs;
+- unchanged group/tag assignments retain their shared dictionary identities;
+- true group/tag name changes become reassignment to fresh dictionary identities rather than reusing the old global ID;
+- case-only/normalization-equivalent group/tag edits retain the existing identity and canonical stored name;
+- intentional removal omits that row/link from the next complete aggregate;
 - new rows receive new IDs;
 - blank newly added rows are ignored according to their minimum meaningful content;
 - existing label-only addresses remain preservable;
@@ -112,13 +124,13 @@ Current intended semantics:
 - duplicate group/tag names collapse case-insensitively before persistence;
 - draft mutation does not mutate the source aggregate supplied to `Load`.
 
-Repository and Desktop regression tests protect these rules.
+Desktop and SQLite regression tests protect these rules, including renamed group/tag reassignment.
 
 ## Group/tag dictionary behavior
 
 During contact save, link rows are replaced, but group/tag dictionary rows are not mass-deleted. Infrastructure inserts dictionary values by case-insensitive name when absent and links by name lookup.
 
-Orphaned dictionary rows can therefore remain after the last contact link is removed. That is current storage behavior; a future global taxonomy-management/cleanup feature should define deletion semantics deliberately rather than silently changing them in ordinary contact save.
+Orphaned dictionary rows can therefore remain after the last contact link is removed. That is current storage behavior; a future global taxonomy-management/cleanup feature should define deletion and true global-rename semantics deliberately rather than silently changing them in ordinary per-contact save.
 
 ## Atomic duplicate merge model
 
@@ -132,17 +144,19 @@ Child records copied from the secondary receive fresh IDs when needed so their p
 IContactRepository.MergeAsync(mergedContact, secondaryId)
 ```
 
-`SqliteContactRepository.MergeAsync` performs:
+`SqliteContactRepository.MergeAsync` performs the destructive persistence boundary in one transaction:
 
 ```text
 BEGIN
+  require chosen survivor/primary still exists
+  require secondary still exists
   upsert complete survivor aggregate
   delete secondary root
   require exactly one secondary row deleted
 COMMIT
 ```
 
-If the secondary row no longer exists, an exception causes rollback of the survivor update. This is an all-or-nothing consistency boundary.
+If either reviewed contact no longer exists, an exception cancels/rolls back the operation. In particular, a stale chosen primary is **not** recreated from the previously reviewed aggregate. This is an all-or-nothing/stale-review consistency boundary.
 
 The user's survivor choice therefore determines the surviving root `Contact.Id`. Atomicity does not provide undo; backup/recovery remains separate.
 
@@ -176,7 +190,7 @@ Regression tests prove literal matching for those metacharacters.
 
 `PhoneKey` keeps digits only. Duplicate detection/merge use these helpers for comparison.
 
-`ContactService` also trims supported scalar/repeated values before save/import/merge. Current tests directly cover scalar/phone/email service normalization; richer address/organization/group/tag normalization is implemented and remains a useful area for more focused service-unit assertions.
+`ContactService` trims supported scalar/repeated values before save/import/merge. Application tests directly cover scalar/phone/email plus address/organization/group/tag normalization, including whitespace-to-null optional organization fields.
 
 ## Migration compatibility
 
