@@ -4,6 +4,22 @@ namespace ContactCore.Infrastructure;
 
 public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
 {
+    private static readonly string[] VersionOneTables =
+    [
+        "schema_migrations",
+        "contacts",
+        "phones",
+        "emails",
+        "addresses",
+        "organizations",
+        "groups",
+        "tags",
+        "contact_groups",
+        "contact_tags"
+    ];
+
+    private static readonly string[] CurrentTables = [.. VersionOneTables, "app_metadata"];
+
     private static readonly IReadOnlyList<(int Version, string Sql)> Migrations = new[]
     {
         (1, """
@@ -37,7 +53,20 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
     public async Task ApplyAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await SqliteConnectionFactory.ExecuteAsync(connection, "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);", cancellationToken).ConfigureAwait(false);
+
+        var existingTables = await ReadUserTablesAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (existingTables.Count == 0)
+        {
+            await SqliteConnectionFactory.ExecuteAsync(
+                connection,
+                "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);",
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await ValidateExistingDatabaseBeforeMutationAsync(connection, existingTables, cancellationToken).ConfigureAwait(false);
+        }
+
         var current = await CurrentVersionAsync(connection, cancellationToken).ConfigureAwait(false);
         if (current > LatestSchemaVersion)
             throw new NotSupportedException($"Database schema version {current} is newer than this ContactCore build supports ({LatestSchemaVersion}).");
@@ -66,6 +95,8 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
             }
         }
 
+        var migratedTables = await ReadUserTablesAsync(connection, cancellationToken).ConfigureAwait(false);
+        EnsureRequiredTables(migratedTables, CurrentTables);
         await EnsureSchemaIdentityAsync(connection, cancellationToken).ConfigureAwait(false);
     }
 
@@ -74,6 +105,50 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;";
         return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task ValidateExistingDatabaseBeforeMutationAsync(
+        SqliteConnection connection,
+        IReadOnlySet<string> existingTables,
+        CancellationToken cancellationToken)
+    {
+        if (!existingTables.Contains("schema_migrations") || !existingTables.Contains("contacts"))
+            throw new InvalidDataException("The existing database is valid SQLite but is not a recognized ContactCore database. No schema changes were applied.");
+
+        var current = await CurrentVersionAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (current <= 0)
+            throw new InvalidDataException("The existing database does not contain a valid ContactCore schema version. No schema changes were applied.");
+        if (current > LatestSchemaVersion)
+            throw new NotSupportedException($"Database schema version {current} is newer than this ContactCore build supports ({LatestSchemaVersion}).");
+
+        EnsureRequiredTables(existingTables, VersionOneTables);
+
+        if (current >= 2)
+        {
+            if (!existingTables.Contains("app_metadata"))
+                throw new InvalidDataException("The existing database is missing the ContactCore schema identity table. No schema changes were applied.");
+            await EnsureSchemaIdentityAsync(connection, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<IReadOnlySet<string>> ReadUserTablesAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            tables.Add(reader.GetString(0));
+        return tables;
+    }
+
+    private static void EnsureRequiredTables(IReadOnlySet<string> existingTables, IEnumerable<string> requiredTables)
+    {
+        var missing = requiredTables.Where(table => !existingTables.Contains(table)).ToArray();
+        if (missing.Length > 0)
+            throw new InvalidDataException("The existing database is missing required ContactCore schema tables. No further schema changes were applied.");
     }
 
     private static async Task EnsureSchemaIdentityAsync(SqliteConnection connection, CancellationToken cancellationToken)
