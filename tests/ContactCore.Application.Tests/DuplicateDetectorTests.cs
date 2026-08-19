@@ -10,9 +10,13 @@ public sealed class DuplicateDetectorTests
     [TestMethod]
     public void Shared_email_and_name_is_high_confidence()
     {
-        var a = new Contact { GivenName = "Grace", FamilyName = "Hopper" }; a.Emails.Add(new(Guid.NewGuid(), "Work", "grace@example.test"));
-        var b = new Contact { GivenName = "grace", FamilyName = "hopper" }; b.Emails.Add(new(Guid.NewGuid(), "Other", "GRACE@example.test"));
+        var a = new Contact { GivenName = "Grace", FamilyName = "Hopper" };
+        a.Emails.Add(new(Guid.NewGuid(), "Work", "grace@example.test"));
+        var b = new Contact { GivenName = "grace", FamilyName = "hopper" };
+        b.Emails.Add(new(Guid.NewGuid(), "Other", "GRACE@example.test"));
+
         var result = new DuplicateDetector().Compare(a, b);
+
         Assert.IsTrue(result.Score >= .8);
         CollectionAssert.Contains(result.Reasons.ToList(), "Shared email address");
     }
@@ -20,8 +24,41 @@ public sealed class DuplicateDetectorTests
     [TestMethod]
     public void Merger_deduplicates_phone_numbers()
     {
-        var a = new Contact { GivenName = "A" }; a.Phones.Add(new(Guid.NewGuid(), "Mobile", "+91 98765 43210"));
-        var b = new Contact { GivenName = "A" }; b.Phones.Add(new(Guid.NewGuid(), "Other", "9876543210"));
+        var a = new Contact { GivenName = "A" };
+        a.Phones.Add(new(Guid.NewGuid(), "Mobile", "+91 98765 43210"));
+        var b = new Contact { GivenName = "A" };
+        b.Phones.Add(new(Guid.NewGuid(), "Other", "9876543210"));
+
         Assert.AreEqual(1, new ContactMerger().Merge(a, b).Phones.Count);
+    }
+
+    [TestMethod]
+    public void Merger_assigns_new_ids_to_secondary_child_records()
+    {
+        var primary = new Contact { GivenName = "Primary" };
+        var secondary = new Contact { GivenName = "Secondary" };
+        var phoneId = Guid.NewGuid();
+        var emailId = Guid.NewGuid();
+        var addressId = Guid.NewGuid();
+        var organizationId = Guid.NewGuid();
+        secondary.Phones.Add(new(phoneId, "Mobile", "+44 1234567"));
+        secondary.Emails.Add(new(emailId, "Work", "secondary@example.test"));
+        secondary.Addresses.Add(new(addressId, "Home", "1 Test Street", "London", "London", "N1", "UK"));
+        secondary.Organizations.Add(new(organizationId, "Example Org", "Engineer", "R&D"));
+
+        var merged = new ContactMerger().Merge(primary, secondary);
+
+        Assert.AreNotEqual(phoneId, merged.Phones.Single().Id);
+        Assert.AreNotEqual(emailId, merged.Emails.Single().Id);
+        Assert.AreNotEqual(addressId, merged.Addresses.Single().Id);
+        Assert.AreNotEqual(organizationId, merged.Organizations.Single().Id);
+    }
+
+    [TestMethod]
+    public void Merger_rejects_self_merge()
+    {
+        var contact = new Contact { GivenName = "Same" };
+
+        Assert.Throws<ArgumentException>(() => new ContactMerger().Merge(contact, contact));
     }
 }
