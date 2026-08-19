@@ -89,6 +89,33 @@ public sealed class SqliteRepositoryTests
     }
 
     [TestMethod]
+    public async Task Shared_group_and_tag_reassignment_persists_new_dictionary_identities()
+    {
+        var contact = new Contact { GivenName = "Dictionary" };
+        var oldGroup = new ContactGroup(Guid.NewGuid(), "Friends");
+        var oldTag = new ContactTag(Guid.NewGuid(), "Important");
+        contact.Groups.Add(oldGroup);
+        contact.Tags.Add(oldTag);
+        await _repo.UpsertAsync(contact);
+
+        var newGroup = new ContactGroup(Guid.NewGuid(), "Family");
+        var newTag = new ContactTag(Guid.NewGuid(), "Client");
+        contact.Groups.Clear();
+        contact.Tags.Clear();
+        contact.Groups.Add(newGroup);
+        contact.Tags.Add(newTag);
+
+        await _repo.UpsertAsync(contact);
+        var loaded = await _repo.GetAsync(contact.Id);
+
+        Assert.IsNotNull(loaded);
+        Assert.AreEqual(newGroup, loaded.Groups.Single());
+        Assert.AreEqual(newTag, loaded.Tags.Single());
+        Assert.AreNotEqual(oldGroup.Id, loaded.Groups.Single().Id);
+        Assert.AreNotEqual(oldTag.Id, loaded.Tags.Single().Id);
+    }
+
+    [TestMethod]
     public async Task Search_treats_percent_underscore_and_backslash_as_literal_text()
     {
         var percent = new Contact { GivenName = "Percent%Literal" };
