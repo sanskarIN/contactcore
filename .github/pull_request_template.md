@@ -38,8 +38,11 @@ If a local command could not be run, explain exactly why rather than checking it
 - [ ] No real contact data, database, WAL/SHM file, backup/recovery file, or real CSV/vCard export was added
 - [ ] No `.env`, database key, token, password, signing private key/certificate, or other secret was added
 - [ ] User-controlled SQL/data values remain parameterized and intended `LIKE` text escaping is preserved where relevant
-- [ ] Aggregate/bulk writes remain transactional where relevant
-- [ ] Partial UI editing preserves unedited contact child collections
+- [ ] Aggregate, batch-import, and destructive multi-row writes remain transactional where relevant
+- [ ] The full contact editor preserves root identity, creation time, and existing repeated child identities unless a row is intentionally removed/recreated
+- [ ] Newly added/changed contact fields are represented by the editor or explicitly preserved so complete-aggregate saves cannot silently drop them
+- [ ] Unsaved drafts remain distinguishable from persisted contacts for destructive actions
+- [ ] Duplicate/heuristic workflows remain user-controlled; destructive merge requires survivor choice/confirmation and rejects stale reviewed records
 - [ ] Schema changes use a new migration and preserve future-schema/backup identity safety where relevant
 - [ ] Restore/data-replacement changes preserve verified staging/recovery/rollback guarantees where relevant
 - [ ] Destructive operations do not bypass configured confirmation safeguards
