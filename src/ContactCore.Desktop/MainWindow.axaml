@@ -72,7 +72,7 @@
                 <TextBlock Text="{Binding EditorTitle}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                   <Button Content="Save" Command="{Binding SaveCommand}" Classes="Primary" />
-                  <Button Content="Delete" Command="{Binding DeleteCommand}" />
+                  <Button Content="Delete permanently" Command="{Binding RequestDeleteCommand}" />
                 </StackPanel>
               </Grid>
               <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
@@ -174,11 +174,14 @@
 
               <Border Classes="SettingsCard">
                 <StackPanel Spacing="10">
-                  <TextBlock Text="Backup" FontSize="18" FontWeight="SemiBold" />
-                  <TextBlock Text="Create a SQLite-native snapshot and run an integrity check before it is reported as successful." TextWrapping="Wrap" />
+                  <TextBlock Text="Backup &amp; restore" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="Backups are SQLite-native snapshots verified before success. Restore validates the selected ContactCore database and retains a pre-restore recovery snapshot." TextWrapping="Wrap" />
                   <TextBlock Text="Backup directory" Classes="FieldLabel" />
                   <TextBlock Text="{Binding BackupDirectory}" FontFamily="Monospace" TextWrapping="Wrap" />
-                  <Button Content="Create verified backup" Command="{Binding CreateBackupCommand}" HorizontalAlignment="Left" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Create verified backup" Command="{Binding CreateBackupCommand}" />
+                    <Button Content="Restore backup…" Command="{Binding RestoreBackupCommand}" />
+                  </StackPanel>
                 </StackPanel>
               </Border>
 
