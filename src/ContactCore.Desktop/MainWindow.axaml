@@ -65,32 +65,81 @@
       </Border>
 
       <Border Grid.Column="2" Classes="DetailPane">
-        <ScrollViewer>
-          <Grid IsVisible="{Binding IsEditorVisible}" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-              <TextBlock Text="{Binding EditorTitle}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <Button Content="Save" Command="{Binding SaveCommand}" Classes="Primary" />
-                <Button Content="Delete" Command="{Binding DeleteCommand}" />
+        <Grid>
+          <ScrollViewer IsVisible="{Binding IsEditorVisible}">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Text="{Binding EditorTitle}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <Button Content="Save" Command="{Binding SaveCommand}" Classes="Primary" />
+                  <Button Content="Delete" Command="{Binding DeleteCommand}" />
+                </StackPanel>
+              </Grid>
+              <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
+                <StackPanel><TextBlock Text="Given name" Classes="FieldLabel"/><TextBox Text="{Binding Draft.GivenName, Mode=TwoWay}" /></StackPanel>
+                <StackPanel Grid.Column="1"><TextBlock Text="Family name" Classes="FieldLabel"/><TextBox Text="{Binding Draft.FamilyName, Mode=TwoWay}" /></StackPanel>
+              </Grid>
+              <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
+                <StackPanel><TextBlock Text="Nickname" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Nickname, Mode=TwoWay}" /></StackPanel>
+                <StackPanel Grid.Column="1"><TextBlock Text="Birthday (yyyy-MM-dd)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.BirthdayText, Mode=TwoWay}" /></StackPanel>
+              </Grid>
+              <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <StackPanel><TextBlock Text="Phone" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Phone, Mode=TwoWay}" /></StackPanel>
+                <CheckBox Grid.Column="1" Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="0,0,0,9" />
+              </Grid>
+              <StackPanel Grid.Row="4"><TextBlock Text="Email" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Email, Mode=TwoWay}" /></StackPanel>
+              <StackPanel Grid.Row="5"><TextBlock Text="Notes" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap" /></StackPanel>
+              <TextBlock Grid.Row="6" Text="{Binding StatusMessage}" Classes="Status" TextWrapping="Wrap" />
+            </Grid>
+          </ScrollViewer>
+
+          <ScrollViewer IsVisible="{Binding IsSettingsVisible}">
+            <StackPanel Spacing="18" MaxWidth="720" HorizontalAlignment="Stretch">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel>
+                  <TextBlock Text="Settings" FontSize="26" FontWeight="SemiBold" />
+                  <TextBlock Text="Appearance, accessibility, local data, privacy, and About" Classes="Muted" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Close" Command="{Binding CancelEditCommand}" VerticalAlignment="Top" />
+              </Grid>
+
+              <Border Classes="SettingsCard">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="Theme" Classes="FieldLabel" />
+                  <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" MinWidth="180" HorizontalAlignment="Left" />
+                  <CheckBox Content="Reduce nonessential motion" IsChecked="{Binding ReducedMotion, Mode=TwoWay}" />
+                  <TextBlock Text="Theme changes are saved locally. System follows your operating-system preference." Classes="Muted" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="SettingsCard">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Data &amp; privacy" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="ContactCore keeps contact data on this device unless you explicitly export or back it up." TextWrapping="Wrap" />
+                  <TextBlock Text="Local data directory" Classes="FieldLabel" />
+                  <TextBlock Text="{Binding DataDirectory}" FontFamily="Monospace" TextWrapping="Wrap" />
+                  <TextBlock Text="Backups and exported files can contain personal information. Store them in a location you trust." Classes="Muted" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="SettingsCard">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="About" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding AboutSummary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding SupportSummary}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding ProjectSummary}" TextWrapping="Wrap" />
+                  <TextBlock Text="Open source • no mandatory account • no telemetry dependency" Classes="Muted" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Save settings" Command="{Binding SaveSettingsCommand}" Classes="Primary" />
+                <Button Content="Cancel" Command="{Binding CancelEditCommand}" />
               </StackPanel>
-            </Grid>
-            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
-              <StackPanel><TextBlock Text="Given name" Classes="FieldLabel"/><TextBox Text="{Binding Draft.GivenName, Mode=TwoWay}" /></StackPanel>
-              <StackPanel Grid.Column="1"><TextBlock Text="Family name" Classes="FieldLabel"/><TextBox Text="{Binding Draft.FamilyName, Mode=TwoWay}" /></StackPanel>
-            </Grid>
-            <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12">
-              <StackPanel><TextBlock Text="Nickname" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Nickname, Mode=TwoWay}" /></StackPanel>
-              <StackPanel Grid.Column="1"><TextBlock Text="Birthday (yyyy-MM-dd)" Classes="FieldLabel"/><TextBox Text="{Binding Draft.BirthdayText, Mode=TwoWay}" /></StackPanel>
-            </Grid>
-            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-              <StackPanel><TextBlock Text="Phone" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Phone, Mode=TwoWay}" /></StackPanel>
-              <CheckBox Grid.Column="1" Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="0,0,0,9" />
-            </Grid>
-            <StackPanel Grid.Row="4"><TextBlock Text="Email" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Email, Mode=TwoWay}" /></StackPanel>
-            <StackPanel Grid.Row="5"><TextBlock Text="Notes" Classes="FieldLabel"/><TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap" /></StackPanel>
-            <TextBlock Grid.Row="6" Text="{Binding StatusMessage}" Classes="Status" TextWrapping="Wrap" />
-          </Grid>
-        </ScrollViewer>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
       </Border>
     </Grid>
 
