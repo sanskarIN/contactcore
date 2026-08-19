@@ -23,6 +23,7 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
     private static readonly IReadOnlyList<(int Version, string Sql)> Migrations = new[]
     {
         (1, """
+        CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS contacts (
           id TEXT PRIMARY KEY,
           given_name TEXT NOT NULL DEFAULT '', family_name TEXT NOT NULL DEFAULT '', nickname TEXT NOT NULL DEFAULT '',
@@ -55,21 +56,12 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
 
         var existingTables = await ReadUserTablesAsync(connection, cancellationToken).ConfigureAwait(false);
-        if (existingTables.Count == 0)
-        {
-            await SqliteConnectionFactory.ExecuteAsync(
-                connection,
-                "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);",
-                cancellationToken).ConfigureAwait(false);
-        }
-        else
+        var current = 0;
+        if (existingTables.Count > 0)
         {
             await ValidateExistingDatabaseBeforeMutationAsync(connection, existingTables, cancellationToken).ConfigureAwait(false);
+            current = await CurrentVersionAsync(connection, cancellationToken).ConfigureAwait(false);
         }
-
-        var current = await CurrentVersionAsync(connection, cancellationToken).ConfigureAwait(false);
-        if (current > LatestSchemaVersion)
-            throw new NotSupportedException($"Database schema version {current} is newer than this ContactCore build supports ({LatestSchemaVersion}).");
 
         foreach (var migration in Migrations.Where(x => x.Version > current).OrderBy(x => x.Version))
         {
@@ -137,7 +129,7 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
     {
         var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*';";
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             tables.Add(reader.GetString(0));
@@ -148,7 +140,7 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
     {
         var missing = requiredTables.Where(table => !existingTables.Contains(table)).ToArray();
         if (missing.Length > 0)
-            throw new InvalidDataException("The existing database is missing required ContactCore schema tables. No further schema changes were applied.");
+            throw new InvalidDataException("The database is missing required ContactCore schema tables.");
     }
 
     private static async Task EnsureSchemaIdentityAsync(SqliteConnection connection, CancellationToken cancellationToken)
