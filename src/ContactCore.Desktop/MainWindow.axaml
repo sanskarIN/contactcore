@@ -1,0 +1,103 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ContactCore.Desktop.MainWindow"
+        Title="ContactCore"
+        Width="1120" Height="760"
+        MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Grid.Row="0" Padding="16,12" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock Text="ContactCore" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" />
+          <TextBox Width="320" Watermark="Search name, email, phone, tag…" Text="{Binding SearchText}" ToolTip.Tip="Search contacts" />
+          <CheckBox Content="Favorites" IsChecked="{Binding FavoritesOnly}" VerticalAlignment="Center" />
+          <CheckBox Content="Archived" IsChecked="{Binding IncludeArchived}" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="New" Command="{Binding NewContactCommand}" Classes="primary" ToolTip.Tip="Create a contact" />
+          <Button Content="Export CSV" Command="{Binding ExportCsvCommand}" ToolTip.Tip="Export contacts to Documents" />
+          <Button Content="Backup" Command="{Binding BackupCommand}" ToolTip.Tip="Create a local database backup" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="320,*">
+      <Border Grid.Column="0" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="0,0,1,0" Padding="12">
+        <Grid RowDefinitions="Auto,*" RowSpacing="10">
+          <TextBlock Text="Contacts" FontSize="16" FontWeight="SemiBold" />
+          <ListBox Grid.Row="1" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedContact}" HorizontalContentAlignment="Stretch">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="10,8">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel>
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Nickname}" Opacity="0.65" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="★" IsVisible="{Binding IsFavorite}" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <ScrollViewer Grid.Column="1">
+        <StackPanel Margin="28" Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
+          <TextBlock Text="Contact details" FontSize="22" FontWeight="Bold" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Given name" />
+              <TextBox Text="{Binding GivenName}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="6">
+              <TextBlock Text="Family name" />
+              <TextBox Text="{Binding FamilyName}" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Spacing="6">
+            <TextBlock Text="Nickname" />
+            <TextBox Text="{Binding Nickname}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Primary email" />
+              <TextBox Text="{Binding Email}" Watermark="name@example.com" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="6">
+              <TextBlock Text="Primary phone" />
+              <TextBox Text="{Binding Phone}" Watermark="+91 …" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Spacing="6">
+            <TextBlock Text="Notes" />
+            <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
+          </StackPanel>
+          <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Save" Command="{Binding SaveCommand}" Classes="primary" />
+            <Button Content="Favorite / unfavorite" Command="{Binding ToggleFavoriteCommand}" />
+            <Button Content="Archive / restore" Command="{Binding ToggleArchiveCommand}" />
+            <Button Content="Delete" Command="{Binding DeleteCommand}" />
+          </StackPanel>
+          <Border Margin="0,20,0,0" Padding="14" CornerRadius="8" Background="{DynamicResource ThemeControlLowBrush}">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding AboutText}" FontWeight="SemiBold" />
+              <TextBlock Text="Local data only · No telemetry · github.com/sanskarIN/contactcore" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ProductCredit}" FontWeight="Bold" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+
+    <Border Grid.Row="2" Padding="14,8" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis" />
+        <ProgressBar Grid.Column="1" Width="100" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
