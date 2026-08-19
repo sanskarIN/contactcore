@@ -39,6 +39,18 @@ public sealed partial class OrganizationDraftViewModel : ObservableObject
     [ObservableProperty] private string department = "";
 }
 
+public sealed partial class GroupDraftViewModel : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    [ObservableProperty] private string name = "";
+}
+
+public sealed partial class TagDraftViewModel : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    [ObservableProperty] private string name = "";
+}
+
 public sealed class DuplicatePairViewModel(DuplicateCandidate candidate)
 {
     public DuplicateCandidate Candidate { get; } = candidate;
