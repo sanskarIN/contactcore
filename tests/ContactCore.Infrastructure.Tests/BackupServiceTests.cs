@@ -1,6 +1,7 @@
 using ContactCore.Application;
 using ContactCore.Domain;
 using ContactCore.Infrastructure;
+using Microsoft.Data.Sqlite;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ContactCore.Infrastructure.Tests;
@@ -28,7 +29,7 @@ public sealed class BackupServiceTests
     [TestCleanup]
     public void Cleanup()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        SqliteConnection.ClearAllPools();
         try { Directory.Delete(_dir, recursive: true); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
@@ -60,7 +61,7 @@ public sealed class BackupServiceTests
         {
             await _backup.RestoreBackupAsync(invalid);
         }
-        catch (Exception ex) when (ex is InvalidDataException or Microsoft.Data.Sqlite.SqliteException)
+        catch (Exception ex) when (ex is InvalidDataException or SqliteException)
         {
             threw = true;
         }
@@ -68,6 +69,37 @@ public sealed class BackupServiceTests
         Assert.IsTrue(threw, "Invalid backup should be rejected.");
         Assert.AreEqual(1, await _repository.CountAsync());
         Assert.AreEqual("Keep me", (await _repository.SearchAsync(new ContactQuery())).Single().GivenName);
+    }
+
+    [TestMethod]
+    public async Task Legacy_schema_backup_is_migrated_before_replacement()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Legacy" });
+        var backupPath = await _backup.CreateBackupAsync(_paths.BackupDirectory);
+        await DowngradeBackupToVersionOneAsync(backupPath);
+        await _repository.UpsertAsync(new Contact { GivenName = "Current" });
+
+        await _backup.RestoreBackupAsync(backupPath);
+
+        var contacts = await _repository.SearchAsync(new ContactQuery());
+        Assert.AreEqual(1, contacts.Count);
+        Assert.AreEqual("Legacy", contacts.Single().GivenName);
+        await using var active = await _factory.OpenAsync();
+        Assert.AreEqual(DatabaseMigrator.LatestSchemaVersion, await DatabaseMigrator.CurrentVersionAsync(active, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task Future_schema_backup_is_rejected_without_replacing_active_database()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
+        var backupPath = await _backup.CreateBackupAsync(_paths.BackupDirectory);
+        await MarkBackupAsFutureVersionAsync(backupPath);
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => _backup.RestoreBackupAsync(backupPath));
+
+        var contacts = await _repository.SearchAsync(new ContactQuery());
+        Assert.AreEqual(1, contacts.Count);
+        Assert.AreEqual("Keep active", contacts.Single().GivenName);
     }
 
     [TestMethod]
@@ -81,5 +113,27 @@ public sealed class BackupServiceTests
         Assert.AreNotEqual(first, second);
         Assert.IsTrue(File.Exists(first));
         Assert.IsTrue(File.Exists(second));
+    }
+
+    private static async Task DowngradeBackupToVersionOneAsync(string path)
+    {
+        SqliteConnection.ClearAllPools();
+        await using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM schema_migrations WHERE version >= 2; DROP TABLE IF EXISTS app_metadata;";
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task MarkBackupAsFutureVersionAsync(string path)
+    {
+        SqliteConnection.ClearAllPools();
+        await using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $at);";
+        command.Parameters.AddWithValue("$version", DatabaseMigrator.LatestSchemaVersion + 100);
+        command.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
+        await command.ExecuteNonQueryAsync();
     }
 }
