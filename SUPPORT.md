@@ -91,15 +91,27 @@ If `CONTACTCORE_DATABASE_KEY` is set without a SQLCipher-compatible provider, Co
 
 If encryption is not intended, remove the environment variable. If encryption is intended, consult `docs/security.md` and ADR `docs/adr/0003-encryption-provider.md`.
 
-## Rich editor limitation and preservation
+## Rich editor data-integrity problems
 
-The current desktop editor exposes one visible phone and one visible email, while the underlying model/database can contain additional phones/emails plus addresses, organizations, groups, and tags.
+ContactCore 2.0.12 directly exposes all repeated collections in the current persisted aggregate: phones, emails, addresses, organizations, groups, and tags. Existing repeated rows are expected to retain their IDs through ordinary edits, exact group/tag names must survive unchanged, and removing one row must not remove unrelated values.
 
-Current branch code preserves those unexposed values when a contact is opened and saved through the compact editor. The draft begins from a deep copy of the complete aggregate and regression tests verify preservation when the visible primary phone/email are edited or cleared.
+If a current 2.0.12 build reproducibly loses or changes an unchanged rich field, treat that as a **data-integrity regression**, not an accepted editor limitation:
 
-The remaining limitation is that those additional values cannot yet be directly edited from the main UI. If a current build reproducibly drops them, treat that as a data-integrity regression: stop repeated edits, preserve the database/backups, record the exact version/commit, and reproduce with fictional data before reporting it.
+1. stop repeated edits to the affected contact;
+2. preserve the active database and verified backups;
+3. record the exact release/commit;
+4. reproduce with a disposable profile and fictional data when possible;
+5. report the smallest privacy-safe reproduction.
 
-For older builds created before the preservation fix, `docs/troubleshooting.md` includes recovery guidance.
+The current intentional rich-editor limitations are narrower: repeated fields support add/edit/remove but not drag/drop reordering, and groups/tags do not yet have a separate global taxonomy-management screen.
+
+## Duplicate merge problems
+
+Duplicate detection is advisory until the user explicitly chooses a survivor and confirms the destructive merge. The repository requires both reviewed contacts to still exist inside the merge transaction.
+
+If either reviewed record disappeared before commit, the merge should be rejected rather than partially committed or recreating a stale primary. If that invariant is violated, preserve the database/backups and report a fictional reproduction.
+
+There is no general-purpose undo stack for an already confirmed merge; use verified backups for recovery when appropriate.
 
 ## Feature requests
 
