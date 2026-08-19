@@ -43,6 +43,8 @@ This roadmap distinguishes **implemented** behavior from future intent. A checke
 - [x] Reduced-motion preference persistence.
 - [x] Desktop keyboard shortcuts and explicit visible focus styles.
 - [x] Desktop draft regression test project.
+- [x] Compact-editor preservation of additional phones/emails, addresses, organizations, groups, and tags.
+- [x] Regression tests proving compact phone/email edits and clears preserve the rest of the rich aggregate.
 
 ## 0.3 — Documentation completeness
 
@@ -58,16 +60,16 @@ This roadmap distinguishes **implemented** behavior from future intent. A checke
 - [x] Exhaustive tracked-file repository reference.
 - [ ] Keep root README/changelog/policy docs synchronized on every later behavior change.
 
-## 0.4 — Correctness before richer UX
+## 0.4 — Rich UX completion
 
-These items have higher priority than cosmetic expansion because the rich domain/storage model is currently ahead of the editor.
+The data-loss risk from saving a rich contact through the compact editor is now protected by deep-copy preservation and regression tests. The remaining work is direct rich-field editing and stronger workflow UX.
 
-- [ ] **Full rich-contact preservation in the desktop editor.** Loading/saving an existing contact must preserve all phones/emails/addresses/organizations/groups/tags even before every field has an editing UI.
 - [ ] Full multi-value phone/email editor.
 - [ ] Address editor.
 - [ ] Organization editor.
 - [ ] Group/tag assignment and management screens.
-- [ ] Regression tests proving open/edit/save never drops unmodified hidden child data.
+- [ ] Add/edit/remove/reorder tests for every rich field as controls are introduced.
+- [ ] Explicit unsaved/new-contact state so destructive actions present as Cancel rather than permanent delete of a non-persisted ID.
 - [ ] Interactive duplicate candidate list.
 - [ ] Duplicate comparison/merge-preview dialog.
 - [ ] User-confirmed merge workflow wired to `ContactMerger`.
