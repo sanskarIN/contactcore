@@ -1,21 +1,33 @@
 name: CI
+
 on:
   push:
     branches: [ main ]
   pull_request:
+    branches: [ main ]
+
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props
       - name: Restore
         run: dotnet restore ContactCore.slnx
       - name: Format check
@@ -23,4 +35,12 @@ jobs:
       - name: Build
         run: dotnet build ContactCore.slnx -c Release --no-restore
       - name: Test
-        run: dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage"
+        run: dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults
+          if-no-files-found: ignore
+          retention-days: 14
