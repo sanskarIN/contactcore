@@ -109,9 +109,13 @@ Desktop draft
 
 The repository treats a `Contact` as the complete desired aggregate. It upserts the contact row, deletes that contact's child/link rows, and inserts the supplied current children inside the same transaction.
 
-### Important desktop limitation
+### Compact editor preservation boundary
 
-The persistence model supports rich repeated fields, but the current desktop draft exposes only one phone and one email and does not expose addresses, organizations, groups, or tags. Because writes replace child collections, expanding/preserving rich editing is a high-priority UI correctness area. See `desktop-ui.md`.
+The persistence model supports rich repeated fields, while the current desktop editor directly exposes only one phone and one email plus scalar fields. To make the repository's complete-aggregate write contract safe for this narrower UI, `ContactDraftViewModel.Load` retains a deep copy of the **complete** loaded contact.
+
+`ToContact()` starts from a new deep copy of that preserved aggregate and overlays the fields visible in the compact editor. Editing the visible first phone/email preserves that child's ID/label/kind; clearing it removes only the first item. Additional phones/emails, addresses, organizations, groups, and tags remain in the aggregate.
+
+This preservation behavior is protected by desktop regression tests and should be treated as an architectural correctness invariant. Full multi-value **editing** remains future UI work, but an unrelated compact save must not discard hidden child data. See `desktop-ui.md`.
 
 ## Bulk import flow
 
@@ -212,6 +216,7 @@ Do not interpret desktop sanitization as permission to create exceptions contain
 - restore staging and rollback path;
 - import text bounded by the desktop reader;
 - destructive action confirmation defaults on;
+- compact-editor saves preserve unexposed aggregate children;
 - CI and CodeQL provide independent repository checks.
 
 ## Test architecture
@@ -221,7 +226,7 @@ The solution contains:
 - `ContactCore.Domain.Tests` — validation/normalization behavior;
 - `ContactCore.Application.Tests` — duplicate/merge and CSV/vCard behavior;
 - `ContactCore.Infrastructure.Tests` — SQLite repository, preferences, backup/restore;
-- `ContactCore.Desktop.Tests` — non-visual desktop draft/view-model behavior.
+- `ContactCore.Desktop.Tests` — non-visual desktop draft/view-model behavior, including rich-field preservation.
 
 Cross-platform CI runs the solution tests on Windows, Ubuntu, and macOS.
 
@@ -242,5 +247,6 @@ When adding a feature:
 3. Put filesystem/SQLite/serialization/native concerns in Infrastructure.
 4. Put Avalonia/platform presentation in Desktop.
 5. Add tests at the lowest layer that can prove the behavior.
-6. Avoid crossing layers only to reuse a convenience helper.
-7. Add an ADR for a change that alters storage strategy, dependency direction, encryption assumptions, or another long-lived architectural decision.
+6. Preserve complete aggregate data when a UI exposes only a subset of fields.
+7. Avoid crossing layers only to reuse a convenience helper.
+8. Add an ADR for a change that alters storage strategy, dependency direction, encryption assumptions, or another long-lived architectural decision.
