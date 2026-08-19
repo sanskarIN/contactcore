@@ -44,7 +44,7 @@ body:
     attributes:
       label: ContactCore version or commit
       description: Release tag or full/short commit SHA if built from source.
-      placeholder: v0.2.0 or abc1234
+      placeholder: v2.0.12 or abc1234
     validations:
       required: true
 
