@@ -38,6 +38,47 @@ public sealed class ContactServiceTests
     }
 
     [TestMethod]
+    public async Task Save_normalizes_all_rich_contact_collections_before_persistence()
+    {
+        var repository = new RecordingRepository();
+        var service = new ContactService(repository);
+        var contact = new Contact { GivenName = "Rich" };
+        contact.Addresses.Add(new(
+            Guid.NewGuid(),
+            "  Home  ",
+            "  1 Example Street  ",
+            "  Example City  ",
+            "  Example Region  ",
+            "  12345  ",
+            "  Example Country  "));
+        contact.Organizations.Add(new(
+            Guid.NewGuid(),
+            "  Example Org  ",
+            "  Engineer  ",
+            "   "));
+        contact.Groups.Add(new(Guid.NewGuid(), "  Friends  "));
+        contact.Tags.Add(new(Guid.NewGuid(), "  Important  "));
+
+        await service.SaveAsync(contact);
+
+        Assert.AreSame(contact, repository.SingleUpsert);
+        var address = contact.Addresses.Single();
+        Assert.AreEqual("Home", address.Label);
+        Assert.AreEqual("1 Example Street", address.Street);
+        Assert.AreEqual("Example City", address.City);
+        Assert.AreEqual("Example Region", address.Region);
+        Assert.AreEqual("12345", address.PostalCode);
+        Assert.AreEqual("Example Country", address.Country);
+
+        var organization = contact.Organizations.Single();
+        Assert.AreEqual("Example Org", organization.Name);
+        Assert.AreEqual("Engineer", organization.Title);
+        Assert.IsNull(organization.Department);
+        Assert.AreEqual("Friends", contact.Groups.Single().Name);
+        Assert.AreEqual("Important", contact.Tags.Single().Name);
+    }
+
+    [TestMethod]
     public async Task Import_validates_the_whole_batch_before_any_bulk_upsert()
     {
         var repository = new RecordingRepository();
