@@ -23,7 +23,7 @@ public sealed partial class EmailDraftViewModel : ObservableObject
 public sealed partial class AddressDraftViewModel : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
-    [ObservableProperty] private string label = "Home";
+    [ObservableProperty] private string label = "";
     [ObservableProperty] private string street = "";
     [ObservableProperty] private string city = "";
     [ObservableProperty] private string region = "";
