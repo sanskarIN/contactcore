@@ -100,6 +100,50 @@ public sealed class ContactDraftViewModelTests
     }
 
     [TestMethod]
+    public void Renaming_existing_group_and_tag_assigns_new_shared_dictionary_identities()
+    {
+        var group = new ContactGroup(Guid.NewGuid(), "Friends");
+        var tag = new ContactTag(Guid.NewGuid(), "Important");
+        var source = new Contact { GivenName = "Rename" };
+        source.Groups.Add(group);
+        source.Tags.Add(tag);
+
+        var draft = new ContactDraftViewModel();
+        draft.Load(source);
+        draft.Groups[0].Name = "Family";
+        draft.Tags[0].Name = "Client";
+
+        var roundTrip = draft.ToContact();
+
+        var renamedGroup = roundTrip.Groups.Single();
+        var renamedTag = roundTrip.Tags.Single();
+        Assert.AreEqual("Family", renamedGroup.Name);
+        Assert.AreNotEqual(group.Id, renamedGroup.Id, "A per-contact group rename must not reuse a shared dictionary ID that still belongs to the old name.");
+        Assert.AreEqual("Client", renamedTag.Name);
+        Assert.AreNotEqual(tag.Id, renamedTag.Id, "A per-contact tag rename must not reuse a shared dictionary ID that still belongs to the old name.");
+    }
+
+    [TestMethod]
+    public void Case_only_group_and_tag_edits_preserve_existing_dictionary_identity_and_canonical_name()
+    {
+        var group = new ContactGroup(Guid.NewGuid(), "Friends");
+        var tag = new ContactTag(Guid.NewGuid(), "Important");
+        var source = new Contact { GivenName = "Case" };
+        source.Groups.Add(group);
+        source.Tags.Add(tag);
+
+        var draft = new ContactDraftViewModel();
+        draft.Load(source);
+        draft.Groups[0].Name = "friends";
+        draft.Tags[0].Name = "IMPORTANT";
+
+        var roundTrip = draft.ToContact();
+
+        Assert.AreEqual(group, roundTrip.Groups.Single());
+        Assert.AreEqual(tag, roundTrip.Tags.Single());
+    }
+
+    [TestMethod]
     public void Group_and_tag_names_with_delimiters_round_trip_exactly()
     {
         var group = new ContactGroup(Guid.NewGuid(), "Research, Team; East");
