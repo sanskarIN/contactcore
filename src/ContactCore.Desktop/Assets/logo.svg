@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">ContactCore logo</title>
+  <desc id="desc">Rounded contact card with a person silhouette and connected nodes.</desc>
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="#2563eb"/>
+  <circle cx="105" cy="91" r="34" fill="#ffffff"/>
+  <path d="M48 185c6-39 28-59 57-59s51 20 57 59" fill="#ffffff"/>
+  <circle cx="187" cy="70" r="12" fill="#bfdbfe"/>
+  <circle cx="198" cy="128" r="12" fill="#bfdbfe"/>
+  <circle cx="187" cy="186" r="12" fill="#bfdbfe"/>
+  <path d="M166 87l14-10m-10 51h16m-20 40 14 10" stroke="#bfdbfe" stroke-width="8" stroke-linecap="round"/>
+</svg>
