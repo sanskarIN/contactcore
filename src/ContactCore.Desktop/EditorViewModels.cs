@@ -41,6 +41,20 @@ public sealed partial class OrganizationDraftViewModel : ObservableObject
     [ObservableProperty] private string department = "";
 }
 
+public sealed partial class DateDraftViewModel : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    [ObservableProperty] private string label = "Anniversary";
+    [ObservableProperty] private string dateText = "";
+}
+
+public sealed partial class NoteDraftViewModel : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    [ObservableProperty] private string label = "Note";
+    [ObservableProperty] private string content = "";
+}
+
 public sealed partial class ContactDraftViewModel : ObservableObject
 {
     public Guid Id { get; private set; }
@@ -59,6 +73,8 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     public ObservableCollection<EmailDraftViewModel> Emails { get; } = [];
     public ObservableCollection<AddressDraftViewModel> Addresses { get; } = [];
     public ObservableCollection<OrganizationDraftViewModel> Organizations { get; } = [];
+    public ObservableCollection<DateDraftViewModel> Dates { get; } = [];
+    public ObservableCollection<NoteDraftViewModel> NoteEntries { get; } = [];
     public IReadOnlyList<ContactFieldKind> FieldKinds { get; } = Enum.GetValues<ContactFieldKind>();
 
     public void Load(Contact contact)
@@ -76,15 +92,47 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         TagsText = string.Join(", ", contact.Tags.Select(x => x.Name));
 
         Phones.Clear();
-        foreach (var item in contact.Phones) Phones.Add(new PhoneDraftViewModel { Id = item.Id, Label = item.Label, Number = item.Number, Kind = item.Kind });
+        foreach (var item in contact.Phones)
+            Phones.Add(new PhoneDraftViewModel { Id = item.Id, Label = item.Label, Number = item.Number, Kind = item.Kind });
+
         Emails.Clear();
-        foreach (var item in contact.Emails) Emails.Add(new EmailDraftViewModel { Id = item.Id, Label = item.Label, Address = item.Address, Kind = item.Kind });
+        foreach (var item in contact.Emails)
+            Emails.Add(new EmailDraftViewModel { Id = item.Id, Label = item.Label, Address = item.Address, Kind = item.Kind });
+
         Addresses.Clear();
         foreach (var item in contact.Addresses)
-            Addresses.Add(new AddressDraftViewModel { Id = item.Id, Label = item.Label, Street = item.Street, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country });
+        {
+            Addresses.Add(new AddressDraftViewModel
+            {
+                Id = item.Id,
+                Label = item.Label,
+                Street = item.Street,
+                City = item.City,
+                Region = item.Region,
+                PostalCode = item.PostalCode,
+                Country = item.Country
+            });
+        }
+
         Organizations.Clear();
         foreach (var item in contact.Organizations)
-            Organizations.Add(new OrganizationDraftViewModel { Id = item.Id, Name = item.Name, Title = item.Title ?? "", Department = item.Department ?? "" });
+        {
+            Organizations.Add(new OrganizationDraftViewModel
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Title = item.Title ?? "",
+                Department = item.Department ?? ""
+            });
+        }
+
+        Dates.Clear();
+        foreach (var item in contact.Dates)
+            Dates.Add(new DateDraftViewModel { Id = item.Id, Label = item.Label, DateText = item.Date.ToString("yyyy-MM-dd") });
+
+        NoteEntries.Clear();
+        foreach (var item in contact.NoteEntries)
+            NoteEntries.Add(new NoteDraftViewModel { Id = item.Id, Label = item.Label, Content = item.Content });
     }
 
     public Contact ToContact()
@@ -92,7 +140,8 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         DateOnly? birthday = null;
         if (!string.IsNullOrWhiteSpace(BirthdayText))
         {
-            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", out var parsed)) throw new FormatException("Birthday must use yyyy-MM-dd.");
+            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", out var parsed))
+                throw new FormatException("Birthday must use yyyy-MM-dd.");
             birthday = parsed;
         }
 
@@ -112,12 +161,51 @@ public sealed partial class ContactDraftViewModel : ObservableObject
 
         foreach (var item in Phones.Where(x => !string.IsNullOrWhiteSpace(x.Number)))
             contact.Phones.Add(new(item.Id == Guid.Empty ? Guid.NewGuid() : item.Id, item.Label.Trim(), item.Number.Trim(), item.Kind));
+
         foreach (var item in Emails.Where(x => !string.IsNullOrWhiteSpace(x.Address)))
             contact.Emails.Add(new(item.Id == Guid.Empty ? Guid.NewGuid() : item.Id, item.Label.Trim(), item.Address.Trim(), item.Kind));
-        foreach (var item in Addresses.Where(x => !string.IsNullOrWhiteSpace(x.Street) || !string.IsNullOrWhiteSpace(x.City) || !string.IsNullOrWhiteSpace(x.Country)))
-            contact.Addresses.Add(new(item.Id == Guid.Empty ? Guid.NewGuid() : item.Id, item.Label.Trim(), item.Street.Trim(), item.City.Trim(), item.Region.Trim(), item.PostalCode.Trim(), item.Country.Trim()));
+
+        foreach (var item in Addresses.Where(x =>
+                     !string.IsNullOrWhiteSpace(x.Street) ||
+                     !string.IsNullOrWhiteSpace(x.City) ||
+                     !string.IsNullOrWhiteSpace(x.Country)))
+        {
+            contact.Addresses.Add(new(
+                item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                item.Label.Trim(),
+                item.Street.Trim(),
+                item.City.Trim(),
+                item.Region.Trim(),
+                item.PostalCode.Trim(),
+                item.Country.Trim()));
+        }
+
         foreach (var item in Organizations.Where(x => !string.IsNullOrWhiteSpace(x.Name)))
-            contact.Organizations.Add(new(item.Id == Guid.Empty ? Guid.NewGuid() : item.Id, item.Name.Trim(), NullIfBlank(item.Title), NullIfBlank(item.Department)));
+        {
+            contact.Organizations.Add(new(
+                item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                item.Name.Trim(),
+                NullIfBlank(item.Title),
+                NullIfBlank(item.Department)));
+        }
+
+        foreach (var item in Dates.Where(x => !string.IsNullOrWhiteSpace(x.DateText)))
+        {
+            if (!DateOnly.TryParseExact(item.DateText.Trim(), "yyyy-MM-dd", out var parsed))
+                throw new FormatException($"{DisplayLabel(item.Label, "Additional date")} must use yyyy-MM-dd.");
+            contact.Dates.Add(new(
+                item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                DisplayLabel(item.Label, "Date"),
+                parsed));
+        }
+
+        foreach (var item in NoteEntries.Where(x => !string.IsNullOrWhiteSpace(x.Content)))
+        {
+            contact.NoteEntries.Add(new(
+                item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                DisplayLabel(item.Label, "Note"),
+                item.Content));
+        }
 
         foreach (var name in SplitLabels(GroupsText)) contact.Groups.Add(new(Guid.NewGuid(), name));
         foreach (var name in SplitLabels(TagsText)) contact.Tags.Add(new(Guid.NewGuid(), name));
@@ -132,12 +220,20 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     [RelayCommand] private void RemoveAddress(AddressDraftViewModel? item) { if (item is not null) Addresses.Remove(item); }
     [RelayCommand] private void AddOrganization() => Organizations.Add(new OrganizationDraftViewModel());
     [RelayCommand] private void RemoveOrganization(OrganizationDraftViewModel? item) { if (item is not null) Organizations.Remove(item); }
+    [RelayCommand] private void AddDate() => Dates.Add(new DateDraftViewModel());
+    [RelayCommand] private void RemoveDate(DateDraftViewModel? item) { if (item is not null) Dates.Remove(item); }
+    [RelayCommand] private void AddNoteEntry() => NoteEntries.Add(new NoteDraftViewModel());
+    [RelayCommand] private void RemoveNoteEntry(NoteDraftViewModel? item) { if (item is not null) NoteEntries.Remove(item); }
 
     private static IEnumerable<string> SplitLabels(string value) => value
         .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
         .Distinct(StringComparer.OrdinalIgnoreCase);
 
-    private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? NullIfBlank(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string DisplayLabel(string value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 }
 
 public sealed class DuplicatePairViewModel(DuplicateCandidate candidate)
