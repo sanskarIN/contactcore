@@ -92,7 +92,7 @@ public static class ContactCsvCodec
 
     private static string Escape(string value)
     {
-        if (!value.ContainsAny([',', '"', '\r', '\n'])) return value;
+        if (value.IndexOfAny([',', '"', '\r', '\n']) < 0) return value;
         return $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
     }
 
