@@ -27,6 +27,8 @@ public sealed partial class ContactListItemViewModel(Contact contact) : Observab
 
 public sealed partial class ContactDraftViewModel : ObservableObject
 {
+    private Contact? _loadedContact;
+
     public Guid Id { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     [ObservableProperty] private string givenName = "";
@@ -41,6 +43,8 @@ public sealed partial class ContactDraftViewModel : ObservableObject
 
     public void Load(Contact contact)
     {
+        ArgumentNullException.ThrowIfNull(contact);
+        _loadedContact = contact.DeepCopy();
         Id = contact.Id;
         CreatedAt = contact.CreatedAt;
         GivenName = contact.GivenName;
@@ -64,22 +68,64 @@ public sealed partial class ContactDraftViewModel : ObservableObject
             birthday = parsed;
         }
 
-        var contact = new Contact
-        {
-            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
-            CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt,
-            GivenName = GivenName,
-            FamilyName = FamilyName,
-            Nickname = Nickname,
-            Birthday = birthday,
-            Notes = Notes,
-            IsFavorite = IsFavorite,
-            IsArchived = IsArchived,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        if (!string.IsNullOrWhiteSpace(Phone)) contact.Phones.Add(new(Guid.NewGuid(), "Mobile", Phone.Trim()));
-        if (!string.IsNullOrWhiteSpace(Email)) contact.Emails.Add(new(Guid.NewGuid(), "Email", Email.Trim()));
+        // Start from the complete loaded aggregate so fields not yet exposed by the compact
+        // desktop editor (additional phone/email values, addresses, organizations, groups,
+        // and tags) survive an otherwise unrelated edit/save operation.
+        var contact = _loadedContact?.DeepCopy() ?? new Contact();
+        contact.Id = Id == Guid.Empty ? Guid.NewGuid() : Id;
+        contact.CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt;
+        contact.GivenName = GivenName;
+        contact.FamilyName = FamilyName;
+        contact.Nickname = Nickname;
+        contact.Birthday = birthday;
+        contact.Notes = Notes;
+        contact.IsFavorite = IsFavorite;
+        contact.IsArchived = IsArchived;
+        contact.UpdatedAt = DateTimeOffset.UtcNow;
+
+        ApplyPrimaryPhone(contact, Phone);
+        ApplyPrimaryEmail(contact, Email);
         return contact;
+    }
+
+    private static void ApplyPrimaryPhone(Contact contact, string value)
+    {
+        var normalized = value.Trim();
+        if (contact.Phones.Count == 0)
+        {
+            if (normalized.Length > 0)
+                contact.Phones.Add(new(Guid.NewGuid(), "Mobile", normalized));
+            return;
+        }
+
+        if (normalized.Length == 0)
+        {
+            contact.Phones.RemoveAt(0);
+            return;
+        }
+
+        var first = contact.Phones[0];
+        contact.Phones[0] = new(first.Id, first.Label, normalized, first.Kind);
+    }
+
+    private static void ApplyPrimaryEmail(Contact contact, string value)
+    {
+        var normalized = value.Trim();
+        if (contact.Emails.Count == 0)
+        {
+            if (normalized.Length > 0)
+                contact.Emails.Add(new(Guid.NewGuid(), "Email", normalized));
+            return;
+        }
+
+        if (normalized.Length == 0)
+        {
+            contact.Emails.RemoveAt(0);
+            return;
+        }
+
+        var first = contact.Emails[0];
+        contact.Emails[0] = new(first.Id, first.Label, normalized, first.Kind);
     }
 }
 
