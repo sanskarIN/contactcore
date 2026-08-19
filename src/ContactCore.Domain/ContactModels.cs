@@ -12,6 +12,8 @@ public sealed record ContactPhone(Guid Id, string Label, string Number, ContactF
 public sealed record ContactEmail(Guid Id, string Label, string Address, ContactFieldKind Kind = ContactFieldKind.Home);
 public sealed record ContactAddress(Guid Id, string Label, string Street, string City, string Region, string PostalCode, string Country);
 public sealed record ContactOrganization(Guid Id, string Name, string? Title, string? Department);
+public sealed record ContactDate(Guid Id, string Label, DateOnly Date);
+public sealed record ContactNote(Guid Id, string Label, string Content);
 public sealed record ContactGroup(Guid Id, string Name);
 public sealed record ContactTag(Guid Id, string Name);
 
@@ -31,6 +33,8 @@ public sealed class Contact
     public List<ContactEmail> Emails { get; } = [];
     public List<ContactAddress> Addresses { get; } = [];
     public List<ContactOrganization> Organizations { get; } = [];
+    public List<ContactDate> Dates { get; } = [];
+    public List<ContactNote> NoteEntries { get; } = [];
     public List<ContactGroup> Groups { get; } = [];
     public List<ContactTag> Tags { get; } = [];
 
@@ -62,6 +66,8 @@ public sealed class Contact
         copy.Emails.AddRange(Emails);
         copy.Addresses.AddRange(Addresses);
         copy.Organizations.AddRange(Organizations);
+        copy.Dates.AddRange(Dates);
+        copy.NoteEntries.AddRange(NoteEntries);
         copy.Groups.AddRange(Groups);
         copy.Tags.AddRange(Tags);
         return copy;
