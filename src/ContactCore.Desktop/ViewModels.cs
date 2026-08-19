@@ -37,6 +37,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     [ObservableProperty] private string email = "";
     [ObservableProperty] private string notes = "";
     [ObservableProperty] private bool isFavorite;
+    [ObservableProperty] private bool isArchived;
 
     public void Load(Contact contact)
     {
@@ -50,6 +51,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         Email = contact.Emails.FirstOrDefault()?.Address ?? "";
         Notes = contact.Notes;
         IsFavorite = contact.IsFavorite;
+        IsArchived = contact.IsArchived;
     }
 
     public Contact ToContact()
@@ -72,6 +74,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
             Birthday = birthday,
             Notes = Notes,
             IsFavorite = IsFavorite,
+            IsArchived = IsArchived,
             UpdatedAt = DateTimeOffset.UtcNow
         };
         if (!string.IsNullOrWhiteSpace(Phone)) contact.Phones.Add(new(Guid.NewGuid(), "Mobile", Phone.Trim()));
