@@ -19,7 +19,7 @@ Git text/line-ending handling rules. Keeps platform checkouts consistent.
 Ignores build/IDE output plus local databases, WAL/SHM files, backups, exports, restore/temp artifacts, environment secrets, signing-key material, and other private/generated files covered by the current policy.
 
 ### `CHANGELOG.md`
-Release/change history. Contains the dated **2.0.12** release-preparation section covering the full editor, parser hardening, duplicate merge/data-safety fixes, tests, version/release automation, documentation, security boundaries, and known limitations, plus an empty post-2.0.12 `Unreleased` section.
+Release/change history. Contains the dated **2.0.12** release-preparation section covering the full editor, shared group/tag dictionary reassignment semantics, parser hardening, stale-safe duplicate merge/data-safety fixes, tests, version/release automation, documentation, security boundaries, and known limitations, plus an empty post-2.0.12 `Unreleased` section.
 
 ### `CODE_OF_CONDUCT.md`
 Community behavior/enforcement policy, including privacy-conscious handling of accidentally shared sensitive data.
@@ -43,7 +43,7 @@ MIT license text for ContactCore's repository code. Third-party/native dependenc
 User-facing privacy posture: offline/local-first behavior, storage/export/backup implications, temporary copies, runtime-key handling, and absence of mandatory telemetry/cloud behavior.
 
 ### `README.md`
-Primary project landing page. Identifies version 2.0.12 and documents the full rich editor, search/filtering, import/export, duplicate review/atomic merge, backup/restore, themes, security boundaries, release targets/package names/checksums, setup, documentation links, support/funding, and current limitations without overclaiming encryption/signing/accessibility.
+Primary project landing page. Identifies version 2.0.12 and documents the full rich editor, contact-owned versus shared group/tag identity semantics, search/filtering, import/export, stale-safe duplicate review/atomic merge, backup/restore, themes, security boundaries, release targets/package names/checksums, setup, documentation links, support/funding, and current limitations without overclaiming encryption/signing/accessibility.
 
 ### `ROADMAP.md`
 Separates completed 2.0.12 work from future work. Rich editing, unsaved-draft safety, stale-safe duplicate transactions, rich normalization tests, and release-version/package/checksum hardening are complete; reorder/global taxonomy/undo/deeper failure injection/scale/encryption-provider/signing/manual-audit work remains open.
@@ -52,7 +52,7 @@ Separates completed 2.0.12 work from future work. Rich editing, unsaved-draft sa
 Public vulnerability-reporting and supported-security-policy document. Routes private vulnerabilities away from public issues and complements `docs/security.md`.
 
 ### `SUPPORT.md`
-Support channels and privacy-safe diagnostic guidance. Discourages posting real contact databases, backups, exports, or keys publicly.
+Support channels and privacy-safe diagnostic guidance. Covers the full 2.0.12 editor and stale-safe duplicate expectations while discouraging real contact databases, backups, exports, or keys in public reports.
 
 ### `global.json`
 Pins the stable .NET 10 SDK baseline (`10.0.100`) with latest-compatible feature-band roll-forward and prereleases disabled. Development, CI and the hardened release workflow use this policy.
@@ -66,7 +66,7 @@ Authoritative v2.0.12 continuation/handoff ledger. Records branch/PR reconciliat
 GitHub funding configuration for the project's support/funding link.
 
 ### `.github/ISSUE_TEMPLATE/bug_report.yml`
-Structured privacy-conscious bug-report form. Requests reproducible details while explicitly discouraging real contact data/secrets in public reports.
+Structured privacy-conscious bug-report form. Requests reproducible details, uses v2.0.12 as the current version example, and explicitly discourages real contact data/secrets in public reports.
 
 ### `.github/ISSUE_TEMPLATE/feature_request.yml`
 Structured feature-request form that asks for use case plus privacy/offline/accessibility/data-compatibility considerations.
@@ -75,7 +75,7 @@ Structured feature-request form that asks for use case plus privacy/offline/acce
 Dependabot configuration for dependency update proposals. Automated updates still require normal compatibility/security/license review.
 
 ### `.github/pull_request_template.md`
-PR checklist covering CI/CodeQL, tests, data-safety/aggregate preservation, migrations/recovery, privacy, documentation, and review evidence.
+PR checklist covering CI/CodeQL, tests, data-safety/aggregate preservation, contact-owned versus shared-dictionary identity semantics, stale duplicate protection, migrations/recovery, privacy, documentation, and review evidence.
 
 ### `.github/workflows/ci.yml`
 Cross-platform CI matrix for Ubuntu, Windows, and macOS. Restores, verifies formatting, builds Release, runs tests with XPlat coverage, uploads available results, and cancels obsolete same-ref runs.
@@ -110,19 +110,19 @@ Layer/dependency map plus startup/read/write/import/backup/restore flows, full-e
 CI/CodeQL behavior plus the 2.0.12 version-gated release workflow, SDK policy, packaging, SHA-256 checksums, least-privilege release permissions, quality gate, dependency automation, and failure diagnosis.
 
 ### `docs/data-model.md`
-Complete domain-to-SQLite mapping for scalar/repeated fields, groups/tags, identity/timestamps, complete-aggregate replacement, editor child-ID preservation, atomic merge semantics, indexes, normalization, schema identity, and migrations.
+Complete domain-to-SQLite mapping for scalar/repeated fields, shared group/tag dictionaries, per-contact rename-as-reassignment semantics, identity/timestamps, complete-aggregate replacement, stale-safe duplicate merge, indexes, normalization, schema identity, and migrations.
 
 ### `docs/desktop-ui.md`
-Exact current Avalonia behavior: composition, three-column layout, full repeated-field editor, persisted/unsaved drafts, search/debounce, filters, permanent delete, duplicate review/survivor choice/atomic merge, data tools, picker limits, settings, shortcuts, callbacks, errors, and manual UI verification.
+Exact current Avalonia behavior: composition, three-column layout, full repeated-field editor, contact-owned versus shared group/tag identity behavior, persisted/unsaved drafts, search/debounce, filters, permanent delete, stale-safe duplicate review/survivor choice/atomic merge, data tools, picker limits, settings, shortcuts, callbacks, errors, and manual UI verification.
 
 ### `docs/development.md`
-Contributor engineering rules for project layering, complete aggregate editing, persistence-state semantics, duplicate merge, SQL/migrations, import, backup/restore, privacy, UI, tests, Git discipline, PRs, and documentation definition of done.
+Contributor engineering rules for project layering, complete aggregate editing, shared dictionary reassignment, persistence-state semantics, stale-safe duplicate merge, SQL/migrations, import, backup/restore, privacy, UI, tests, Git discipline, PRs, and documentation definition of done.
 
 ### `docs/import-export.md`
 CSV/focused-vCard contracts, supported fields, escaping/parsing, unsupported/duplicate CSV-header handling, formula-prefix warnings, vCard TYPE/escaping behavior, batch validation/atomicity, field-fidelity limits, and safe extension guidance.
 
 ### `docs/maintainer-guide.md`
-Long-term maintainer invariants and workflows for fields/migrations, complete editor identities, unsaved drafts, duplicate transactions, backup/restore, encryption, preferences, parsers, performance, accessibility, dependencies, CI/releases, docs, security, and repository hygiene.
+Long-term maintainer invariants and workflows for fields/migrations, contact-owned/shared-dictionary editor identities, unsaved drafts, stale-safe duplicate transactions, backup/restore, encryption, preferences, parsers, performance, accessibility, dependencies, CI/releases, docs, security, and repository hygiene.
 
 ### `docs/performance.md`
 Current complexity/performance characteristics and non-claims: leading-wildcard search, root-plus-child loading, pairwise duplicate scan, in-memory codec behavior, backup/restore costs, benchmark scenarios, profiling, and optimization priorities.
@@ -143,7 +143,7 @@ Source setup for SDK/clone/restore/build/run/test, paths/environment values, dis
 Local storage, connection policy, schema/migrations, aggregate transaction model, backup verification, staged restore/rollback sequence, recovery artifacts, encryption-provider interactions, failure behavior, and operational recommendations.
 
 ### `docs/testing.md`
-Concrete v2.0.12 coverage map across all four test projects, including rich Application normalization and both stale duplicate-merge directions, quality commands, deterministic/temp-data rules, remaining high-value cases, manual release matrix, CI-only failure diagnosis, and regression workflow.
+Concrete v2.0.12 coverage map across all four test projects, including rich Application normalization, shared group/tag reassignment and both stale duplicate-merge directions, quality commands, deterministic/temp-data rules, remaining high-value cases, manual release matrix, CI-only failure diagnosis, and regression workflow.
 
 ### `docs/troubleshooting.md`
 Safety-first diagnosis for SDK/build/startup, encryption/path/settings/search, rich editor invariants, unsaved drafts, shortcuts, CSV/vCard, backup/restore, permanent delete, duplicate merge, themes, file locks, CI platform differences, and privacy-safe diagnostics.
@@ -177,7 +177,7 @@ Application project definition with the Domain project reference.
 Use-case boundary for initialize/count/search/save/import/duplicate-merge/favorite/archive/delete. Normalizes scalar and all current repeated rich fields, timestamps, validates, performs whole-batch import validation, and delegates persistence/atomic merge to repository abstractions.
 
 ### `src/ContactCore.Application/DuplicateDetector.cs`
-Duplicate candidate scoring/comparison plus `ContactMerger`. Uses normalized name/email/phone/birthday signals, clamps thresholds, rejects self-merge, structurally de-duplicates richer child data, and assigns fresh IDs to copied secondary child records.
+Duplicate candidate scoring/comparison plus `ContactMerger`. Uses normalized name/email/phone/birthday signals, clamps thresholds, rejects self-merge, structurally de-duplicates richer child data, and assigns fresh IDs to copied secondary contact-owned child records where needed.
 
 ### `src/ContactCore.Application/ImportExport.cs`
 `ImportResult`, CSV codec, and focused vCard codec. Handles quoting/escaping/warnings/header hardening/formula warnings/TYPE mapping and never persists directly.
@@ -206,7 +206,7 @@ Defense-in-depth sanitizer for UI-visible diagnostics: common email/long-number 
 Central connection policy for paths, access/read-only mode, pooling/cache, foreign keys, busy timeout, runtime key application, and fail-closed cipher-version verification.
 
 ### `src/ContactCore.Infrastructure/SqliteContactRepository.cs`
-Concrete repository: count/get/search/delete, filters/literal wildcard escaping, aggregate load, transactional single/bulk upsert, child/link replacement, group/tag linking, and atomic duplicate merge. The merge transaction requires both the chosen primary/survivor and secondary records to still exist, preventing stale-primary resurrection and rolling back when either reviewed record disappeared.
+Concrete repository: count/get/search/delete, filters/literal wildcard escaping, aggregate load, transactional single/bulk upsert, contact-owned child/link replacement, shared group/tag insertion/linking, and atomic duplicate merge. Shared group/tag values are resolved by case-insensitive name, allowing safe per-contact reassignment to a new dictionary identity. Duplicate merge requires both the chosen primary/survivor and secondary records to still exist, preventing stale-primary resurrection and rolling back when either reviewed record disappeared.
 
 ## 7. Desktop production project — 14 files
 
@@ -244,13 +244,13 @@ Platform adapter for import/export/backup pickers, bounded UTF-8 text reads, str
 Desktop process entry point configuring and starting Avalonia application lifetime.
 
 ### `src/ContactCore.Desktop/RichFieldViewModels.cs`
-Editable row models for phone, email, address, organization, group and tag plus duplicate-pair preview model with score/reasons/side-by-side details/merge explanation.
+Editable row models for phone, email, address, organization, group and tag plus duplicate-pair preview model. Group/tag draft rows retain `OriginalName` so true per-contact renames can become new shared-dictionary assignments while normalization-equivalent edits keep the canonical existing identity/name.
 
 ### `src/ContactCore.Desktop/Styles/DesignSystem.axaml`
 Shared desktop visual styles for surfaces, cards, labels, buttons, avatar/logo, status/muted text, alphabet controls, and visible focus behavior using theme resources.
 
 ### `src/ContactCore.Desktop/ViewModels.cs`
-Core list/draft/main view-model implementation. Preserves root/child identities, complete aggregate state, explicit persistence state, rich add/remove commands, search/filter/debounce, editor-only save guard, import/export/backup/settings, duplicate review/first-direction merge, and status handling.
+Core list/draft/main view-model implementation. Preserves root identity and contact-owned child IDs, retains unchanged group/tag shared identities, converts true group/tag renames to fresh dictionary identities, preserves complete aggregate state, tracks explicit persistence state, handles rich add/remove commands, search/filter/debounce, editor-only save guard, import/export/backup/settings, duplicate review/first-direction merge, and status handling.
 
 ## 8. Domain tests — 2 files
 
@@ -269,7 +269,7 @@ Application MSTest project definition/reference.
 Fake-repository tests for scalar/phone/email normalization, full address/organization/group/tag normalization, timestamping, whole-batch import validation-before-write, indexed issue fields, deep-copy import behavior, one bulk call/shared timestamp, and trimmed search forwarding.
 
 ### `tests/ContactCore.Application.Tests/DuplicateDetectorTests.cs`
-Duplicate scoring and merge tests for normalized signals, duplicate phone suppression, copied child ID safety, and self-merge rejection.
+Duplicate scoring and merge tests for normalized signals, duplicate phone suppression, copied contact-owned child ID safety, and self-merge rejection.
 
 ### `tests/ContactCore.Application.Tests/ImportExportHardeningTests.cs`
 Regression tests for unsupported/duplicate CSV headers, spreadsheet-formula-prefix warnings, supported escaped vCard round trips, common TYPE mapping, and invalid birthday warning privacy.
@@ -298,7 +298,7 @@ Diagnostic sanitizer tests for likely email/long-number redaction and output-len
 Atomic duplicate persistence tests: successful survivor update/secondary deletion, rollback when the secondary record is missing, and rejection/non-resurrection when the reviewed primary disappeared while preserving the secondary record.
 
 ### `tests/ContactCore.Infrastructure.Tests/SqliteRepositoryTests.cs`
-Repository tests for base/rich aggregate round trip/replacement, favorites, literal `%`/`_`/backslash search, tag/group/StartsWith filters, cascade delete, and whole-batch rollback.
+Repository tests for base/rich aggregate round trip/replacement, shared group/tag reassignment after rename, favorites, literal `%`/`_`/backslash search, tag/group/StartsWith filters, cascade delete, and whole-batch rollback.
 
 ## 11. Desktop tests — 2 files
 
@@ -306,7 +306,7 @@ Repository tests for base/rich aggregate round trip/replacement, favorites, lite
 Desktop MSTest project definition/reference to the desktop production project.
 
 ### `tests/ContactCore.Desktop.Tests/ContactDraftViewModelTests.cs`
-Non-visual editor regression tests: root identity/timestamps/flags, persisted versus unsaved state, exact birthday parsing, phone/email/address/organization/group/tag ID preservation/editing/removal, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
+Non-visual editor regression tests: root identity/timestamps/flags, persisted versus unsaved state, exact birthday parsing, contact-owned phone/email/address/organization ID preservation/editing/removal, unchanged group/tag shared identity preservation, true rename-to-new-dictionary-identity behavior, case-only canonical identity/name preservation, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
 
 ## Inventory totals
 
