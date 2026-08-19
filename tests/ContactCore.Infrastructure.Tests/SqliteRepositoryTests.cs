@@ -116,6 +116,58 @@ public sealed class SqliteRepositoryTests
     }
 
     [TestMethod]
+    public async Task Initialize_rejects_unrelated_existing_sqlite_before_contactcore_mutation()
+    {
+        var databasePath = Path.Combine(_dir, "unrelated.db");
+        await using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var create = connection.CreateCommand();
+            create.CommandText = "CREATE TABLE unrelated_data(id INTEGER PRIMARY KEY, value TEXT NOT NULL); INSERT INTO unrelated_data(value) VALUES ('keep');";
+            await create.ExecuteNonQueryAsync();
+        }
+
+        var factory = new SqliteConnectionFactory(databasePath);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new DatabaseMigrator(factory).ApplyAsync());
+
+        await using var verify = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+        await verify.OpenAsync();
+        await using var tableCheck = verify.CreateCommand();
+        tableCheck.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations';";
+        Assert.AreEqual(0L, Convert.ToInt64(await tableCheck.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
+        tableCheck.CommandText = "SELECT COUNT(*) FROM unrelated_data;";
+        Assert.AreEqual(1L, Convert.ToInt64(await tableCheck.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [TestMethod]
+    public async Task Initialize_rejects_incomplete_database_that_claims_current_schema_version()
+    {
+        var databasePath = Path.Combine(_dir, "incomplete.db");
+        await using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var create = connection.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+                INSERT INTO schema_migrations(version, applied_at) VALUES (2, '2026-08-19T00:00:00.0000000+00:00');
+                CREATE TABLE contacts(id TEXT PRIMARY KEY);
+                CREATE TABLE app_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                INSERT INTO app_metadata(key, value) VALUES ('schema_family', 'contactcore');
+                """;
+            await create.ExecuteNonQueryAsync();
+        }
+
+        var factory = new SqliteConnectionFactory(databasePath);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new DatabaseMigrator(factory).ApplyAsync());
+
+        await using var verify = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+        await verify.OpenAsync();
+        await using var tableCheck = verify.CreateCommand();
+        tableCheck.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='phones';";
+        Assert.AreEqual(0L, Convert.ToInt64(await tableCheck.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [TestMethod]
     public async Task Search_treats_percent_underscore_and_backslash_as_literal_text()
     {
         var percent = new Contact { GivenName = "Percent%Literal" };
