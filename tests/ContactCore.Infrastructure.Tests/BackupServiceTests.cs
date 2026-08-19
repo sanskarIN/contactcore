@@ -72,6 +72,26 @@ public sealed class BackupServiceTests
     }
 
     [TestMethod]
+    public async Task Valid_unrelated_sqlite_database_is_rejected_without_replacing_active_database()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
+        var unrelated = Path.Combine(_dir, "unrelated.db");
+        await using (var connection = new SqliteConnection($"Data Source={unrelated};Pooling=False"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE unrelated(id INTEGER PRIMARY KEY, value TEXT NOT NULL); INSERT INTO unrelated(value) VALUES ('fictional');";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => _backup.RestoreBackupAsync(unrelated));
+
+        var contacts = await _repository.SearchAsync(new ContactQuery());
+        Assert.AreEqual(1, contacts.Count);
+        Assert.AreEqual("Keep active", contacts.Single().GivenName);
+    }
+
+    [TestMethod]
     public async Task Legacy_schema_backup_is_migrated_before_replacement()
     {
         await _repository.UpsertAsync(new Contact { GivenName = "Legacy" });
