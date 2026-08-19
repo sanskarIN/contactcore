@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: Directory.Packages.props
 
       - name: Restore
-        run: dotnet restore ContactCore.slnx --locked-mode=false
+        run: dotnet restore ContactCore.slnx
 
       - name: Verify formatting
         run: dotnet format ContactCore.slnx --verify-no-changes --no-restore
