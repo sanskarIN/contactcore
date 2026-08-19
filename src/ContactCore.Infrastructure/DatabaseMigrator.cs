@@ -32,11 +32,25 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
         """)
     };
 
+    public int LatestVersion => Migrations.Max(x => x.Version);
+
     public async Task ApplyAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await SqliteConnectionFactory.ExecuteAsync(connection, "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);", cancellationToken).ConfigureAwait(false);
+        await VerifyIntegrityAsync(connection, cancellationToken).ConfigureAwait(false);
+        await SqliteConnectionFactory.ExecuteAsync(
+            connection,
+            "CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);",
+            cancellationToken).ConfigureAwait(false);
+
         var current = await CurrentVersionAsync(connection, cancellationToken).ConfigureAwait(false);
+        if (current > LatestVersion)
+        {
+            throw new InvalidOperationException(
+                $"This database uses schema version {current}, but this ContactCore build supports only up to {LatestVersion}. " +
+                "Use a newer ContactCore version rather than attempting a downgrade.");
+        }
+
         foreach (var migration in Migrations.Where(x => x.Version > current).OrderBy(x => x.Version))
         {
             await using var tx = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
@@ -46,6 +60,7 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
                 cmd.Transaction = (SqliteTransaction)tx;
                 cmd.CommandText = migration.Sql;
                 await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
                 cmd.CommandText = "INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $at);";
                 cmd.Parameters.Clear();
                 cmd.Parameters.AddWithValue("$version", migration.Version);
@@ -59,12 +74,34 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
                 throw;
             }
         }
+
+        await VerifyIntegrityAsync(connection, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<int> CurrentVersionAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task VerifyIntegrityAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA quick_check;";
+        var result = Convert.ToString(
+            await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),
+            System.Globalization.CultureInfo.InvariantCulture);
+        if (!string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "The ContactCore database failed SQLite quick_check. Migration was stopped to avoid worsening corruption.");
+        }
+    }
+
+    private static async Task<int> CurrentVersionAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
     {
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_migrations;";
-        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        return Convert.ToInt32(
+            await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false),
+            System.Globalization.CultureInfo.InvariantCulture);
     }
 }
