@@ -64,6 +64,29 @@ public sealed class SqliteRepositoryTests
     }
 
     [TestMethod]
+    public async Task Search_filters_by_tag_group_and_family_first_letter_case_insensitively()
+    {
+        var matching = new Contact { GivenName = "Zelda", FamilyName = "Baker" };
+        matching.Groups.Add(new(Guid.NewGuid(), "Project Team"));
+        matching.Tags.Add(new(Guid.NewGuid(), "Priority"));
+        var control = new Contact { GivenName = "Baker", FamilyName = "Carter" };
+        control.Groups.Add(new(Guid.NewGuid(), "Other Group"));
+        control.Tags.Add(new(Guid.NewGuid(), "Other Tag"));
+        await _repo.UpsertManyAsync([matching, control]);
+
+        var byTag = await _repo.SearchAsync(new ContactQuery(Tag: "priority"));
+        var byGroup = await _repo.SearchAsync(new ContactQuery(Group: "project team"));
+        var byLetter = await _repo.SearchAsync(new ContactQuery(StartsWith: 'B'));
+
+        Assert.AreEqual(1, byTag.Count);
+        Assert.AreEqual(matching.Id, byTag[0].Id);
+        Assert.AreEqual(1, byGroup.Count);
+        Assert.AreEqual(matching.Id, byGroup[0].Id);
+        Assert.AreEqual(1, byLetter.Count);
+        Assert.AreEqual(matching.Id, byLetter[0].Id, "StartsWith should prefer family name when it is present.");
+    }
+
+    [TestMethod]
     public async Task Delete_cascades_related_rows()
     {
         var c = new Contact { GivenName = "Disposable" };
