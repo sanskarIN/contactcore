@@ -98,11 +98,11 @@ public sealed partial class ContactDraftViewModel : ObservableObject
 
         Groups.Clear();
         foreach (var group in contact.Groups)
-            Groups.Add(new GroupDraftViewModel { Id = group.Id, Name = group.Name });
+            Groups.Add(new GroupDraftViewModel { Id = group.Id, OriginalName = group.Name, Name = group.Name });
 
         Tags.Clear();
         foreach (var tag in contact.Tags)
-            Tags.Add(new TagDraftViewModel { Id = tag.Id, Name = tag.Name });
+            Tags.Add(new TagDraftViewModel { Id = tag.Id, OriginalName = tag.Name, Name = tag.Name });
     }
 
     public Contact ToContact()
@@ -234,7 +234,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         {
             var name = group.Name.Trim();
             if (name.Length == 0 || !names.Add(name)) continue;
-            contact.Groups.Add(new ContactGroup(group.Id == Guid.Empty ? Guid.NewGuid() : group.Id, name));
+
+            var (id, persistedName) = ResolveSharedDictionaryIdentity(group.Id, group.OriginalName, name);
+            contact.Groups.Add(new ContactGroup(id, persistedName));
         }
     }
 
@@ -245,8 +247,24 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         {
             var name = tag.Name.Trim();
             if (name.Length == 0 || !names.Add(name)) continue;
-            contact.Tags.Add(new ContactTag(tag.Id == Guid.Empty ? Guid.NewGuid() : tag.Id, name));
+
+            var (id, persistedName) = ResolveSharedDictionaryIdentity(tag.Id, tag.OriginalName, name);
+            contact.Tags.Add(new ContactTag(id, persistedName));
         }
+    }
+
+    private static (Guid Id, string Name) ResolveSharedDictionaryIdentity(Guid id, string? originalName, string editedName)
+    {
+        if (string.IsNullOrWhiteSpace(originalName))
+            return (id == Guid.Empty ? Guid.NewGuid() : id, editedName);
+
+        var original = originalName.Trim();
+        if (TextNormalizer.SearchKey(original) == TextNormalizer.SearchKey(editedName))
+            return (id == Guid.Empty ? Guid.NewGuid() : id, original);
+
+        // Groups/tags are shared dictionary rows. A per-contact rename must therefore become
+        // a reassignment to a new dictionary identity rather than mutating/reusing the old ID.
+        return (Guid.NewGuid(), editedName);
     }
 
     private static bool HasAddressValue(AddressDraftViewModel address) =>
