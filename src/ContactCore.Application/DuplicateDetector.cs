@@ -84,7 +84,7 @@ public sealed class ContactMerger
         TextNormalizer.SearchKey(left.PostalCode) == TextNormalizer.SearchKey(right.PostalCode) &&
         TextNormalizer.SearchKey(left.Country) == TextNormalizer.SearchKey(right.Country);
 
-    private static bool SameOrganization(OrganizationAffiliation left, OrganizationAffiliation right) =>
+    private static bool SameOrganization(ContactOrganization left, ContactOrganization right) =>
         TextNormalizer.SearchKey(left.Name) == TextNormalizer.SearchKey(right.Name) &&
         TextNormalizer.SearchKey(left.Title ?? string.Empty) == TextNormalizer.SearchKey(right.Title ?? string.Empty) &&
         TextNormalizer.SearchKey(left.Department ?? string.Empty) == TextNormalizer.SearchKey(right.Department ?? string.Empty);
