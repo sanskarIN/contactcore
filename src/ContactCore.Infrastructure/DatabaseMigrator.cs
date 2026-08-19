@@ -29,6 +29,22 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
         (2, """
         CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         INSERT OR IGNORE INTO app_metadata(key, value) VALUES ('schema_family', 'contactcore');
+        """),
+        (3, """
+        CREATE TABLE IF NOT EXISTS contact_dates (
+          id TEXT PRIMARY KEY,
+          contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+          label TEXT NOT NULL,
+          date_value TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS contact_notes (
+          id TEXT PRIMARY KEY,
+          contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+          label TEXT NOT NULL,
+          content TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS ix_contact_dates_contact ON contact_dates(contact_id);
+        CREATE INDEX IF NOT EXISTS ix_contact_notes_contact ON contact_notes(contact_id);
         """)
     };
 
