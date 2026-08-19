@@ -15,6 +15,7 @@ public sealed partial class ContactListItemViewModel(Contact contact) : Observab
     public string DisplayName => contact.DisplayName;
     public string Subtitle => contact.Emails.FirstOrDefault()?.Address ?? contact.Phones.FirstOrDefault()?.Number ?? "No contact details";
     public bool IsFavorite => contact.IsFavorite;
+    public bool IsArchived => contact.IsArchived;
     public string Initials
     {
         get
@@ -31,31 +32,74 @@ public sealed partial class ContactDraftViewModel : ObservableObject
 
     public Guid Id { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public bool IsPersisted { get; private set; }
+    public IReadOnlyList<ContactFieldKind> FieldKinds { get; } = Enum.GetValues<ContactFieldKind>();
+    public ObservableCollection<PhoneDraftViewModel> Phones { get; } = [];
+    public ObservableCollection<EmailDraftViewModel> Emails { get; } = [];
+    public ObservableCollection<AddressDraftViewModel> Addresses { get; } = [];
+    public ObservableCollection<OrganizationDraftViewModel> Organizations { get; } = [];
+
     [ObservableProperty] private string givenName = "";
     [ObservableProperty] private string familyName = "";
     [ObservableProperty] private string nickname = "";
     [ObservableProperty] private string birthdayText = "";
-    [ObservableProperty] private string phone = "";
-    [ObservableProperty] private string email = "";
     [ObservableProperty] private string notes = "";
     [ObservableProperty] private bool isFavorite;
     [ObservableProperty] private bool isArchived;
+    [ObservableProperty] private string groupsText = "";
+    [ObservableProperty] private string tagsText = "";
 
-    public void Load(Contact contact)
+    public void Load(Contact contact, bool isPersisted = true)
     {
         ArgumentNullException.ThrowIfNull(contact);
         _loadedContact = contact.DeepCopy();
         Id = contact.Id;
         CreatedAt = contact.CreatedAt;
+        IsPersisted = isPersisted;
         GivenName = contact.GivenName;
         FamilyName = contact.FamilyName;
         Nickname = contact.Nickname;
         BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd") ?? "";
-        Phone = contact.Phones.FirstOrDefault()?.Number ?? "";
-        Email = contact.Emails.FirstOrDefault()?.Address ?? "";
         Notes = contact.Notes;
         IsFavorite = contact.IsFavorite;
         IsArchived = contact.IsArchived;
+        GroupsText = string.Join(", ", contact.Groups.Select(x => x.Name));
+        TagsText = string.Join(", ", contact.Tags.Select(x => x.Name));
+
+        Phones.Clear();
+        foreach (var phone in contact.Phones)
+            Phones.Add(new PhoneDraftViewModel { Id = phone.Id, Label = phone.Label, Number = phone.Number, Kind = phone.Kind });
+
+        Emails.Clear();
+        foreach (var email in contact.Emails)
+            Emails.Add(new EmailDraftViewModel { Id = email.Id, Label = email.Label, Address = email.Address, Kind = email.Kind });
+
+        Addresses.Clear();
+        foreach (var address in contact.Addresses)
+        {
+            Addresses.Add(new AddressDraftViewModel
+            {
+                Id = address.Id,
+                Label = address.Label,
+                Street = address.Street,
+                City = address.City,
+                Region = address.Region,
+                PostalCode = address.PostalCode,
+                Country = address.Country
+            });
+        }
+
+        Organizations.Clear();
+        foreach (var organization in contact.Organizations)
+        {
+            Organizations.Add(new OrganizationDraftViewModel
+            {
+                Id = organization.Id,
+                Name = organization.Name,
+                Title = organization.Title ?? "",
+                Department = organization.Department ?? ""
+            });
+        }
     }
 
     public Contact ToContact()
@@ -68,10 +112,6 @@ public sealed partial class ContactDraftViewModel : ObservableObject
             birthday = parsed;
         }
 
-        // Preserve all child collections from the complete loaded aggregate, then overlay
-        // only the fields exposed by the compact editor. Contact identity fields are init-only,
-        // so construct the outgoing aggregate with the desired identity up front.
-        var baseline = _loadedContact?.DeepCopy();
         var contact = new Contact
         {
             Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
@@ -86,60 +126,111 @@ public sealed partial class ContactDraftViewModel : ObservableObject
             UpdatedAt = DateTimeOffset.UtcNow
         };
 
-        if (baseline is not null)
+        foreach (var phone in Phones.Where(x => !string.IsNullOrWhiteSpace(x.Number)))
         {
-            contact.Phones.AddRange(baseline.Phones);
-            contact.Emails.AddRange(baseline.Emails);
-            contact.Addresses.AddRange(baseline.Addresses);
-            contact.Organizations.AddRange(baseline.Organizations);
-            contact.Groups.AddRange(baseline.Groups);
-            contact.Tags.AddRange(baseline.Tags);
+            contact.Phones.Add(new(
+                phone.Id == Guid.Empty ? Guid.NewGuid() : phone.Id,
+                LabelOrDefault(phone.Label, phone.Kind.ToString()),
+                phone.Number.Trim(),
+                phone.Kind));
         }
 
-        ApplyPrimaryPhone(contact, Phone);
-        ApplyPrimaryEmail(contact, Email);
+        foreach (var email in Emails.Where(x => !string.IsNullOrWhiteSpace(x.Address)))
+        {
+            contact.Emails.Add(new(
+                email.Id == Guid.Empty ? Guid.NewGuid() : email.Id,
+                LabelOrDefault(email.Label, email.Kind.ToString()),
+                email.Address.Trim(),
+                email.Kind));
+        }
+
+        foreach (var address in Addresses.Where(HasAddressValue))
+        {
+            contact.Addresses.Add(new(
+                address.Id == Guid.Empty ? Guid.NewGuid() : address.Id,
+                LabelOrDefault(address.Label, "Address"),
+                address.Street.Trim(),
+                address.City.Trim(),
+                address.Region.Trim(),
+                address.PostalCode.Trim(),
+                address.Country.Trim()));
+        }
+
+        foreach (var organization in Organizations.Where(x => !string.IsNullOrWhiteSpace(x.Name)))
+        {
+            contact.Organizations.Add(new(
+                organization.Id == Guid.Empty ? Guid.NewGuid() : organization.Id,
+                organization.Name.Trim(),
+                NullIfBlank(organization.Title),
+                NullIfBlank(organization.Department)));
+        }
+
+        foreach (var groupName in SplitLabels(GroupsText))
+            contact.Groups.Add(FindExistingGroup(groupName) ?? new ContactGroup(Guid.NewGuid(), groupName));
+        foreach (var tagName in SplitLabels(TagsText))
+            contact.Tags.Add(FindExistingTag(tagName) ?? new ContactTag(Guid.NewGuid(), tagName));
+
         return contact;
     }
 
-    private static void ApplyPrimaryPhone(Contact contact, string value)
+    [RelayCommand]
+    private void AddPhone() => Phones.Add(new PhoneDraftViewModel());
+
+    [RelayCommand]
+    private void RemovePhone(PhoneDraftViewModel? phone)
     {
-        var normalized = value.Trim();
-        if (contact.Phones.Count == 0)
-        {
-            if (normalized.Length > 0)
-                contact.Phones.Add(new(Guid.NewGuid(), "Mobile", normalized));
-            return;
-        }
-
-        if (normalized.Length == 0)
-        {
-            contact.Phones.RemoveAt(0);
-            return;
-        }
-
-        var first = contact.Phones[0];
-        contact.Phones[0] = new(first.Id, first.Label, normalized, first.Kind);
+        if (phone is not null) Phones.Remove(phone);
     }
 
-    private static void ApplyPrimaryEmail(Contact contact, string value)
+    [RelayCommand]
+    private void AddEmail() => Emails.Add(new EmailDraftViewModel());
+
+    [RelayCommand]
+    private void RemoveEmail(EmailDraftViewModel? email)
     {
-        var normalized = value.Trim();
-        if (contact.Emails.Count == 0)
-        {
-            if (normalized.Length > 0)
-                contact.Emails.Add(new(Guid.NewGuid(), "Email", normalized));
-            return;
-        }
-
-        if (normalized.Length == 0)
-        {
-            contact.Emails.RemoveAt(0);
-            return;
-        }
-
-        var first = contact.Emails[0];
-        contact.Emails[0] = new(first.Id, first.Label, normalized, first.Kind);
+        if (email is not null) Emails.Remove(email);
     }
+
+    [RelayCommand]
+    private void AddAddress() => Addresses.Add(new AddressDraftViewModel());
+
+    [RelayCommand]
+    private void RemoveAddress(AddressDraftViewModel? address)
+    {
+        if (address is not null) Addresses.Remove(address);
+    }
+
+    [RelayCommand]
+    private void AddOrganization() => Organizations.Add(new OrganizationDraftViewModel());
+
+    [RelayCommand]
+    private void RemoveOrganization(OrganizationDraftViewModel? organization)
+    {
+        if (organization is not null) Organizations.Remove(organization);
+    }
+
+    private ContactGroup? FindExistingGroup(string name) => _loadedContact?.Groups.FirstOrDefault(x =>
+        TextNormalizer.SearchKey(x.Name) == TextNormalizer.SearchKey(name));
+
+    private ContactTag? FindExistingTag(string name) => _loadedContact?.Tags.FirstOrDefault(x =>
+        TextNormalizer.SearchKey(x.Name) == TextNormalizer.SearchKey(name));
+
+    private static bool HasAddressValue(AddressDraftViewModel address) =>
+        !string.IsNullOrWhiteSpace(address.Street) ||
+        !string.IsNullOrWhiteSpace(address.City) ||
+        !string.IsNullOrWhiteSpace(address.Region) ||
+        !string.IsNullOrWhiteSpace(address.PostalCode) ||
+        !string.IsNullOrWhiteSpace(address.Country);
+
+    private static IEnumerable<string> SplitLabels(string value) => value
+        .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    private static string LabelOrDefault(string value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
+    private static string? NullIfBlank(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
 public sealed partial class MainWindowViewModel : ObservableObject
@@ -166,6 +257,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public Func<Task<PickedTextFile?>>? PickImportTextRequested { get; set; }
     public Func<string, string, Task<bool>>? SaveTextRequested { get; set; }
     public ObservableCollection<ContactListItemViewModel> Contacts { get; } = [];
+    public ObservableCollection<DuplicatePairViewModel> DuplicatePairs { get; } = [];
     public IReadOnlyList<string> Alphabet { get; }
     public IReadOnlyList<string> ThemeOptions { get; }
     public ContactDraftViewModel Draft { get; }
@@ -183,6 +275,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool isEditorVisible;
     [ObservableProperty] private bool isSettingsVisible;
     [ObservableProperty] private bool isDataToolsVisible;
+    [ObservableProperty] private bool isDuplicatesVisible;
     [ObservableProperty] private string editorTitle = "Contact details";
     [ObservableProperty] private string statusMessage = "";
     [ObservableProperty] private string listHeading = "All contacts";
@@ -191,6 +284,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string selectedTheme = "System";
     [ObservableProperty] private bool reducedMotion;
     [ObservableProperty] private bool confirmPermanentDelete = true;
+    [ObservableProperty] private DuplicatePairViewModel? selectedDuplicate;
+    [ObservableProperty] private string duplicateMessage = "Scan all contacts to review likely duplicate pairs.";
     private char? _letter;
 
     partial void OnSearchTextChanged(string value) => _ = DebouncedRefreshAsync();
@@ -198,8 +293,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedContactChanged(ContactListItemViewModel? value)
     {
         if (value is null) return;
-        IsSettingsVisible = false;
-        IsDataToolsVisible = false;
+        HideDetailViews();
         Draft.Load(value.Model.DeepCopy());
         IsEditorVisible = true;
         EditorTitle = value.DisplayName;
@@ -226,9 +320,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void NewContact()
     {
         SelectedContact = null;
-        IsSettingsVisible = false;
-        IsDataToolsVisible = false;
-        Draft.Load(new Contact());
+        HideDetailViews();
+        Draft.Load(new Contact(), isPersisted: false);
         IsEditorVisible = true;
         EditorTitle = "New contact";
         StatusMessage = "";
@@ -239,9 +332,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         try
         {
-            await _service.SaveAsync(Draft.ToContact());
+            var saved = Draft.ToContact();
+            await _service.SaveAsync(saved);
+            Draft.Load(saved, isPersisted: true);
             StatusMessage = "Saved locally.";
             await RefreshAsync();
+            SelectedContact = Contacts.FirstOrDefault(x => x.Model.Id == saved.Id);
         }
         catch (Exception ex)
         {
@@ -252,10 +348,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void CancelEdit()
     {
-        if (IsSettingsVisible || IsDataToolsVisible)
+        if (IsSettingsVisible || IsDataToolsVisible || IsDuplicatesVisible)
         {
-            IsSettingsVisible = false;
-            IsDataToolsVisible = false;
+            HideDetailViews();
             StatusMessage = "";
             return;
         }
@@ -309,19 +404,54 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task FindDuplicatesAsync()
     {
-        var all = await _service.SearchAsync(new ContactQuery(IncludeArchived: true));
-        var duplicates = new DuplicateDetector().Find(all);
-        StatusMessage = duplicates.Count == 0
-            ? "No likely duplicates found."
-            : $"Found {duplicates.Count} likely duplicate pair(s). Highest score: {duplicates[0].Score:P0}.";
+        SelectedContact = null;
+        HideDetailViews();
+        IsDuplicatesVisible = true;
+        await RefreshDuplicatesAsync();
+    }
+
+    [RelayCommand]
+    private async Task MergeSelectedDuplicateAsync()
+    {
+        if (SelectedDuplicate is null)
+        {
+            DuplicateMessage = "Select a duplicate pair first.";
+            return;
+        }
+        if (ConfirmActionRequested is null)
+        {
+            DuplicateMessage = "Duplicate merge is blocked because confirmation is unavailable.";
+            return;
+        }
+
+        var pair = SelectedDuplicate;
+        var confirmed = await ConfirmActionRequested(
+            $"Merge {pair.SecondaryName} into {pair.PrimaryName}? The primary contact is kept, unique details are combined, and the secondary contact is permanently removed from the active database.");
+        if (!confirmed) return;
+
+        try
+        {
+            FooterText = "Merging duplicate contacts…";
+            var merged = await _service.MergeAsync(pair.Candidate.Left.Id, pair.Candidate.Right.Id);
+            await RefreshAsync();
+            await RefreshDuplicatesAsync();
+            DuplicateMessage = $"Merged duplicate into {merged.DisplayName}. The operation was committed atomically.";
+        }
+        catch (Exception ex)
+        {
+            DuplicateMessage = RedactingLog.Sanitize(ex.Message);
+        }
+        finally
+        {
+            FooterText = "Ready";
+        }
     }
 
     [RelayCommand]
     private void ShowDataTools()
     {
         SelectedContact = null;
-        IsEditorVisible = false;
-        IsSettingsVisible = false;
+        HideDetailViews();
         IsDataToolsVisible = true;
         StatusMessage = "";
     }
@@ -386,8 +516,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void ShowSettings()
     {
         SelectedContact = null;
-        IsEditorVisible = false;
-        IsDataToolsVisible = false;
+        HideDetailViews();
         SelectedTheme = NormalizeTheme(_preferences.Theme);
         ReducedMotion = _preferences.ReducedMotion;
         ConfirmPermanentDelete = _preferences.ConfirmPermanentDelete;
@@ -408,6 +537,27 @@ public sealed partial class MainWindowViewModel : ObservableObject
         StatusMessage = "Settings saved locally.";
     }
 
+    private async Task RefreshDuplicatesAsync()
+    {
+        try
+        {
+            var all = await _service.SearchAsync(new ContactQuery(IncludeArchived: true));
+            var candidates = new DuplicateDetector().Find(all);
+            DuplicatePairs.Clear();
+            foreach (var candidate in candidates) DuplicatePairs.Add(new DuplicatePairViewModel(candidate));
+            SelectedDuplicate = DuplicatePairs.FirstOrDefault();
+            DuplicateMessage = DuplicatePairs.Count == 0
+                ? "No likely duplicates found."
+                : $"Found {DuplicatePairs.Count} likely duplicate pair(s). Review the evidence before merging.";
+        }
+        catch (Exception ex)
+        {
+            DuplicatePairs.Clear();
+            SelectedDuplicate = null;
+            DuplicateMessage = RedactingLog.Sanitize(ex.Message);
+        }
+    }
+
     private async Task ExportTextAsync(string suggestedName, Func<IReadOnlyList<Contact>, string> encode)
     {
         if (SaveTextRequested is null)
@@ -426,6 +576,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             StatusMessage = RedactingLog.Sanitize(ex.Message);
         }
+    }
+
+    private void HideDetailViews()
+    {
+        IsEditorVisible = false;
+        IsSettingsVisible = false;
+        IsDataToolsVisible = false;
+        IsDuplicatesVisible = false;
     }
 
     private static string NormalizeTheme(string? value) => value?.Trim().ToLowerInvariant() switch
