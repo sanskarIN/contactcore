@@ -81,7 +81,9 @@ If adding/editing fields:
 8. update desktop UI without dropping hidden fields;
 9. update documentation.
 
-The current desktop draft only exposes first phone/email and no addresses/organizations/groups/tags. Treat this as a known preservation hazard when extending the UI.
+The current desktop draft directly exposes only the first phone/email and no address/organization/group/tag controls. It therefore retains a deep copy of the complete loaded aggregate and overlays only visible changes when converting back to a `Contact`. This preservation is intentional and covered by regression tests.
+
+When extending the editor, **preserve this invariant**: fields that are not being edited must survive open/edit/save unchanged. A future rich editor can replace the preservation-only behavior with direct collection editing, but it must never reintroduce complete-aggregate data loss.
 
 ## Async and cancellation
 
@@ -143,6 +145,7 @@ Validation messages should identify what is wrong without echoing sensitive valu
 
 Preserve:
 
+- complete unedited aggregate data even when the UI exposes only a subset;
 - keyboard reachability;
 - visible focus;
 - field labels;
