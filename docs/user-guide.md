@@ -26,13 +26,15 @@ A contact whose name fields are empty is displayed as `Unnamed contact` by the d
 
 The present desktop editor is intentionally simpler than the full domain/storage model. It exposes names, birthday, **one phone**, **one email**, notes, Favorite, and Archived. It does not yet provide full multi-value editing for addresses, organizations, groups, tags, or additional phone/email entries.
 
-This distinction matters when editing a contact that originally contains richer repeated data: the current draft view model loads only the first phone/email and constructs only the fields exposed by the editor. Full rich-field editing is therefore a roadmap item rather than a completed UI claim. See [Desktop UI](desktop-ui.md) for the exact behavior.
+When an existing rich contact is loaded, the draft retains a deep copy of the complete aggregate. Saving through the compact editor changes the fields that are exposed while preserving additional phones/emails and all addresses, organizations, groups, and tags that the editor does not currently expose. Editing the visible phone/email updates the existing primary item's value while keeping its ID/label/kind; clearing it removes only that primary item and keeps any remaining values.
+
+This preservation safeguard prevents hidden rich fields from being dropped by an unrelated compact edit. It is still not full rich-field **editing**—additional values are preserved but cannot yet be directly modified from the current main editor. See [Desktop UI](desktop-ui.md) for the exact behavior.
 
 ## Create and edit
 
 Use **New contact** or `Ctrl+N` to start a draft. Fill the fields that are useful and choose **Save** or `Ctrl+S`. Birthday, when supplied, must use `yyyy-MM-dd`.
 
-Saving normalizes surrounding whitespace, validates the contact, updates its modification timestamp, and writes the resulting aggregate transactionally.
+Saving normalizes surrounding whitespace, validates the contact, updates its modification timestamp, and writes the resulting aggregate transactionally. Existing rich child data retained by the draft is included in that complete aggregate write.
 
 Validation currently enforces practical length limits for names and notes, basic email validity, and a permissive phone-character/length pattern. Validation errors identify the field without echoing potentially sensitive invalid values.
 
