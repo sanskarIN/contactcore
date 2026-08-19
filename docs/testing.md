@@ -111,12 +111,15 @@ Coverage includes:
 - root/phone/email/tag aggregate round trip;
 - full rich aggregate round trip for phones, emails, address, organization, group, and tag;
 - complete-aggregate replacement removes stale child/link rows while keeping supplied rows;
+- shared group/tag reassignment to fresh dictionary identities after a per-contact rename;
 - favorite search;
 - literal `%`, `_`, and backslash search behavior;
 - tag/group case-insensitive filters;
 - family-name-first `StartsWith` behavior;
 - permanent delete with cascade cleanup;
 - `UpsertManyAsync` rollback when a later contact fails, proving an earlier successful prefix is not committed.
+
+The dictionary reassignment test starts with persisted old group/tag dictionary rows, replaces the contact links with newly identified names, and verifies the new shared identities round-trip without colliding with the old dictionary primary keys.
 
 ### `SqliteMergeTests.cs`
 
@@ -170,10 +173,12 @@ Project: `tests/ContactCore.Desktop.Tests`
 - Favorite/Archived preservation;
 - explicit persisted versus unsaved draft state;
 - exact `yyyy-MM-dd` birthday requirement;
-- editing phone/email values while preserving child IDs;
-- address/organization editing while preserving child IDs;
-- group/tag editing and ID preservation;
-- case-insensitive duplicate group suppression while retaining the first identity;
+- editing phone/email values while preserving contact-owned child IDs;
+- address/organization editing while preserving contact-owned child IDs;
+- unchanged group/tag assignments preserving shared dictionary identity;
+- true existing group/tag renames receiving fresh shared dictionary identities;
+- case-only/normalization-equivalent group/tag edits retaining the existing dictionary identity and canonical name;
+- case-insensitive duplicate group suppression while retaining the first applicable identity;
 - exact group/tag names containing commas and semicolons;
 - removal of a selected repeated row without removing unrelated repeated rows;
 - preservation of a legacy address that contains only a label;
@@ -214,6 +219,10 @@ Never point tests at the default ContactCore user data directory.
 
 Prefer behavior-oriented names such as:
 
+`Renaming_existing_group_and_tag_assigns_new_shared_dictionary_identities`
+
+or:
+
 `Merge_does_not_recreate_primary_when_primary_disappeared`
 
 A good name communicates the precondition/action/observable contract rather than a private implementation detail.
@@ -244,6 +253,7 @@ Automated tests do not replace release checks for:
 
 - first launch on each supported OS;
 - create/edit every repeated field;
+- group/tag rename/reassignment behavior;
 - repeated-field add/remove behavior;
 - search/favorite/archive/A–Z navigation;
 - duplicate pair review and both survivor choices using fictional contacts;
