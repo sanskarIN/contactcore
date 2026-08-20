@@ -17,9 +17,10 @@ public sealed class App : Application
             var paths = new AppPaths(Environment.GetEnvironmentVariable("CONTACTCORE_DATA_PATH"));
             var preferences = new JsonAppPreferences(paths.SettingsPath);
             var factory = new SqliteConnectionFactory(paths.DatabasePath, () => preferences.DatabaseKey);
-            var repository = new SqliteContactRepository(factory, new DatabaseMigrator(factory));
+            var migrator = new DatabaseMigrator(factory);
+            var repository = new SqliteContactRepository(factory, migrator);
             var service = new ContactService(repository);
-            var backup = new BackupService(paths, factory);
+            var backup = new BackupService(paths, factory, migrator);
             var vm = new MainWindowViewModel(service, backup, preferences, paths);
             desktop.MainWindow = new MainWindow { DataContext = vm };
             _ = vm.InitializeAsync();
