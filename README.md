@@ -1,7 +1,7 @@
 <div align="center">
   <img src="src/ContactCore.Desktop/Assets/logo.svg" width="128" alt="ContactCore logo" />
   <h1>ContactCore</h1>
-  <p>A private, offline-first desktop contact manager for Windows, macOS, and Linux.</p>
+  <p>A private, offline-first cross-platform contact manager for Windows, Linux, macOS, Android, iPhone/iPad, and WebAssembly browsers.</p>
 
 [![Version](https://img.shields.io/badge/version-2.0.12-0969da.svg)](CHANGELOG.md)
 [![CI](https://github.com/sanskarIN/contactcore/actions/workflows/ci.yml/badge.svg)](https://github.com/sanskarIN/contactcore/actions/workflows/ci.yml)
@@ -12,58 +12,235 @@
 
 ## Current source version
 
-**ContactCore 2.0.12**. The version is centralized in `Directory.Build.props` and is applied to project, assembly, file, and informational version metadata. The release workflow refuses a tag whose semantic version does not match that project version.
-
-## Why ContactCore
-
-ContactCore keeps a useful address book on your own computer without mandatory accounts, telemetry, advertising, or cloud synchronization. It combines an Avalonia desktop UI with a layered C# architecture, transactional SQLite persistence, atomic imports and duplicate merges, plus verified backup/restore safeguards.
+**ContactCore 2.0.12**. Version metadata is centralized in `Directory.Build.props`, and release preflight rejects a semantic tag that does not match the source version.
 
 > **Made by the Sanskar**
 
+## Platform support
+
+ContactCore now has deliberate application targets for desktop, mobile, and browser environments rather than treating “cross-platform” as a desktop-only label.
+
+| Platform | Target | Persistence | Release/build posture |
+|---|---|---|---|
+| Windows x64 | `win-x64` | SQLite | automated ZIP release |
+| Windows ARM64 | `win-arm64` | SQLite | automated ZIP release |
+| Linux x64 | `linux-x64` | SQLite | automated tar.gz release |
+| Linux ARM64 | `linux-arm64` | SQLite | automated tar.gz release |
+| macOS Intel | `osx-x64` | SQLite | automated tar.gz release |
+| macOS Apple Silicon | `osx-arm64` | SQLite | automated tar.gz release |
+| Android | `net10.0-android` | SQLite | dedicated CI build target; production signing remains external |
+| iPhone / iPad | `net10.0-ios` | SQLite | dedicated macOS CI build target; Apple signing/provisioning remains external |
+| Browser / WebAssembly | `net10.0-browser` | IndexedDB + local browser preferences | automated browser ZIP release |
+| ChromeOS | browser target; Android route on compatible devices | IndexedDB or SQLite according to route | no separate native ChromeOS package |
+
+See **[`docs/platform-support.md`](docs/platform-support.md)** for the exact support, persistence, CI, signing, and validation boundaries.
+
+## Why ContactCore
+
+ContactCore keeps contact management local-first without requiring an account, telemetry service, advertising network, or cloud synchronization backend. Shared C# Domain/Application logic is reused across platforms. Native targets retain the hardened SQLite path; WebAssembly uses a browser-native IndexedDB repository behind the same application repository contract.
+
+That means platform differences are explicit instead of hidden:
+
+- native desktop/mobile can use SQLite-native backup/restore;
+- browser data lives in browser-managed storage and uses export for portable copies;
+- Android/iOS source is build-gated without committing private store-signing secrets;
+- the same contact validation, duplicate/merge rules, import/export codecs, and rich aggregate model are shared.
+
 ## Current capabilities
 
-- Create and edit names, nickname, birthday, notes, favorite state, and archive state.
-- Add, edit, and remove **multiple** phone numbers and email addresses while preserving each contact-owned child record identity.
-- Add, edit, and remove postal addresses and organization affiliations with stable contact-owned child IDs.
-- Add, edit, and remove groups and tags as independent shared-dictionary assignments, including names containing commas or semicolons.
-- Preserve contact ID, creation timestamp, complete aggregate state, contact-owned repeated IDs, and unchanged group/tag shared identities through the editor.
-- Treat a true per-contact group/tag rename as reassignment to a new shared dictionary identity rather than reusing one global dictionary primary key for a different name.
-- Distinguish unsaved drafts from persisted contacts so discarding a new draft never invokes permanent database deletion.
-- Local search across names, phones, and emails; favorites/archive filters; A–Z navigation; race-safe debounced search.
-- CSV and focused vCard 4.0 import/export codecs with bounded desktop import, parser warnings, whole-batch validation, and atomic persistence.
-- Duplicate scoring with an interactive candidate list, matching evidence, side-by-side record preview, explicit survivor choice, destructive confirmation, and one-transaction merge/delete persistence.
-- Reject stale duplicate merges if either reviewed record disappeared, including protection against recreating a removed chosen survivor from stale UI state.
-- SQLite schema migrations, foreign keys, indexed queries, aggregate transactions, literal wildcard escaping, and future-schema rejection.
-- SQLite-native backups with integrity/schema-identity verification.
-- Staged restore with pre-restore recovery snapshots, migration/verification before switch, and rollback handling.
-- Optional fail-closed integration point for a maintained SQLCipher-compatible SQLite provider.
-- Runtime-only database key handling; normal JSON preferences do not serialize the key.
-- System/Light/Dark themes, visible keyboard focus, shortcuts, local safety preferences, and reduced-motion preference.
-- Permanent-delete confirmation enabled by default; restore and duplicate merges require desktop confirmation.
-- Cross-platform CI definitions for Windows, Ubuntu, and macOS plus CodeQL analysis.
-- Version-checked release automation with packaged platform archives and SHA-256 checksum publication.
-- Offline-first: no mandatory account, cloud service, analytics, or advertising dependency.
+- Create/edit names, nickname, birthday, notes, favorite state, and archive state.
+- Add/edit/remove multiple phones and emails while preserving contact-owned record identity.
+- Add/edit/remove postal addresses and organization affiliations with stable contact-owned IDs.
+- Add/edit/remove groups and tags as independent shared dictionary assignments, including names containing commas/semicolons.
+- Preserve root contact ID, creation timestamp, complete aggregate state, contact-owned child IDs, and unchanged group/tag shared identity through normal edits.
+- Treat a true per-contact group/tag rename as safe reassignment rather than reusing one global dictionary ID with another name.
+- Distinguish unsaved drafts from persisted contacts so discard does not become a permanent delete.
+- Local search across names/phones/emails, favorites/archive filters, A-Z navigation, and race-safe debounced search.
+- CSV and focused vCard 4.0 import/export with bounded text input, parser warnings, batch validation, and storage-consistent persistence.
+- Duplicate scoring/review with evidence, preview, explicit survivor choice, destructive confirmation, and stale-safe merge behavior.
+- Native SQLite schema migrations, foreign keys, indexes, aggregate transactions, literal wildcard escaping, and future-schema rejection.
+- Native verified SQLite backups and staged restore with pre-restore snapshot/rollback safeguards.
+- Optional fail-closed native SQLCipher-compatible integration point; runtime database key is not serialized into normal preferences.
+- System/Light/Dark themes, reduced-motion preference, delete confirmation, keyboard shortcuts on keyboard-capable hosts, and responsive single-view UI for mobile/browser.
+- Browser IndexedDB persistence with serialized writes and in-memory rollback when persistence fails.
+- Cross-platform CI: three-OS core build/test plus separate WebAssembly, Android, and iOS Release builds.
+- CodeQL analysis on the workload-free core solution.
+- Version-checked release automation, six desktop architecture archives, browser WebAssembly package, mobile build gate, and SHA-256 checksum publication.
 
-## Current limitations and boundaries
+## Persistence model
 
-The contact editor exposes the full persisted aggregate used by the current data model, but repeated fields are **add/edit/remove** rather than drag-reorderable. Groups and tags are editable per contact; there is not yet a separate global taxonomy-management/rename/cleanup screen. Because groups/tags are shared dictionaries, ordinary per-contact rename is intentionally implemented as reassignment, and orphaned dictionary rows can remain until a future explicit taxonomy cleanup feature defines deletion semantics.
+### Native: desktop, Android, iOS/iPadOS
 
-Duplicate merge is intentionally destructive after confirmation. The selected survivor keeps its identity and preferred existing scalar values while unique child values are combined; the secondary record is removed in the same SQLite transaction. There is no general-purpose undo stack. Use verified backups for recovery needs.
+Native targets use:
 
-CSV and vCard are **interchange formats, not full-fidelity backups**. CSV writes a limited scalar field set plus the first phone/email. vCard support is a focused subset and does not round-trip every vCard property, address, organization, group, tag, media field, custom extension, or ContactCore identity. CSV formula-like text is preserved rather than spreadsheet-neutralized, so treat exports as data and use care when opening untrusted contact text in spreadsheet software.
+```text
+ContactCore.Application
+  → IContactRepository
+  → SqliteContactRepository
+  → Microsoft.Data.Sqlite
+```
 
-The default `Microsoft.Data.Sqlite` provider is ordinary SQLite. Setting `CONTACTCORE_DATABASE_KEY` fails closed unless a SQLCipher-compatible provider can actually report cipher support; this repository does not claim encryption-at-rest in the default build.
+They retain the existing SQLite migration, transactional merge/import, backup, restore, and database-key boundaries.
 
-Release artifacts are not described as signed or notarized, and desktop accessibility/platform behavior still requires manual release validation before any conformance claim. See the documentation index for exact implementation boundaries.
+### Browser / WebAssembly
+
+Browser builds do not pretend a native SQLite database exists in a web sandbox. They use:
+
+```text
+ContactCore.Application
+  → IContactRepository
+  → BrowserContactRepository
+  → .NET/JavaScript interop
+  → IndexedDB
+```
+
+Browser preferences use local browser storage with a session fallback when persistent preferences are blocked. Clearing site data/private-profile state or browser storage eviction can remove browser-local contacts, so export important portable copies.
+
+## Important limitations and boundaries
+
+Repeated rich fields support add/edit/remove, not drag-reordering. Groups/tags are editable per contact, but there is not yet a separate global taxonomy rename/delete/orphan-cleanup screen. A true per-contact rename is reassignment; unreferenced dictionary rows can remain until a future explicit cleanup feature defines deletion semantics.
+
+Duplicate merge is destructive after confirmation. Native SQLite performs survivor update + secondary delete in one transaction. Browser storage performs the logical merge behind its repository write gate and restores the previous in-memory snapshot if IndexedDB persistence fails. There is no general-purpose undo stack.
+
+CSV/vCard are **interchange formats, not full-fidelity backups**. CSV contains a limited scalar set plus first phone/email; focused vCard does not round-trip every possible vCard/custom/media/contact-identity field.
+
+Native local-first does not automatically mean encrypted-at-rest: default `Microsoft.Data.Sqlite` is ordinary SQLite. `CONTACTCORE_DATABASE_KEY` fails closed unless compatible cipher support can actually be verified. Browser persistence has a different security/storage model and does not claim the native SQLite encryption capability.
+
+Current downloadable desktop/browser artifacts are not represented as signed installers, notarized applications, package-manager packages, or store-certified binaries. Android/iOS production distribution requires maintainer-controlled signing/provisioning credentials that are intentionally not committed.
+
+Manual device/browser/accessibility validation remains required before making stronger conformance claims.
+
+## Solution structure
+
+```text
+ContactCore.Domain
+ContactCore.Application
+ContactCore.Infrastructure
+ContactCore.UI
+ContactCore.Native
+ContactCore.Desktop
+ContactCore.Android
+ContactCore.iOS
+ContactCore.Browser
+```
+
+`ContactCore.UI` is the portable Avalonia single-view layer. `ContactCore.Native` composes the existing SQLite services for native mobile heads. `ContactCore.Browser` supplies a browser repository/storage adapter instead of referencing native Infrastructure.
+
+Two solution files exist intentionally:
+
+- `ContactCore.slnx` — complete solution with every application head;
+- `ContactCore.Core.slnx` — workload-free core/Desktop/test solution used by ordinary three-OS CI and CodeQL.
+
+Read [`docs/architecture.md`](docs/architecture.md) for the dependency map and data flows.
+
+## Technology
+
+- ContactCore **2.0.12**
+- C# / .NET 10 (`global.json`: SDK 10.0.100, `latestFeature` roll-forward)
+- Avalonia 12.1.1
+- Avalonia Desktop / Android / iOS / Browser packages 12.1.1
+- CommunityToolkit.Mvvm 8.4.2
+- Microsoft.Data.Sqlite 10.0.11 on native storage path
+- MSTest 4.3.3 across the existing four behavioral test projects
+- coverlet collector for CI coverage artifacts
+- GitHub Actions, CodeQL, Dependabot
+- IndexedDB + .NET JavaScript interop for browser persistence
+
+Package versions are centralized in `Directory.Packages.props`; compiler/analyzer/version rules are in `Directory.Build.props`.
+
+## Quick start: desktop/core
+
+```bash
+git clone https://github.com/sanskarIN/contactcore.git
+cd contactcore
+dotnet restore ContactCore.Core.slnx
+dotnet run --project src/ContactCore.Desktop/ContactCore.Desktop.csproj
+```
+
+Core quality sequence:
+
+```bash
+dotnet restore ContactCore.Core.slnx
+dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.Core.slnx -c Release --no-restore
+dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage"
+```
+
+## Build the browser target
+
+```bash
+dotnet workload install wasm-tools
+dotnet restore src/ContactCore.Browser/ContactCore.Browser.csproj
+dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release --no-restore
+dotnet publish src/ContactCore.Browser/ContactCore.Browser.csproj -c Release -o artifacts/browser
+```
+
+Serve published files through HTTP(S); direct `file://` loading is not the intended WebAssembly host model.
+
+## Build Android
+
+```bash
+dotnet workload install android
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+```
+
+Production Android distribution needs private signing configuration outside source control.
+
+## Build iOS/iPadOS
+
+On macOS with the required Apple toolchain:
+
+```bash
+dotnet workload install ios
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
+```
+
+Device/App Store distribution additionally needs Apple signing/provisioning credentials.
+
+Full environment/workload notes: [`docs/setup.md`](docs/setup.md).
+
+## Automated release packages
+
+For v2.0.12 the release workflow is configured to produce:
+
+```text
+contactcore-v2.0.12-win-x64.zip
+contactcore-v2.0.12-win-arm64.zip
+contactcore-v2.0.12-linux-x64.tar.gz
+contactcore-v2.0.12-linux-arm64.tar.gz
+contactcore-v2.0.12-osx-x64.tar.gz
+contactcore-v2.0.12-osx-arm64.tar.gz
+contactcore-v2.0.12-browser-wasm.zip
+SHA256SUMS.txt
+```
+
+Android/iOS Release builds are prerequisites for the final release job but signed mobile store packages are not automatically attached until a secure signing pipeline is deliberately configured.
+
+## Native data location and configuration
+
+Desktop/mobile native storage derives:
+
+```text
+contactcore.db
+settings.json
+backups/
+```
+
+under the platform local application-data directory. `CONTACTCORE_DATA_PATH` can override the directory where runtime environment-variable use is practical. `CONTACTCORE_DATABASE_KEY` requests keyed native SQLite behavior and deliberately fails when compatible cipher support cannot be verified.
+
+Do not put real keys, signing credentials, databases, backups, exports, or contact screenshots into tracked/public files.
 
 ## Documentation
 
-Start with the complete documentation index: **[`docs/README.md`](docs/README.md)**.
+Start with **[`docs/README.md`](docs/README.md)**.
 
 Key guides:
 
-- [User guide](docs/user-guide.md)
+- [Platform support](docs/platform-support.md)
 - [Setup](docs/setup.md)
+- [User guide](docs/user-guide.md)
 - [Architecture](docs/architecture.md)
 - [Data model](docs/data-model.md)
 - [Desktop UI](docs/desktop-ui.md)
@@ -71,7 +248,6 @@ Key guides:
 - [Storage, backup, and recovery](docs/storage-backup-recovery.md)
 - [Security engineering](docs/security.md)
 - [Testing](docs/testing.md)
-- [Performance](docs/performance.md)
 - [CI/CD](docs/ci-cd.md)
 - [Release](docs/release.md)
 - [Troubleshooting](docs/troubleshooting.md)
@@ -81,95 +257,19 @@ Key guides:
 
 ## Screenshots
 
-Real screenshots are intentionally deferred until a verified desktop build is captured. When added, they must use fictional sample contacts only and be reviewed for private paths, notifications, and metadata before publication.
-
-## Supported release targets
-
-Current release automation publishes these runtime identifiers:
-
-| Platform | Target | Package |
-|---|---|---|
-| Windows | `win-x64` | `contactcore-v2.0.12-win-x64.zip` |
-| Linux | `linux-x64` | `contactcore-v2.0.12-linux-x64.tar.gz` |
-| macOS Intel | `osx-x64` | `contactcore-v2.0.12-osx-x64.tar.gz` |
-| macOS Apple Silicon | `osx-arm64` | `contactcore-v2.0.12-osx-arm64.tar.gz` |
-
-The release job also produces `SHA256SUMS.txt` covering packaged artifacts. These artifacts are currently documented as self-contained/single-file publishes packaged for distribution, **not** as signed installers or notarized applications.
-
-## Technology
-
-- ContactCore **2.0.12**
-- C# / .NET 10 (`global.json`: SDK 10.0.100 with `latestFeature` roll-forward)
-- Avalonia 12.1.1
-- CommunityToolkit.Mvvm 8.4.2
-- Microsoft.Data.Sqlite 10.0.10
-- MSTest 4.3.3 across **4 test projects**
-- coverlet collector for CI coverage artifacts
-- GitHub Actions, CodeQL, Dependabot
-
-Package versions are centralized in `Directory.Packages.props`; shared compiler/analyzer/version rules are in `Directory.Build.props`.
-
-## Quick start
-
-```bash
-git clone https://github.com/sanskarIN/contactcore.git
-cd contactcore
-dotnet restore ContactCore.slnx
-dotnet run --project src/ContactCore.Desktop/ContactCore.Desktop.csproj
-```
-
-Full setup, SDK, environment, data-directory, and OS notes: [`docs/setup.md`](docs/setup.md).
-
-## Quality commands
-
-```bash
-dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes --no-restore
-dotnet build ContactCore.slnx -c Release --no-restore
-dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage"
-```
-
-CI performs restore/format/build/test on Windows, Ubuntu, and macOS. See [`docs/testing.md`](docs/testing.md) and [`docs/ci-cd.md`](docs/ci-cd.md).
-
-## Data location and configuration
-
-By default ContactCore stores local data under the operating system's local application-data location in a `ContactCore` directory. The application derives:
-
-```text
-contactcore.db
-settings.json
-backups/
-```
-
-`CONTACTCORE_DATA_PATH` overrides the **directory**. `CONTACTCORE_DATABASE_KEY` requests keyed SQLite behavior but deliberately fails when no SQLCipher-compatible provider can be verified. Do not put real keys into tracked files.
-
-See [`docs/storage-backup-recovery.md`](docs/storage-backup-recovery.md) and [`docs/security.md`](docs/security.md).
-
-## Import/export vs backup
-
-CSV and vCard are interoperability formats, not full-fidelity ContactCore backups. CSV currently exports only the first phone/email and a limited field set; vCard support is intentionally focused.
-
-The CSV importer rejects files with no recognized ContactCore columns instead of creating meaningless contacts, warns on duplicate recognized headers, and warns when imported text starts with a spreadsheet formula character. The vCard importer handles supported escaped delimiters/newlines, maps common `TYPE` parameters, and avoids echoing invalid birthday values in warnings.
-
-Use the verified SQLite backup workflow for full database recovery. The desktop importer bounds selected text at 5,000,000 characters.
-
-## Architecture
-
-The solution is a modular monolith with Domain, Application, Infrastructure, and Desktop layers. Business rules do not depend on Avalonia or SQLite; Infrastructure implements Application abstractions; Desktop is the composition root/platform adapter.
-
-Destructive duplicate merge crosses the same boundaries deliberately: Application reloads/computes/validates the merged aggregate, then the repository verifies both reviewed records still exist before updating the survivor and deleting the secondary record in one SQLite transaction.
-
-Read [`docs/architecture.md`](docs/architecture.md) and the [`docs/adr/`](docs/adr/) records.
+Real screenshots should be added only after verified builds are captured using clearly fictional sample contacts. Review images for private paths, notifications, usernames, addresses, and metadata before publication.
 
 ## Security and privacy
 
-ContactCore stores contacts locally and contains no mandatory cloud/telemetry integration. Local-first does not automatically mean encrypted-at-rest: the default ordinary SQLite provider is plaintext unless a compatible encryption provider is deliberately integrated.
+ContactCore contains no mandatory cloud synchronization/telemetry/account dependency. Native contacts remain in the local SQLite store unless the user explicitly exports/copies data. Browser contacts remain in browser-managed local storage for that origin/profile unless explicitly exported or browser policies clear/move them.
 
-Do not post real databases, backups, exports, contact screenshots, or encryption keys to public issues. Details: [`docs/security.md`](docs/security.md), [`SECURITY.md`](SECURITY.md), and [`PRIVACY.md`](PRIVACY.md).
+Do not post real databases, backups, exports, browser contact dumps, contact screenshots, encryption keys, or signing credentials to public issues.
+
+See [`docs/security.md`](docs/security.md), [`SECURITY.md`](SECURITY.md), and [`PRIVACY.md`](PRIVACY.md).
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md), follow [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), add regression tests for behavior changes, preserve layer boundaries/data-safety invariants, and keep commits small and meaningful.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md), follow [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), preserve layer/storage-safety invariants, add regression coverage for behavior changes, and keep documentation synchronized with platform changes.
 
 Maintainers should also read [`docs/maintainer-guide.md`](docs/maintainer-guide.md).
 
