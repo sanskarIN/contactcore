@@ -5,9 +5,15 @@ namespace ContactCore.Desktop;
 
 public sealed partial class ConfirmDialog : Window
 {
-    public ConfirmDialog(string message)
+    public ConfirmDialog()
     {
         InitializeComponent();
+        DataContext = new ConfirmDialogModel("");
+    }
+
+    public ConfirmDialog(string message)
+        : this()
+    {
         DataContext = new ConfirmDialogModel(message);
     }
 
