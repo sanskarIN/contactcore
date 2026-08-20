@@ -1,4 +1,3 @@
-using ContactCore.Domain;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ContactCore.Domain.Tests;
@@ -93,12 +92,12 @@ public sealed class ContactValidationTests
         Assert.AreEqual("Unnamed contact", new Contact().DisplayName);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("Élodie", "elodie")]
     [DataRow("  HELLO  ", "hello")]
     public void Search_key_is_stable(string input, string expected) => Assert.AreEqual(expected, TextNormalizer.SearchKey(input));
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("+91 (999) 123-4567", "919991234567")]
     [DataRow(" 0044.20.1234 5678 ", "00442012345678")]
     public void Phone_key_keeps_digits_only(string input, string expected) => Assert.AreEqual(expected, TextNormalizer.PhoneKey(input));
