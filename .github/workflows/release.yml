@@ -1,12 +1,18 @@
 name: Release
+
 on:
   push:
     tags: ['v*.*.*']
+
 permissions:
   contents: write
+
 jobs:
   publish:
+    name: Publish ${{ matrix.rid }}
+    timeout-minutes: 35
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -19,26 +25,62 @@ jobs:
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
-      - run: dotnet restore ContactCore.slnx
-      - run: dotnet test ContactCore.slnx -c Release --no-restore
-      - run: dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o artifacts/${{ matrix.rid }}
-      - uses: actions/upload-artifact@v4
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props
+
+      - name: Restore
+        run: dotnet restore ContactCore.slnx
+
+      - name: Test
+        run: dotnet test ContactCore.slnx -c Release --no-restore
+
+      - name: Publish
+        run: dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o artifacts/${{ matrix.rid }}
+
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "artifacts/${{ matrix.rid }}/*" -DestinationPath "artifacts/contactcore-${{ github.ref_name }}-${{ matrix.rid }}.zip" -Force
+
+      - name: Package Unix artifact
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar -C artifacts -czf "artifacts/contactcore-${{ github.ref_name }}-${{ matrix.rid }}.tar.gz" "${{ matrix.rid }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
           name: contactcore-${{ matrix.rid }}
-          path: artifacts/${{ matrix.rid }}
+          path: artifacts/contactcore-${{ github.ref_name }}-${{ matrix.rid }}.*
+          if-no-files-found: error
+          retention-days: 14
+
   release:
+    name: GitHub release
     needs: publish
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - run: find artifacts -type f -print
-      - uses: softprops/action-gh-release@v2
+          pattern: contactcore-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: List release assets
+        run: find release-assets -maxdepth 1 -type f -print
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: artifacts/**/*
+          fail_on_unmatched_files: true
+          files: release-assets/*

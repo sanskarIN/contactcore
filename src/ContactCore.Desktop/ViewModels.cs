@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContactCore.Application;
@@ -39,7 +41,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     public void Load(Contact contact)
     {
         Id = contact.Id; CreatedAt = contact.CreatedAt; GivenName = contact.GivenName; FamilyName = contact.FamilyName; Nickname = contact.Nickname;
-        BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd") ?? ""; Phone = contact.Phones.FirstOrDefault()?.Number ?? ""; Email = contact.Emails.FirstOrDefault()?.Address ?? "";
+        BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""; Phone = contact.Phones.FirstOrDefault()?.Number ?? ""; Email = contact.Emails.FirstOrDefault()?.Address ?? "";
         Notes = contact.Notes; IsFavorite = contact.IsFavorite;
     }
 
@@ -48,7 +50,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         DateOnly? birthday = null;
         if (!string.IsNullOrWhiteSpace(BirthdayText))
         {
-            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", out var parsed)) throw new FormatException("Birthday must use yyyy-MM-dd.");
+            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) throw new FormatException("Birthday must use yyyy-MM-dd.");
             birthday = parsed;
         }
         var contact = new Contact { Id = Id == Guid.Empty ? Guid.NewGuid() : Id, CreatedAt = CreatedAt == default ? DateTimeOffset.UtcNow : CreatedAt, GivenName = GivenName, FamilyName = FamilyName, Nickname = Nickname, Birthday = birthday, Notes = Notes, IsFavorite = IsFavorite, UpdatedAt = DateTimeOffset.UtcNow };
@@ -65,6 +67,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IAppPreferences _preferences;
     private readonly AppPaths _paths;
     private CancellationTokenSource? _searchCts;
+    private int _refreshVersion;
+
     public MainWindowViewModel(ContactService service, IBackupService backup, IAppPreferences preferences, AppPaths paths)
     {
         _service = service; _backup = backup; _preferences = preferences; _paths = paths;
@@ -155,9 +159,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
+        var refreshVersion = Interlocked.Increment(ref _refreshVersion);
         var query = new ContactQuery(SearchText, FavoritesOnly, IncludeArchived: ArchivedOnly, StartsWith: _letter);
         var contacts = await _service.SearchAsync(query, cancellationToken);
         if (ArchivedOnly) contacts = contacts.Where(x => x.IsArchived).ToArray();
+        if (refreshVersion != Volatile.Read(ref _refreshVersion)) return;
+
         Contacts.Clear(); foreach (var contact in contacts) Contacts.Add(new(contact));
         ResultCountText = $"{Contacts.Count} {(Contacts.Count == 1 ? "contact" : "contacts")}";
     }
