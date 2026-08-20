@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using ContactCore.Domain;
 
 namespace ContactCore.Application;
@@ -13,14 +14,17 @@ public sealed class DuplicateDetector
 
         var result = new List<DuplicateCandidate>();
         for (var i = 0; i < contacts.Count; i++)
-        for (var j = i + 1; j < contacts.Count; j++)
         {
-            var candidate = Compare(contacts[i], contacts[j]);
-            if (candidate.Score >= minimumScore) result.Add(candidate);
+            for (var j = i + 1; j < contacts.Count; j++)
+            {
+                var candidate = Compare(contacts[i], contacts[j]);
+                if (candidate.Score >= minimumScore) result.Add(candidate);
+            }
         }
         return result.OrderByDescending(x => x.Score).ToArray();
     }
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "This is an instance service API used by application composition and tests.")]
     public DuplicateCandidate Compare(Contact left, Contact right)
     {
         ArgumentNullException.ThrowIfNull(left);
@@ -45,6 +49,7 @@ public sealed class DuplicateDetector
 
 public sealed class ContactMerger
 {
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "This is an instance service API used by application composition and tests.")]
     public Contact Merge(Contact primary, Contact secondary)
     {
         ArgumentNullException.ThrowIfNull(primary);
