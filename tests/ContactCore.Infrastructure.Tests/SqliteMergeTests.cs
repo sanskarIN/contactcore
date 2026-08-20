@@ -1,6 +1,4 @@
-using ContactCore.Application;
 using ContactCore.Domain;
-using ContactCore.Infrastructure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ContactCore.Infrastructure.Tests;
