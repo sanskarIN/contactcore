@@ -2,180 +2,221 @@
 
 ## Current milestone
 
-**Phase 4 / release-candidate audit** — the repository now contains a complete local-first ContactCore implementation baseline. The current task is to compile/test it through GitHub Actions, fix every discovered build/test/static-analysis defect, reconcile documentation with the real code, and then continue the remaining roadmap items in small, reviewable commits.
+**Phase 5 / secure release hardening** — ContactCore has a working local-first .NET/Avalonia implementation baseline, and the current continuation is repairing the previously failing verification pipeline, hardening data safety, and making release output reproducible before any further feature expansion.
 
 ## Repository identity
 
 - Repository: `https://github.com/sanskarIN/contactcore`
 - Visibility: public
 - Default branch: `main`
-- Audited base commit: `49786b9d4491ce96675e0a91d74dae0bf8602916`
-- Base commit message: `docs: add changelog and delivery roadmap`
-- Confirmed Git author/committer email on repository commits: `sanskarin@outlook.in`
 - Primary stack: C# / .NET 10 / Avalonia / SQLite
 - Product: private, offline-first desktop contact manager
 - License: MIT
 - Required visible credit: **Made by the Sanskar**
+- Preferred commit email: `sanskarin@outlook.in`
 
-## Uploaded-prompt reconciliation
+## Authoritative continuation branch
 
-The uploaded master prompt supplied to this session is titled **LibraCore** and describes a Java/Spring/React library-management product, while the explicitly requested destination repository is **ContactCore** and already contains an established .NET/Avalonia contact-management architecture. The master prompt also instructs the coding agent to inspect existing repositories and preserve useful working history rather than replacing working code.
+Current branch:
 
-For this repository, the safe interpretation is therefore:
+- `hardening/ci-security-20260820`
 
-1. Preserve ContactCore's existing product identity and .NET/Avalonia architecture.
-2. Apply the prompt's transferable quality requirements: complete implementation, layered architecture, security/privacy, tests, accessibility, CI, documentation, release engineering, and granular meaningful commits.
-3. Do **not** replace ContactCore with an unrelated LibraCore library-management application.
+Current pull request:
 
-## Important concurrency note
+- **PR #13 — `fix: restore secure CI and modernize quality gates`**
+- Base: `main`
+- PR URL: `https://github.com/sanskarIN/contactcore/pull/13`
 
-During this session another repository-writing continuation advanced `main` substantially while a separate phase branch was being prepared. That concurrent `main` work is now the authoritative base because it contains a broader, already-integrated implementation.
+Do not add unrelated feature expansion to this branch until CI and CodeQL are green. Incremental hardening fixes and regression tests belong here.
 
-A parallel pull request, **PR #1 (`phase1/contactcore-core-20260819`)**, contains overlapping implementation and must not be merged blindly. Its unique ideas should only be reapplied selectively after comparing them with current `main`; otherwise it should be closed as superseded to avoid duplicate/conflicting code.
+## Why this continuation exists
 
-A fresh audit branch was created directly from the current main base:
+The previous audit PR was merged even though CI and CodeQL were failing during `dotnet restore`. The concrete blocker was:
 
-- `audit/contactcore-20260819`
+- `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 flagged by NuGet as a high-severity vulnerable dependency.
 
-All further fixes should be made on that branch (or a successor based on the latest `main`) rather than on the stale overlapping PR branch.
+The earlier pipeline also stopped matrix execution after the first platform failure, used older GitHub Action generations, and did not preserve per-platform test evidence.
 
-## Completed implementation on current main
+## Completed work on the current hardening branch
 
-### Domain
+### Dependency and restore security
 
-- Contact aggregate and repeating contact field models.
-- Validation for core contact fields.
-- Unicode-aware text normalization.
-- Phone normalization.
+- Updated `Microsoft.Data.Sqlite` from 10.0.10 to 10.0.11.
+- This raises the SQLitePCLRaw dependency floor past the vulnerable 2.1.11 native package used by the failing restore.
+- Kept warnings-as-errors enabled; the vulnerability warning is fixed rather than suppressed.
 
-### Application
+Commit:
 
-- Repository/preferences/backup abstractions.
-- Contact workflows and validation boundary.
-- Duplicate scoring and deterministic merge logic.
-- CSV import/export codec.
-- vCard import/export codec.
+- `3010a54` — `fix(deps): update SQLite package chain past vulnerable native library`
 
-### Infrastructure
+### Cross-platform CI hardening
 
-- Cross-platform application data paths.
-- SQLite connection factory.
-- Versioned SQLite migrations.
-- Complete contact aggregate persistence.
-- Indexed local search/filtering.
-- Transactional writes and foreign-key relationships.
-- Integrity-checked backup/restore.
-- Local JSON preferences.
-- PII-redacted diagnostic logging support.
+- Updated checkout to `actions/checkout@v5`.
+- Updated .NET setup to `actions/setup-dotnet@v6`.
+- Disabled matrix fail-fast so Windows, Linux, and macOS all report diagnostics.
+- CI now uses `global.json` instead of independently selecting a floating SDK configuration.
+- Added NuGet cache configuration based on `Directory.Packages.props`.
+- Added workflow concurrency cancellation for superseded runs.
+- Added job timeouts.
+- Tests now emit TRX plus XPlat coverage into `TestResults`.
+- Test results are uploaded per operating system even when a later step fails.
 
-### Desktop application
+Commits:
 
-- Avalonia application bootstrap/composition root.
-- Main desktop window and styling.
-- Contact list/search workspace.
-- Contact editing workflows.
-- Favorites/archive actions.
-- Import/export and backup-oriented actions.
-- Theme/accessibility-oriented UI structure.
-- Editable repository branding assets.
+- `5d05e86` — `ci: modernize build actions and keep full platform diagnostics`
+- `450d248` — `ci: make cross-platform verification reproducible and preserve test evidence`
 
-### Tests
+### CodeQL hardening
 
-- Domain validation/normalization coverage.
-- Application duplicate/import-export coverage.
-- SQLite aggregate integration coverage.
+- Updated CodeQL actions from v3 to v4.
+- Updated checkout/setup-dotnet generations.
+- Added `global.json`-based SDK selection.
+- Added NuGet caching, concurrency cancellation, and a bounded timeout.
+- Retained explicit restore/build before CodeQL analysis.
 
-### GitHub/release engineering
+Commits:
 
-- CI workflow.
-- CodeQL/security workflow.
-- Cross-platform release publishing workflow.
-- Dependabot configuration.
-- Issue templates.
-- Pull-request template.
-- Funding metadata.
+- `056a661` — `ci(security): move CodeQL workflow to current action generations`
+- `b066cea` — `ci(security): make CodeQL reproducible and bounded`
 
-### Documentation/governance
+### Release engineering
 
-The repository now contains the required documentation baseline, including README, contribution/governance/security/privacy/support documents, threat/security guidance, architecture and ADRs, setup/development/testing/release/troubleshooting/accessibility/performance guides, changelog, and roadmap.
+- Updated release checkout/setup-dotnet actions.
+- Added matrix fail-fast protection and timeouts.
+- Added reproducible SDK selection and NuGet caching.
+- Release publishing now fails if expected artifacts are missing.
+- Windows output is packaged as a `.zip` archive.
+- Linux/macOS outputs are packaged as `.tar.gz` archives.
+- Release creation downloads only the packaged assets and fails when no files match.
+- Debug symbols are disabled for release packages.
 
-## Most recent meaningful main commits at audit start
+Commits:
 
-- `49786b9` — `docs: add changelog and delivery roadmap`
-- `e1595f5` — `docs: add release accessibility performance and recovery guides`
-- `3ed6c3c` — `docs: add setup development and testing guides`
-- `8e87c43` — `docs: document architecture storage and encryption decisions`
-- `c542317` — `docs: add governance security privacy and support policies`
-- `af171ae` — `ci: add cross-platform release publishing`
-- `5483ed6` — `ci: add cross-platform quality and security checks`
-- `5f23040` — `chore(github): add contribution automation and funding`
-- `87114b4` — `test(storage): add SQLite aggregate integration coverage`
-- `51f7ab0` — `test(application): cover duplicate and interchange workflows`
-- `6068fa8` — `test(domain): cover validation and Unicode normalization`
-- `3972256` — `feat(ui): wire contact workflows search and desktop actions`
-- `6c8304f` — `feat(ui): add accessible three-pane contact experience`
-- `ca4d48d` — `feat(ui): bootstrap Avalonia desktop application`
-- `fda6f47` — `feat: add local preferences and PII-redacted diagnostics`
-- `696efc0` — `feat: add integrity-checked backup and restore`
-- `1bf185d` — `feat(storage): persist complete contact aggregates in SQLite`
-- `9c4b6f3` — `feat(storage): add SQLite initialization and migrations`
-- `de2b7e2` — `feat: add CSV and vCard import export codecs`
-- `f2f1230` — `feat: add duplicate detection and merge engine`
+- `ad08c9c` — `ci(release): harden cross-platform publishing diagnostics`
+- `42751da` — `ci(release): package clean per-platform archives for GitHub releases`
+
+### Import/export correctness
+
+- Replaced unsupported/ambiguous `DateOnly.TryParseExact` usage with the explicit invariant-culture overload.
+- Made CSV birthday formatting invariant.
+- Made vCard birthday formatting/parsing invariant.
+- Made string replacement intent explicit with `StringComparison` where appropriate.
+
+Commit:
+
+- `6da05ea` — `fix(import): use invariant DateOnly parsing and formatting APIs`
+
+### Desktop search correctness
+
+- Fixed the same `DateOnly.TryParseExact` issue in the editor draft model.
+- Made birthday display formatting invariant.
+- Added refresh versioning so an older asynchronous search result cannot overwrite a newer query result.
+
+Commit:
+
+- `f394fa4` — `fix(ui): make birthday parsing deterministic and prevent stale search refreshes`
+
+### Backup/restore safety
+
+Restore behavior now protects the last known-good database:
+
+1. Integrity-check the requested backup before touching the live database.
+2. Copy the candidate into a staging file.
+3. Clear pooled SQLite connections and remove stale WAL/SHM sidecars.
+4. Preserve the existing database as a rollback copy.
+5. Replace the database with the staged candidate.
+6. Run schema migrations on the restored database.
+7. Run a second SQLite integrity check after migration.
+8. Restore the previous database automatically if migration or verification fails.
+9. Clean staging/rollback temporary files in all paths.
+
+Backup filenames now include milliseconds to reduce collision risk.
+
+Commit:
+
+- `20a360d` — `fix(backup): make restore transactional with rollback verification`
+
+### Backup regression coverage
+
+Added infrastructure tests for:
+
+- successful backup/restore round-trip;
+- invalid non-SQLite backup rejection without replacing live data;
+- automatic rollback when a structurally valid backup causes post-restore migration failure;
+- cleanup of `.restore` and `.pre-restore` files after failure.
+
+Commit:
+
+- `4a4dbcc` — `test(backup): cover restore integrity and rollback guarantees`
+
+## Previous stale branch status
+
+The old overlapping PR #1 has already been closed without merge as superseded. Do not reopen or merge it. Useful release-workflow ideas from that branch have been selectively reapplied to the current hardening branch rather than merging conflicting history.
 
 ## Verification status
 
-### Local execution limitation
+### Confirmed previous failure
 
-The coding environment available in this chat does not provide the .NET SDK/compiler, so the following commands cannot be truthfully reported as locally executed:
+The earlier CI/CodeQL failure was real and occurred during restore because NuGet treated the vulnerable SQLitePCLRaw 2.1.11 advisory as an error.
+
+### Current status
+
+GitHub Actions verification for PR #13 has been triggered repeatedly as the hardening commits were added. At this handoff, the final current head still requires a complete fresh CI + CodeQL result before merge.
+
+Do **not** claim that the project is build-clean, test-clean, format-clean, or CodeQL-clean until the workflows on the final PR head finish successfully.
+
+### Required quality gates
+
+The authoritative gates are:
 
 ```bash
 dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes
-dotnet build ContactCore.slnx -c Release
-dotnet test ContactCore.slnx -c Release
+dotnet format ContactCore.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.slnx -c Release --no-restore
+dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage"
 ```
 
-This is an environment limitation, not evidence that the project passes or fails.
-
-### Verification strategy
-
-A pull request from `audit/contactcore-20260819` must be used to run the real GitHub Actions quality gates against the latest integrated implementation. Compiler, test, format, CodeQL, and workflow failures must be fixed before calling the milestone verified.
-
-## Audit findings to verify/fix
-
-These are audit targets, not yet claims of confirmed defects:
-
-1. Validate CSV/vCard parser edge cases and all `DateOnly.TryParseExact` usages against the actual .NET 10 compiler.
-2. Verify Avalonia XAML resource names/bindings and generated MVVM commands compile against the pinned Avalonia/CommunityToolkit versions.
-3. Verify SQLite migration/transaction APIs compile cleanly with Microsoft.Data.Sqlite 10.0.10.
-4. Confirm backup restore behavior cannot overwrite the only good copy after a failed post-restore migration.
-5. Confirm the optional encryption configuration fails closed rather than silently accepting a key with plaintext SQLite.
-6. Confirm search/filter refresh cannot lose a user query while another async UI operation is busy.
-7. Check CSV spreadsheet-formula behavior and document/implement a safe export mode if spreadsheet-oriented export is exposed.
-8. Verify release workflow packaging commands on Windows, Linux, macOS Intel, and macOS Apple Silicon runners.
-9. Check all README/documentation claims against current code and actual CI results.
-10. Confirm no real secrets, databases, exported personal data, signing material, or private endpoints are tracked.
-
-## Known limitations / remaining roadmap
-
-- Build/test status is not yet verified in this chat environment; GitHub Actions is required.
-- Desktop UI still needs deeper manual accessibility/platform verification before claiming full conformance.
-- Large-result SQLite materialization and UI virtualization should be benchmarked before claiming high-scale performance.
-- Parser fuzz/property tests remain desirable for CSV/vCard inputs.
-- Release artifacts are not to be described as signed/notarized unless signing is actually configured.
-- Real screenshots must use fictional sample contacts only.
+plus CodeQL analysis on GitHub Actions.
 
 ## Next exact tasks
 
-1. Inspect current `main` source/tests/workflows file-by-file for likely compile/runtime defects.
-2. Commit only incremental audit fixes on `audit/contactcore-20260819`.
-3. Open a fresh audit PR into `main` to trigger CI/CodeQL.
-4. Read failed job steps/logs and fix every actionable failure with small commits.
-5. Re-run failed jobs until quality gates pass.
-6. Close stale overlapping PR #1 as superseded once unique useful changes have been compared/reapplied.
-7. Update this file with exact CI results, fixes, commit hashes, and the next unfinished roadmap tasks.
-8. Merge the audit PR only when repository checks are satisfactory and the branch is up to date with `main`.
+1. Wait only on the GitHub runner result in the sense of checking the already-triggered workflow; do not create a release or merge early.
+2. Read every failed CI/CodeQL job log on the newest PR #13 head.
+3. Fix compiler, formatter, analyzer, test, XAML, SQLite, or workflow errors with small focused commits.
+4. Re-run or allow the PR workflow to rerun after each fix until Windows, Linux, macOS, and CodeQL all pass.
+5. Verify the new backup tests pass on all supported CI operating systems.
+6. Check the release workflow syntax and package commands through GitHub Actions before describing release artifacts as verified.
+7. Audit CSV spreadsheet-formula behavior and add a safe spreadsheet-export policy/test without silently corrupting normal round-trip data.
+8. Add parser edge/fuzz-style tests for malformed CSV and vCard input.
+9. Audit large-result search materialization/UI virtualization before making high-scale performance claims.
+10. Reconcile README/release/testing documentation with the exact final CI result.
+11. Update this file again with final workflow run IDs, conclusions, any additional fix commits, and merge commit.
+12. Merge PR #13 only after the final head is satisfactory.
 
-## Release-note draft
+## Known limitations that must remain accurately documented
 
-ContactCore has progressed from repository bootstrap to a complete local-first desktop contact-management baseline with layered architecture, transactional SQLite persistence, import/export, duplicate handling, backup/restore, Avalonia UI, automated tests, security/privacy documentation, and GitHub CI/release automation. The current milestone is verification and hardening rather than feature-count expansion.
+- Release artifacts are not signed or notarized unless signing/notarization is actually configured.
+- Desktop accessibility still requires manual platform verification in addition to code review.
+- Performance at very large contact counts is not yet benchmark-verified.
+- Screenshots, tests, sample exports, and bug reports must use fictional contact data only.
+- Optional database encryption must continue to fail closed when SQLCipher is unavailable; never imply standard SQLite is encrypted merely because a key was supplied.
+
+## Product baseline already present
+
+ContactCore currently includes:
+
+- contact aggregate models and validation;
+- Unicode-aware normalization;
+- duplicate scoring and merge behavior;
+- CSV and vCard interchange;
+- SQLite migrations and complete aggregate persistence;
+- indexed local search;
+- local preferences;
+- PII-redacted diagnostics;
+- backup/restore;
+- Avalonia desktop UI;
+- domain/application/infrastructure tests;
+- CI, CodeQL, Dependabot, release automation, issue templates, PR template, and funding metadata;
+- architecture, privacy, security, support, contribution, testing, release, troubleshooting, accessibility, performance, changelog, and roadmap documentation.
+
+The current priority is **verification and hardening**, not adding unverified feature count.
