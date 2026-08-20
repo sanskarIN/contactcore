@@ -1,228 +1,281 @@
 # Security and Privacy Engineering
 
-ContactCore is an offline-first desktop contact manager. Its security model focuses on local personal-data protection, input handling, transaction/data-integrity boundaries, truthful encryption claims, restore safety, and protection from accidental destructive actions. It is not a network-security product and cannot protect files/process memory from an attacker who already controls the user's operating-system account or device.
+ContactCore is a local-first cross-platform contact manager. Its security model focuses on personal-data protection, input handling, storage consistency, truthful encryption/backup claims, restore safety, and protection from accidental destructive actions. It is not a network-security product and cannot protect data/process memory from an attacker who already controls the user's device/account/runtime.
 
 For vulnerability reporting see `../SECURITY.md`; for user-facing data practices see `../PRIVACY.md`.
 
 ## Sensitive assets
 
-Sensitive assets include the active database and SQLite sidecars, verified backups/recovery files, CSV/vCard data, temporary restore-picker copies, contact values shown on screen, runtime database keys, and settings controlling destructive-action safety.
+Sensitive assets include:
 
-Backups, exports, picker copies, and recovery files are personal-data copies, not harmless generated artifacts.
+- native SQLite database and WAL/SHM sidecars;
+- native verified backups/recovery artifacts;
+- browser IndexedDB contact state;
+- browser preference state where it contains behavioral settings;
+- CSV/vCard exports/imports;
+- temporary picker/restore copies;
+- contact values shown on screen;
+- runtime native database keys;
+- destructive-action safety settings;
+- mobile signing credentials/provisioning material **if maintainers add them to a release secret system later**.
+
+Backups, exports, browser snapshots, picker copies, and recovery files are personal-data copies, not harmless generated artifacts.
 
 ## Trust boundaries
 
-### Local operating system
+### Native operating system/runtime
 
-ContactCore trusts OS/runtime filesystem permissions, process isolation, native UI/file-picker behavior, and native dependencies. Same-user malware, administrators, disk forensics against unencrypted storage, compromised runtime/native libraries, and screen capture are outside normal application-layer protection.
+Desktop/Android/iOS trust the host OS/runtime for process isolation, filesystem/app-container permissions, native file-picker behavior, and packaged native dependencies. Same-user malware, privileged administrators, compromised devices/runtimes, disk forensics against unencrypted data, and screen capture are outside application-layer protection.
+
+### Browser origin/profile
+
+WebAssembly trusts the browser engine and origin/profile storage isolation. Contact data is persisted in IndexedDB for the site's origin/profile. Browser policy, extensions, compromised browser/runtime, malicious same-origin code, site-data clearing, private-session teardown, profile deletion, quota eviction, and developer tools with sufficient access are relevant risks.
+
+The browser target must not be described as having the same filesystem/SQLite boundary as native targets.
 
 ### Imported CSV/vCard
 
-Imports are untrusted. They may be malformed, Unicode-heavy, formula-like, oversized, or crafted to stress parsers/downstream spreadsheet software.
+Imports are untrusted: malformed, Unicode-heavy, formula-like, oversized, or crafted to stress parsers/downstream spreadsheet clients.
 
-### Selected backup database
+### Selected native backup database
 
-A `.db` is untrusted until integrity, ContactCore schema/version, and schema-family identity have been verified. Valid SQLite is not automatically valid ContactCore data.
+A `.db` is untrusted until integrity, ContactCore schema/version, and schema-family identity are verified. Valid SQLite is not automatically valid ContactCore data.
 
 ### Duplicate heuristic
 
-Duplicate scoring is a heuristic, not proof that two people are the same. Scores must never automatically trigger destructive persistence.
+Duplicate scoring is advisory. Similarity is not proof two records represent the same person; it must never auto-trigger destructive persistence.
 
-### Shared group/tag dictionary
+### Shared group/tag identity
 
-Groups/tags are globally shared case-insensitive dictionary rows linked to contacts. A per-contact name edit must not be treated as permission to mutate a shared dictionary identity globally.
+SQLite groups/tags are globally shared case-insensitive dictionary rows. A per-contact edit must not silently mutate a shared dictionary identity globally.
 
 ### Native SQLite provider
 
-The default app uses ordinary SQLite. A SQLCipher-compatible provider, if deliberately integrated, joins the trusted computing base and adds packaging/licensing/update obligations.
+Default native build uses ordinary SQLite. Any SQLCipher-compatible provider deliberately added later joins the trusted computing base and adds licensing/native packaging/update/test obligations.
 
 ### Public repository/support surfaces
 
-Issues, pull requests, screenshots, logs, and fixtures are public-data boundaries. Real contact databases/exports/keys and identifying screenshots must not cross them.
+Issues, PRs, screenshots, logs, fixtures, workflow artifacts, and release discussions are public/support boundaries. Real contacts, databases, browser dumps, exports, keys, signing material, provisioning profiles, and identifying screenshots must not cross them.
 
-## Offline-first privacy posture
+## Local-first privacy posture
 
-Normal contact operations use local files/SQLite and require no mandatory account, cloud sync, analytics, telemetry, or advertising service.
+Normal operations require no mandatory ContactCore account, cloud sync service, analytics, telemetry, or advertising backend.
 
-Local-first does **not** imply encrypted-at-rest. The default ordinary SQLite build is plaintext unless a compatible encryption provider is deliberately integrated.
+Native data is stored locally in SQLite. Browser data is stored locally in browser-managed IndexedDB for the active origin/profile. Local-first does **not** imply encrypted-at-rest.
 
-## SQL controls
+## Native SQL controls
 
-Repository values/IDs are parameterized. Search values intended as literal text escape backslash, `%`, and `_` before entering `LIKE ... ESCAPE '\'` patterns. Developer-controlled table names in fixed loops are constants.
+SQLite values/IDs are parameterized. Search values intended as literal text escape backslash, `%`, and `_` before entering `LIKE ... ESCAPE '\'` patterns. Do not concatenate contact/import/search values into SQL.
 
-Never concatenate contact/import/search values into SQL text.
+Connections enable foreign keys and busy timeout. Aggregate writes and bulk import are transactional.
 
-## SQLite consistency controls
+## Native duplicate transaction
 
-Factory-opened connections enable foreign keys and a busy timeout. Aggregate writes and multi-contact imports are transactional.
+`SqliteContactRepository.MergeAsync` in one transaction:
 
-Duplicate merge is a dedicated destructive repository operation. Inside the same transaction it:
+1. requires chosen survivor still exists;
+2. requires secondary still exists;
+3. writes complete survivor aggregate;
+4. deletes secondary;
+5. requires exactly one deletion;
+6. commits only on complete success.
 
-1. requires the chosen survivor/primary to still exist;
-2. requires the secondary to still exist;
-3. writes the complete survivor aggregate;
-4. deletes the secondary;
-5. requires exactly one secondary row to be deleted;
-6. commits only if the whole operation succeeds.
+This prevents half-committed merges and stale-primary resurrection.
 
-This prevents both half-committed merges and stale-primary resurrection from reviewed UI state.
+## Browser storage controls
+
+`BrowserContactRepository` is separate from native Infrastructure and implements `IContactRepository` over browser-managed persistence.
+
+Security/data-consistency properties:
+
+- initialization loads one serialized ContactCore state record from IndexedDB;
+- malformed state/duplicate IDs are rejected rather than silently reinterpreted;
+- writes are serialized through a repository gate;
+- a pre-mutation in-memory copy is retained;
+- JavaScript commits the replacement state inside an IndexedDB readwrite transaction;
+- failed persistence restores the previous in-memory dictionary and propagates failure;
+- duplicate merge requires both reviewed IDs before mutation;
+- no native SQLite backup/encryption capability is advertised.
+
+This protects current-instance consistency, not against malicious same-origin JavaScript or cross-tab write conflicts.
+
+### Cross-tab boundary
+
+The current browser implementation does not implement multi-tab optimistic concurrency, locking across browser tabs, or conflict merging. Simultaneous editing in multiple tabs is not a supported collaborative workflow. A future implementation should add version/etag or transaction-conflict semantics before claiming that behavior safe.
 
 ## Complete-aggregate editor safety
 
-The repository replaces contact-owned child/link state from the complete aggregate supplied on save. A presentation omission can therefore become data loss.
+Saving replaces contact aggregate state. Presentation omission can therefore become data loss. Both desktop and portable editor models represent phones, emails, addresses, organizations, groups, tags, scalar fields, favorite/archive state, birthday, notes, and persisted/unsaved state.
 
-The full editor represents phones, emails, addresses, organizations, groups, and tags, but identity semantics differ:
+Identity rules:
 
 - phone/email/address/organization rows are contact-owned and retain IDs through ordinary edits;
-- unchanged group/tag assignments retain their shared dictionary identity;
-- a true per-contact group/tag rename gets a fresh dictionary identity and becomes reassignment;
-- a case-only/normalization-equivalent group/tag edit keeps the existing identity/canonical name;
-- group/tag names with commas/semicolons remain exact;
+- unchanged group/tag assignments retain shared identity;
+- true per-contact group/tag rename becomes new-identity reassignment;
+- normalization-equivalent/case-only group/tag edit preserves canonical identity/name;
+- delimiter-containing names remain exact;
 - blank new rows are suppressed;
 - label-only legacy addresses remain preservable;
-- removal of one repeated value/link does not intentionally remove unrelated values.
+- removing one repeated value does not intentionally remove unrelated values.
 
-This prevents a local group/tag edit from reusing a global primary key with a different name, which could otherwise create SQLite conflicts or imply an unintended global taxonomy rename.
+Generated GUIDs do not prove persistence; unsaved drafts are tracked explicitly.
 
-Generated GUIDs are not proof of persistence; unsaved drafts are tracked separately so discard never becomes an unintended database delete.
+## Duplicate review controls
 
-## Duplicate detection and destructive merge controls
+Shared/mobile/browser and desktop flows preserve the same high-level safety rule:
 
-The duplicate UI:
+1. scan candidates without mutation;
+2. show score/reasons/record previews;
+3. require explicit survivor choice;
+4. require explicit confirmation;
+5. reload/merge through `ContactService`;
+6. delegate stale-safe storage mutation to the repository implementation.
 
-1. scans candidates without mutating data;
-2. presents confidence and matching reasons;
-3. shows both record summaries;
-4. requires explicit survivor choice;
-5. requires confirmation regardless of permanent-delete preference;
-6. calls `ContactService.MergeAsync`, which reloads both contacts;
-7. delegates to the stale-safe atomic repository transaction.
+There is no general undo stack. Storage consistency is not undo.
 
-If either reviewed record disappeared before persistence, the merge is rejected. The merge algorithm preserves the selected survivor root identity, combines documented unique values, and generates fresh IDs for copied contact-owned secondary children where needed.
+## Native database schema identity
 
-There is no general-purpose undo stack. Atomicity prevents partial merge state; it is not undo. Verified backups remain the recovery path for an incorrectly confirmed merge.
+Current SQLite schema uses ContactCore schema-family metadata and rejects future schema versions. Backup/restore combines identity/version/required-structure/integrity checks.
 
-## Database schema identity
+## Native backup/restore security
 
-Schema version 2 uses:
+Backup uses SQLite's backup API and verifies output before reporting success.
 
-```text
-app_metadata['schema_family'] = 'contactcore'
-```
+Restore uses source verification, pre-restore snapshot, staging, supported migration, staging verification, pool/sidecar cleanup, switch, final verification, and failed-switch rollback attempt.
 
-Backup/restore validation combines this marker with required structures/version. Future schema versions are rejected rather than treated as downgrade-compatible.
+See `storage-backup-recovery.md` for exact steps.
 
-## Backup integrity and restore safety
+## Browser recovery security boundary
 
-Backup creation uses SQLite's backup API and requires integrity/schema/identity verification before reporting success.
+Browser has no native SQLite `BackupService`. Shared UI capability flags disable native database backup/restore/encryption claims. Portable CSV/vCard export is available but remains a limited interchange format.
 
-Restore follows:
+Important risk: browser-local data can disappear because of site-data clearing, private browsing behavior, profile deletion, policy, origin change, or storage eviction. Users needing a portable copy must export deliberately.
 
-1. path validation and active-source rejection;
-2. read-only source verification;
-3. verified pre-restore snapshot of current active data when present;
-4. staging copy;
-5. supported migration of staging;
-6. staging integrity/identity verification;
-7. pool/sidecar cleanup and switch;
-8. final active-database verification;
-9. failed-restored-file retention + recovery-snapshot restoration attempt if final verification fails.
+A future full-fidelity browser backup should define a versioned signed/validated document format and migration behavior explicitly instead of copying native SQLite terminology.
 
-The extra work is intentional because data-loss protection is higher priority than raw replacement speed.
+## Optional native database encryption
 
-## Optional database encryption
+### Default
 
-### Default build
+Ordinary `Microsoft.Data.Sqlite` is plaintext SQLite; issuing `PRAGMA key` alone does not prove encryption.
 
-`Microsoft.Data.Sqlite` with ordinary SQLite does not become encrypted merely because code issues `PRAGMA key`.
+### Fail-closed requested key
 
-### Fail-closed key request
+When `CONTACTCORE_DATABASE_KEY` is non-empty, `SqliteConnectionFactory` applies the key and requires `PRAGMA cipher_version` evidence. Missing cipher support closes/rejects the connection.
 
-When `CONTACTCORE_DATABASE_KEY` is non-empty, `SqliteConnectionFactory` applies the runtime key without interpolating the original secret and checks `PRAGMA cipher_version`. If cipher support cannot be proven, the connection is closed and startup fails.
-
-The preferences loader reads the runtime key even on first launch when `settings.json` does not yet exist. The key is excluded from serialized settings.
+The key is loaded at runtime even on first launch and excluded from normal `settings.json` serialization.
 
 ### Provider responsibility
 
-Shipping encryption requires a maintained compatible provider plus licensing/native packaging/runtime tests on every supported release target. Do not claim encryption-at-rest until provider behavior is actually verified.
+Shipping native encryption requires a maintained provider, license review, native packaging, and runtime verification on each native target. Do not claim encryption-at-rest until verified.
 
-### Not guaranteed
+### Browser is separate
 
-ContactCore does not protect keys from a process-memory attacker, provide an OS secret-store today, automatically encrypt CSV/vCard exports, or claim cryptographic properties beyond an integrated provider.
+Browser IndexedDB is not covered by the native SQLCipher integration. Do not reuse the native “database key” UI/security language for browser storage without a separate browser cryptographic design and review.
 
-## Preference resilience
+## Preferences
 
-`settings.json` stores non-secret preferences. Saves use temporary-file replacement. Malformed JSON falls back to conservative defaults, including permanent-delete confirmation enabled. This is corruption resilience, not tamper authentication.
+Native `settings.json` stores non-secret preferences and uses temp/replacement writes; malformed JSON falls back to safe defaults.
 
-## Permanent delete controls
+Browser preferences use local browser storage and keep a session fallback if persistence throws. No native database key is stored there.
 
-Persisted deletion follows the configured confirmation requirement. If confirmation is required but unavailable, deletion is blocked. Unsaved **Delete / discard** performs no repository deletion.
+## Permanent delete / confirmation
 
-Restore and duplicate merge always require their own confirmation callback in the desktop workflow.
+Persisted deletion follows confirmation policy. Unsaved discard performs no repository deletion. Duplicate merge has its own confirmation. Native restore has its own confirmation. Portable UI uses an in-view confirmation state so single-view platforms do not depend on a desktop `Window` dialog.
 
-## Import resource limits and atomicity
+## Import bounds and atomicity
 
-The desktop reader bounds selected import text at **5,000,000 characters**, uses UTF-8/BOM detection, and rejects oversize input before accepting the complete string.
+Avalonia picker integration bounds imported text at **5,000,000 characters**. `ContactService.ImportAsync` deep-copies, normalizes, validates the entire parsed batch before repository persistence.
 
-`ContactService.ImportAsync` deep-copies/normalizes parsed contacts, validates the complete batch, and only then calls one-transaction repository persistence. Alternate future import entry points need their own resource bounds.
+Native bulk persistence uses one SQLite transaction. Browser bulk persistence uses one gated snapshot replacement and restores prior in-memory state on IndexedDB failure.
 
-## CSV hardening boundary
+## CSV boundary
 
-Current CSV behavior:
+- requires recognized ContactCore header(s), otherwise imports zero with warning;
+- duplicate headers use first occurrence and warn;
+- formula-like text starting with `=`, `+`, `-`, or `@` after whitespace is preserved and warned;
+- quoting/escaping is not spreadsheet-formula neutralization.
 
-- requires at least one recognized ContactCore header; otherwise imports zero contacts with a warning;
-- duplicate headers use the first occurrence and warn;
-- formula-like text beginning with `=`, `+`, `-`, or `@` after leading whitespace is preserved and warned about;
-- quoting/escaping does **not** constitute spreadsheet-formula neutralization.
+Treat CSV data as untrusted when opening in spreadsheet software.
 
-Treat contact-derived CSV as untrusted data when opening it in spreadsheet software.
+## vCard boundary
 
-## vCard hardening boundary
+Focused vCard handling supports documented subset, line unfolding, escaping, escaped structured-name delimiters, common TYPE mapping, and controlled warnings. It is not full vCard sanitization/interoperability.
 
-Focused vCard handling supports the documented subset, line unfolding, supported escaping, escaped structured-name delimiters, common field TYPE mappings, and controlled malformed-card warnings.
+## Diagnostics/privacy
 
-Invalid birthday warnings intentionally do not echo the invalid imported value. This is not a claim of full vCard interoperability or sanitization for every external client.
+Shared/desktop error presentation avoids unnecessary raw paths/private values. Lower layers should avoid embedding contact payloads/secrets in exceptions. `RedactingLog` is defense-in-depth rather than a complete PII detector.
 
-## Diagnostic/validation privacy
+## Temporary picker copies
 
-`RedactingLog.Sanitize` removes common email/long-number shapes and caps output length before desktop error display. It is defense-in-depth, not a complete PII classifier.
+When a native storage provider cannot return a local backup path, shared/desktop picker code may copy a selected backup stream to a unique temporary path for restore and then attempt cleanup. Secure deletion semantics remain OS/filesystem-dependent.
 
-Lower layers should avoid raw contact values/secrets in exceptions. Validation/parser messages identify problems without unnecessarily echoing private values where practical.
-
-## Temporary restore-picker copies
-
-When a storage provider cannot expose a normal local path, Desktop copies the selected backup stream to a unique temporary path and marks it for best-effort deletion after restore. OS/filesystem behavior still controls actual secure deletion semantics.
+Browser import/export normally operates through browser-provided storage streams and does not create a native ContactCore DB restore path.
 
 ## Logging and telemetry
 
-There is no mandatory telemetry pipeline. Future logging should default local, avoid raw contact/secret/path payloads where unnecessary, document retention/location, and receive review before any remote telemetry is introduced.
+No mandatory telemetry pipeline is present. Any future remote logging/analytics/sync requires explicit privacy/security review, minimal payloads, retention/location documentation, and user-facing policy changes.
 
-## Dependency, CI, and release security
+## Dependency/CI/release security
 
-Package versions are centrally managed; Dependabot and CodeQL are configured; CI is configured across Windows, Ubuntu, and macOS.
+Package versions are centrally managed; Dependabot and CodeQL are configured.
 
-The 2.0.12 release workflow validates tag/project-version equality, uses the SDK policy in `global.json`, packages platform artifacts, generates SHA-256 checksums, and grants repository write permission only to the final GitHub Release job.
+CI verifies:
 
-Checksums are integrity aids, not a substitute for trusted code signing/notarization. Current artifacts are not claimed as signed/notarized.
+- core restore/format/build/test on Ubuntu, Windows, macOS;
+- Browser WebAssembly Release build after `wasm-tools` installation;
+- Android Release build after Android workload installation;
+- iOS Release build on macOS after iOS workload installation;
+- CodeQL on workload-free core solution.
 
-## Threats not mitigated by the application
+Release preflight checks tag/source version. Desktop/browser packages receive checksums. Android/iOS are build-gated without committing private signing credentials.
 
-Examples include same-user malware/process access, stolen unencrypted storage, weak OS credentials/permissions, insecure backup destinations, malicious spreadsheet behavior after opening CSV, screen capture, compromised build/dependency/native providers, denial-of-service beyond tested limits, and arbitrary tampering by an attacker who can write application/user-data files.
+Checksums are integrity aids, not code-signing authenticity. Current artifacts are not claimed signed/notarized/store-certified.
+
+## Mobile signing security
+
+Production Android/iOS signing material is security-sensitive. If automation is added:
+
+- store credentials only in a suitable encrypted CI secret/identity system;
+- never expose signing secrets to untrusted pull-request code;
+- use environment/repository protection appropriate to release jobs;
+- minimize credential scope/lifetime;
+- document signer identity/verification;
+- avoid logging secrets/decoded certificates/profiles;
+- review third-party signing actions/tooling before use.
+
+## Threats not mitigated
+
+Examples:
+
+- same-user malware/process memory access;
+- compromised/rooted/jailbroken/administrator-controlled device;
+- stolen unencrypted native storage;
+- malicious/compromised browser engine/extensions/same-origin code;
+- browser site-data deletion/eviction/private-session loss;
+- cross-tab conflicting browser writes;
+- insecure backup/export destination;
+- malicious spreadsheet behavior after CSV open;
+- screen capture/shoulder surfing;
+- compromised dependencies/build agents/native providers;
+- denial-of-service beyond tested limits;
+- arbitrary file/browser-state tampering by an attacker with sufficient local privileges.
 
 ## Security review checklist
 
-For a security/data-safety change:
+For security/data-safety/platform changes:
 
-- identify assets and trust boundaries;
-- add failure-path tests;
+- identify native vs browser assets/trust boundaries;
+- add failure-path tests/build gates;
 - verify no new secret persistence;
-- verify parameterized SQL/literal wildcard behavior;
-- verify correct contact-owned versus shared-dictionary identity semantics;
+- verify native SQL parameterization/literal wildcard behavior;
+- verify browser state validation/write rollback where affected;
+- verify aggregate identity semantics;
 - verify input bounds/termination;
-- verify transactional all-or-nothing and stale-state behavior for multi-row destructive writes;
-- verify confirmation direction/text matches the operation;
-- verify backup/restore recovery behavior;
+- verify multi-record destructive operations remain stale-safe/storage-consistent;
+- verify confirmation direction/text;
+- verify native backup/restore recovery or browser capability boundary;
 - verify errors avoid private payloads;
-- review dependency/native licensing;
-- run CI/CodeQL on the exact final head;
-- update security/user/maintenance documentation.
+- review dependency/native/mobile signing licensing/security;
+- run exact-head platform CI + CodeQL;
+- update security/user/platform/maintenance documentation.
