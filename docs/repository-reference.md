@@ -1,6 +1,6 @@
 # Repository Reference
 
-This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 94 tracked files** present after the 2026-08-19 final hardening/documentation pass. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, exports, backups, restore staging files, secrets, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
+This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 94 tracked files** present after the 2026-08-20 final release-hardening continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, exports, backups, restore staging files, secrets, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
 
 If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change. Temporary addenda used during the audit were folded into this file and removed so this remains the single authoritative inventory.
 
@@ -19,7 +19,7 @@ Git text/line-ending handling rules. Keeps platform checkouts consistent.
 Ignores build/IDE output plus local databases, WAL/SHM files, backups, exports, restore/temp artifacts, environment secrets, signing-key material, and other private/generated files covered by the current policy.
 
 ### `CHANGELOG.md`
-Release/change history. Contains the dated **2.0.12** release-preparation section covering the full editor, shared group/tag dictionary reassignment semantics, parser hardening, stale-safe duplicate merge/data-safety fixes, tests, version/release automation, documentation, security boundaries, and known limitations, plus an empty post-2.0.12 `Unreleased` section.
+Release/change history. Contains the dated **2.0.12** release-preparation section covering the full editor, shared group/tag dictionary reassignment semantics, parser hardening, stale-safe duplicate merge/data-safety fixes, tests, version/release automation, documentation, security boundaries, and known limitations. Its post-checkpoint `Unreleased` section records the patched SQLite provider dependency, current GitHub Actions major-version refresh, PR reconciliation, and the exact-head verification requirement.
 
 ### `CODE_OF_CONDUCT.md`
 Community behavior/enforcement policy, including privacy-conscious handling of accidentally shared sensitive data.
@@ -34,7 +34,7 @@ Solution containing four production projects and four corresponding test project
 Shared MSBuild/compiler/analyzer policy: .NET 10 target, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI build settings, analyzer configuration, and centralized **2.0.12** project/assembly/file/informational version metadata.
 
 ### `Directory.Packages.props`
-Central NuGet version management for Avalonia, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite, MSTest, test SDK, coverage collector, and related dependencies.
+Central NuGet version management for Avalonia, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite, MSTest, test SDK, coverage collector, and related dependencies. The current 2.0.12 release-hardening head uses Microsoft.Data.Sqlite 10.0.11 to avoid the vulnerable SQLitePCLRaw native-bundle line that blocked restore in CI.
 
 ### `LICENSE`
 MIT license text for ContactCore's repository code. Third-party/native dependency licenses remain separate.
@@ -58,7 +58,7 @@ Support channels and privacy-safe diagnostic guidance. Covers the full 2.0.12 ed
 Pins the stable .NET 10 SDK baseline (`10.0.100`) with latest-compatible feature-band roll-forward and prereleases disabled. Development, CI and the hardened release workflow use this policy.
 
 ### `what_changed.md`
-Authoritative v2.0.12 continuation/handoff ledger. Records branch/PR reconciliation, version metadata, implemented features/fixes, regression coverage, release pipeline, verification boundary, remaining roadmap, and exact merge/release procedure.
+Authoritative v2.0.12 continuation/handoff ledger. Records branch/PR reconciliation, version metadata, implemented features/fixes, the SQLite advisory resolution, regression coverage, release pipeline, verification boundary, remaining roadmap, and exact merge/release procedure.
 
 ## 2. GitHub configuration — 8 files
 
@@ -78,13 +78,13 @@ Dependabot configuration for dependency update proposals. Automated updates stil
 PR checklist covering CI/CodeQL, tests, data-safety/aggregate preservation, contact-owned versus shared-dictionary identity semantics, stale duplicate protection, migrations/recovery, privacy, documentation, and review evidence.
 
 ### `.github/workflows/ci.yml`
-Cross-platform CI matrix for Ubuntu, Windows, and macOS. Restores, verifies formatting, builds Release, runs tests with XPlat coverage, uploads available results, and cancels obsolete same-ref runs.
+Cross-platform CI matrix for Ubuntu, Windows, and macOS. Restores, verifies formatting, builds Release, runs tests with XPlat coverage, uploads available results, and cancels obsolete same-ref runs. Checkout uses v6 and .NET setup uses v5 on the current release-hardening head.
 
 ### `.github/workflows/codeql.yml`
-C# CodeQL analysis for relevant pushes/pull requests plus scheduled analysis, with minimal required permissions and concurrency handling.
+C# CodeQL analysis for relevant pushes/pull requests plus scheduled analysis, with minimal required permissions and concurrency handling. The current workflow uses checkout v6, setup-dotnet v5, and CodeQL v4.
 
 ### `.github/workflows/release.yml`
-Tag-driven release workflow for `win-x64`, `linux-x64`, `osx-x64`, and `osx-arm64`. Preflight resolves the project version and rejects a mismatched tag; SDK setup uses `global.json`; each target runs tests/publishes and is packaged as ZIP or tar.gz; the final job publishes `SHA256SUMS.txt`; repository write permission is limited to that final release job. It does not implement or claim code signing/notarization.
+Tag-driven release workflow for `win-x64`, `linux-x64`, `osx-x64`, and `osx-arm64`. Preflight resolves the project version and rejects a mismatched tag; SDK setup uses `global.json`; each target runs tests/publishes and is packaged as ZIP or tar.gz; the final job publishes `SHA256SUMS.txt`; repository write permission is limited to that final release job. Checkout uses v6 and .NET setup uses v5. The workflow does not implement or claim code signing/notarization.
 
 ## 3. Documentation — 21 files
 
@@ -258,7 +258,7 @@ Core list/draft/main view-model implementation. Preserves root identity and cont
 Domain MSTest project definition/reference.
 
 ### `tests/ContactCore.Domain.Tests/ContactValidationTests.cs`
-Validation/normalization/domain-model regression tests, including valid/invalid fields, non-echoing messages, Unicode search normalization, length/display/deep-copy/phone-key behavior represented by the current suite.
+Validation/normalization/domain-model regression tests, including valid/invalid fields, non-echoing messages, Unicode search normalization, display/deep-copy/phone-key behavior represented by the current suite.
 
 ## 9. Application tests — 5 files
 
