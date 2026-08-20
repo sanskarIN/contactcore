@@ -1,176 +1,247 @@
 # Storage, Backup, and Recovery
 
-ContactCore is intentionally local-first. This document describes where data lives, how SQLite connections are configured, how normal writes remain atomic, and exactly how backup/restore attempts protect the active database.
+ContactCore is local-first on every current application target, but **local persistence is platform-specific**. Desktop/Android/iOS use the native SQLite path. Browser/WebAssembly uses IndexedDB through `BrowserContactRepository`. Backup/recovery claims must follow that distinction.
 
-## Local data directory
+## Storage matrix
 
-`AppPaths` chooses the data directory in this order:
+| Target family | Contact persistence | Preferences | Native DB backup/restore |
+|---|---|---|---|
+| Windows/Linux/macOS | SQLite | `settings.json` | yes |
+| Android | SQLite | `settings.json` | yes in service capability; platform picker/runtime behavior still requires device validation |
+| iOS/iPadOS | SQLite | `settings.json` | yes in service capability; platform picker/runtime behavior still requires device validation |
+| Browser/WebAssembly | IndexedDB | browser local storage with session fallback | no |
 
-1. `CONTACTCORE_DATA_PATH` when it is non-empty;
-2. the operating system's local application-data directory plus `ContactCore`;
-3. `AppContext.BaseDirectory/ContactCore` when the platform API provides no local-app-data path.
+## Native local data directory
 
-The selected path is normalized with `Path.GetFullPath` and created during `AppPaths` construction.
+`AppPaths` chooses native data location in this order:
 
-Files/directories derived from it are:
+1. `CONTACTCORE_DATA_PATH` when non-empty;
+2. OS local application-data directory plus `ContactCore`;
+3. `AppContext.BaseDirectory/ContactCore` if the runtime reports no local-app-data root.
 
-- `contactcore.db` — active SQLite database;
-- `settings.json` — local non-secret preferences;
-- `backups/` — ContactCore-managed pre-restore/failed-restore recovery artifacts.
+Derived paths:
 
-The environment override is a **directory**, not a database-file path.
+```text
+ContactCore/
+├── contactcore.db
+├── settings.json
+└── backups/
+```
 
-## SQLite connection policy
+The environment override is a **directory**, not a database filename.
 
-`SqliteConnectionFactory` builds connections with:
+## Native SQLite connection policy
 
-- `ReadWriteCreate` for normal writable database use;
-- `ReadOnly` when probing a selected restore source;
+`SqliteConnectionFactory` centralizes:
+
+- `ReadWriteCreate` normal access;
+- `ReadOnly` backup-source probes;
 - shared cache;
-- configurable pooling (enabled for the active database, disabled for one-off backup/probe files);
+- controlled pooling;
 - `PRAGMA foreign_keys = ON`;
-- `PRAGMA busy_timeout = 5000`.
+- `PRAGMA busy_timeout = 5000`;
+- optional fail-closed keyed-SQLite setup.
 
-Any connection-open/configuration failure disposes the partially opened connection before rethrowing.
+A partially opened/configured connection is disposed on failure.
 
-## Optional keyed SQLite
+## Optional native keyed SQLite
 
-A key provider supplies the runtime database key. If the key is non-empty, ContactCore:
+When a runtime key exists ContactCore:
 
-1. converts the UTF-8 key bytes to hex;
-2. sends `PRAGMA key = "x'<hex>'"`;
+1. converts key bytes to hex;
+2. sends `PRAGMA key`;
 3. queries `PRAGMA cipher_version`;
-4. closes and rejects the connection when no cipher version is reported.
+4. rejects/ closes the connection if compatible cipher support cannot be proven.
 
-This is a fail-closed integration boundary. Supplying a key to an ordinary SQLite build must not be interpreted as successful encryption.
+This is an integration boundary, not a claim that ordinary SQLite becomes encrypted merely because an environment variable was set. `JsonAppPreferences` never serializes the runtime key.
 
-`JsonAppPreferences` reads `CONTACTCORE_DATABASE_KEY` at runtime but deliberately excludes `DatabaseKey` from the persisted JSON model.
+Browser/WebAssembly does not use this SQLite-key mechanism and reports native database encryption capability as unavailable.
 
-## Normal contact writes
+## Native contact writes
 
-The repository writes complete contact aggregates transactionally. For bulk import, the complete batch uses one transaction. The contact row is upserted, existing child/link rows for that contact are removed, and the current child/link set is inserted. On failure the transaction is rolled back.
+`SqliteContactRepository` writes complete contact aggregates transactionally. Bulk import uses one transaction. Duplicate merge requires both reviewed records and performs survivor update + secondary deletion in one transaction.
 
-This means callers should treat the aggregate passed to `UpsertAsync`/`UpsertManyAsync` as the desired complete persisted state.
+A supplied `Contact` represents the desired complete persisted aggregate.
 
-## Creating a backup
+## Native backup creation
 
 `BackupService.CreateBackupAsync`:
 
-1. validates/creates the destination directory;
-2. creates a collision-resistant filename such as `contactcore-YYYYMMDD-HHmmssfff-<guid>.db`;
-3. opens the active database normally;
-4. opens the destination database with pooling disabled;
-5. uses SQLite's `BackupDatabase` API;
-6. runs integrity and ContactCore identity verification on the produced file;
-7. returns the backup path only after verification succeeds.
+1. validates/creates destination directory;
+2. creates a collision-resistant filename;
+3. opens active SQLite database;
+4. opens destination with one-off connection settings;
+5. uses SQLite `BackupDatabase`;
+6. verifies integrity/schema/version/ContactCore identity;
+7. returns only a verified backup path.
 
-Using SQLite's backup API is important for active WAL-mode databases; blindly copying the main `.db` file can miss state that still exists in WAL sidecars.
+Using SQLite's backup API matters for active WAL-mode databases; copying only the primary `.db` file can omit WAL state.
 
-## Backup verification
+## Native backup verification
 
 Verification includes:
 
-### SQLite integrity
+- `PRAGMA integrity_check` must return `ok`;
+- required `contacts` and `schema_migrations` tables;
+- schema version > 0 and not newer than this build;
+- current-schema `app_metadata` with `schema_family = contactcore`;
+- supported legacy schema may be accepted for isolated migration during restore.
 
-`PRAGMA integrity_check` must return `ok`.
+A valid unrelated SQLite database is rejected.
 
-### Required ContactCore tables
+## Native staged restore
 
-Both `contacts` and `schema_migrations` must exist.
+### 1. Validate source
 
-### Schema version
+Normalize path, require file existence, reject active DB itself, open read-only, verify integrity/structure/version/identity before modifying live data.
 
-The current migration version must be greater than zero and cannot exceed the build's `LatestSchemaVersion`.
+### 2. Create pre-restore snapshot
 
-### Schema-family identity
+If an active DB exists, create a verified `pre-restore-<timestamp>-<guid>.db` under `backups/`.
 
-Current-schema databases must contain `app_metadata` with `schema_family = contactcore`. Older supported schema versions can be accepted for restore long enough to migrate; current-created backups require the identity marker immediately.
+### 3. Stage selected backup
 
-A valid but unrelated SQLite file is therefore rejected.
+Copy to a unique temporary file beside active data.
 
-## Restore flow
+### 4. Migrate and verify staging
 
-Restore is staged and rollback-aware.
-
-### 1. Source validation
-
-The selected path is normalized and must exist. It cannot be the same path as the active database.
-
-The selected file is opened read-only and checked for integrity, ContactCore structure, supported schema version, and identity rules before active data is touched.
-
-### 2. Pre-restore snapshot
-
-If the active database exists, ContactCore creates a verified snapshot under `backups/` using a name such as:
-
-`pre-restore-<timestamp>-<guid>.db`
-
-This snapshot is the rollback source if the final switched database fails verification.
-
-### 3. Staging
-
-The selected backup is copied to a uniquely named temporary file beside the active database. The copy is not yet the live database.
-
-### 4. Migration and verification in isolation
-
-A path-specific connection factory is created for the staging file. `DatabaseMigrator.ApplyAsync` upgrades any supported older schema. The staged database is then fully reverified using current ContactCore identity requirements.
-
-A migration or verification failure at this stage leaves the active database in place.
+Create a path-specific factory, run `DatabaseMigrator.ApplyAsync`, then fully reverify. Failure leaves active DB unchanged.
 
 ### 5. Switch
 
-Before replacement, SQLite pools are cleared and `-wal`/`-shm` sidecars for the active path are deleted. The staged file then moves over the active database path.
+Clear pools, remove relevant `-wal`/`-shm` sidecars, move staged DB over active path.
 
-### 6. Final verification
+### 6. Verify active result
 
-The newly active database is opened and fully verified again.
+Open newly active DB and fully verify again.
 
-### 7. Rollback after failed final verification
+### 7. Roll back a failed final verification
 
 If final verification fails:
 
-1. pools are cleared again;
-2. active sidecars are removed;
-3. the failed active file is moved into `backups/failed-restore-<timestamp>-<guid>.db` when present;
-4. the verified pre-restore snapshot is copied back to `contactcore.db` when there was an original active database;
-5. the original exception is rethrown.
+1. clear pools/sidecars;
+2. retain failed active copy under `backups/failed-restore-...db` when possible;
+3. copy verified pre-restore snapshot back when an original active DB existed;
+4. rethrow original failure;
+5. clean staging temp in `finally`.
 
-The staging temporary file is cleaned in a `finally` block.
+## Native recovery artifacts
 
-## Recovery artifacts
+Possible artifacts:
 
-Managed artifacts may include:
+- `pre-restore-*.db` — verified pre-restore state;
+- `failed-restore-*.db` — failed switched database retained for diagnosis/recovery;
+- `.restore-*.tmp` — staging temp intended for automatic cleanup.
 
-- `pre-restore-*.db` — verified snapshot of the pre-restore active database;
-- `failed-restore-*.db` — database that failed after becoming active during restore;
-- temporary `.restore-*.tmp` files — intended to be deleted automatically.
+All contain or may contain contact data and need the same protection as the live database.
 
-Do not assume recovery artifacts are harmless. They contain contact data and must receive the same privacy protection as the live database.
+## Browser/WebAssembly storage
 
-## What restore does not promise
+The browser does **not** reference `ContactCore.Infrastructure` and does not own `contactcore.db`.
 
-- It does not create cloud redundancy.
-- It does not encrypt plaintext backups by itself.
-- It does not make backups immune to disk failure if live data and backups are stored on the same failed device.
-- It does not support a database schema newer than the current application build.
-- It does not perform downgrade migrations.
+`BrowserContactRepository` implements `IContactRepository` and keeps a complete domain aggregate representation in a browser-local snapshot stored in IndexedDB.
+
+### Initialization
+
+- enter repository initialization gate;
+- call JavaScript storage bridge;
+- read IndexedDB contact-state record;
+- deserialize documents into domain contacts;
+- reject malformed JSON/duplicate contact IDs as invalid browser-store state;
+- mark repository initialized only after load completes.
+
+### Browser writes
+
+Each write:
+
+1. initializes repository;
+2. enters `SemaphoreSlim` write gate;
+3. snapshots current in-memory dictionary;
+4. applies mutation;
+5. serializes ordered full contact documents;
+6. calls JavaScript `saveContacts`;
+7. JavaScript performs IndexedDB readwrite transaction/`put`;
+8. if persistence fails, restore prior in-memory dictionary and rethrow;
+9. release gate.
+
+This avoids leaving the current application instance in a half-mutated state when browser persistence throws.
+
+### Browser duplicate merge
+
+The browser repository requires both survivor and secondary IDs still exist before mutation. It updates survivor/removes secondary in the gated state replacement, then persists the resulting snapshot. Failed persistence restores the pre-merge in-memory snapshot.
+
+It is not a collaborative/cross-tab transaction protocol. Multi-tab simultaneous editing/conflict resolution is not currently a supported synchronization feature.
+
+## Browser preferences
+
+Browser theme/reduced-motion/delete-confirmation settings use local browser storage. If storage access throws, the preference implementation retains a session fallback rather than failing contact initialization solely because preference persistence is blocked.
+
+No SQLite database key is stored/used by the browser target.
+
+## Browser backup/recovery boundary
+
+There is no SQLite-native `BackupService` capability for WebAssembly. Shared UI receives:
+
+```text
+SupportsDatabaseBackups = false
+SupportsDatabaseEncryption = false
+```
+
+and guides the user toward CSV/vCard export for portable copies.
+
+Important consequences:
+
+- clearing browser site data can remove contacts;
+- private/incognito session teardown can remove contacts;
+- profile deletion or enterprise policy can remove/block storage;
+- browser quota/eviction behavior is controlled partly by browser policy;
+- changing origins/hosts can produce a different browser storage namespace;
+- CSV/vCard exports are still interchange formats with documented fidelity limits, not a native SQLite backup clone.
+
+A future full-fidelity browser backup feature should define a versioned browser export/import format and integrity/migration semantics explicitly instead of reusing SQLite backup terminology.
+
+## What storage/recovery does not promise
+
+- no cloud redundancy/sync;
+- no automatic off-device redundancy;
+- no default native encryption-at-rest claim;
+- no browser cryptographic-at-rest claim;
+- no downgrade migration support;
+- no support for future native schema in older build;
+- no cross-tab browser synchronization/conflict resolution;
+- no guarantee browser policy cannot evict/clear site data;
+- no claim that CSV/vCard is a full-fidelity database backup.
 
 ## Operational recommendations
 
-- Keep at least one verified backup outside the primary device if the contacts matter.
-- Protect backup media according to the sensitivity of the data.
-- Test restore using non-production/fake contact data before relying on a release for critical records.
-- Do not manually copy an open `contactcore.db` as the preferred backup mechanism; use the app's backup function.
-- Never upload real database files to public GitHub issues or pull requests.
-- Before deleting recovery artifacts, confirm that the active database opens and the intended contacts are present.
+### Native users
+
+- use verified database backup for full native recovery;
+- keep at least one protected copy away from primary device if data matters;
+- test restore with fictional/disposable data before relying on a release;
+- do not use manual open-database file copying as preferred backup method;
+- protect recovery artifacts like live data.
+
+### Browser users
+
+- explicitly export important contacts before clearing site data, changing browser profile, or major migration;
+- do not rely on private browsing as durable storage;
+- test browser releases in a disposable profile/origin;
+- understand that moving deployment to another origin can change where browser-local data is found.
+
+### Everyone
+
+Never upload real DB files, browser data dumps, backups, exports, keys, or screenshots containing contacts to public issues/PRs.
 
 ## Developer checklist for storage changes
 
-When modifying persistence or recovery behavior:
-
-- preserve parameterized SQL for user-controlled values;
-- preserve transaction boundaries for aggregate/batch writes;
-- add migrations rather than editing historical migration meaning;
-- add upgrade and rollback-path tests;
-- verify foreign keys remain enabled;
-- keep keyed-SQLite behavior fail-closed;
-- update `data-model.md`, this file, `security.md`, `testing.md`, and `CHANGELOG.md` where applicable.
+- preserve Application repository contracts;
+- preserve native parameterized SQL;
+- preserve native aggregate/batch transaction boundaries;
+- preserve browser gated-write rollback behavior;
+- add migrations instead of changing historical native migration meaning;
+- version/migrate browser serialized state deliberately if representation changes;
+- keep native keyed-SQLite fail-closed;
+- never expose native backup/encryption controls on browser as false claims;
+- add tests/build gates appropriate to changed target;
+- update `data-model.md`, `architecture.md`, `security.md`, `testing.md`, `platform-support.md`, and `CHANGELOG.md` where relevant.
