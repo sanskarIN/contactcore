@@ -1,3 +1,4 @@
+using System.Globalization;
 using ContactCore.Application;
 using ContactCore.Domain;
 using Microsoft.Data.Sqlite;
@@ -13,7 +14,7 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM contacts;";
-        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
     }
 
     public async Task<Contact?> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -138,8 +139,8 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
             ON CONFLICT(id) DO UPDATE SET given_name=excluded.given_name,family_name=excluded.family_name,nickname=excluded.nickname,birthday=excluded.birthday,notes=excluded.notes,is_favorite=excluded.is_favorite,is_archived=excluded.is_archived,updated_at=excluded.updated_at;
             """, cancellationToken,
             ("$id", contact.Id.ToString()), ("$given", contact.GivenName), ("$family", contact.FamilyName), ("$nickname", contact.Nickname),
-            ("$birthday", contact.Birthday?.ToString("yyyy-MM-dd")), ("$notes", contact.Notes), ("$favorite", contact.IsFavorite ? 1 : 0),
-            ("$archived", contact.IsArchived ? 1 : 0), ("$created", contact.CreatedAt.ToString("O")), ("$updated", contact.UpdatedAt.ToString("O"))).ConfigureAwait(false);
+            ("$birthday", contact.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), ("$notes", contact.Notes), ("$favorite", contact.IsFavorite ? 1 : 0),
+            ("$archived", contact.IsArchived ? 1 : 0), ("$created", contact.CreatedAt.ToString("O", CultureInfo.InvariantCulture)), ("$updated", contact.UpdatedAt.ToString("O", CultureInfo.InvariantCulture))).ConfigureAwait(false);
 
         foreach (var table in new[] { "phones", "emails", "addresses", "organizations", "contact_groups", "contact_tags" })
             await ExecAsync(connection, tx, $"DELETE FROM {table} WHERE contact_id=$id;", cancellationToken, ("$id", contact.Id.ToString())).ConfigureAwait(false);
@@ -189,11 +190,16 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
             {
                 contacts.Add(new Contact
                 {
-                    Id = Guid.Parse(reader.GetString(0)), GivenName = reader.GetString(1), FamilyName = reader.GetString(2), Nickname = reader.GetString(3),
-                    Birthday = reader.IsDBNull(4) ? null : DateOnly.ParseExact(reader.GetString(4), "yyyy-MM-dd"), Notes = reader.GetString(5),
-                    IsFavorite = reader.GetInt32(6) != 0, IsArchived = reader.GetInt32(7) != 0,
-                    CreatedAt = DateTimeOffset.Parse(reader.GetString(8), System.Globalization.CultureInfo.InvariantCulture),
-                    UpdatedAt = DateTimeOffset.Parse(reader.GetString(9), System.Globalization.CultureInfo.InvariantCulture)
+                    Id = Guid.Parse(reader.GetString(0)),
+                    GivenName = reader.GetString(1),
+                    FamilyName = reader.GetString(2),
+                    Nickname = reader.GetString(3),
+                    Birthday = reader.IsDBNull(4) ? null : DateOnly.ParseExact(reader.GetString(4), "yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    Notes = reader.GetString(5),
+                    IsFavorite = reader.GetInt32(6) != 0,
+                    IsArchived = reader.GetInt32(7) != 0,
+                    CreatedAt = DateTimeOffset.Parse(reader.GetString(8), CultureInfo.InvariantCulture),
+                    UpdatedAt = DateTimeOffset.Parse(reader.GetString(9), CultureInfo.InvariantCulture)
                 });
             }
         }
@@ -225,7 +231,10 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Tags.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1)));
     }
 
-    private static string EscapeLike(string value) => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+    private static string EscapeLike(string value) => value
+        .Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("%", "\\%", StringComparison.Ordinal)
+        .Replace("_", "\\_", StringComparison.Ordinal);
 
     private static async Task ExecAsync(SqliteConnection connection, SqliteTransaction transaction, string sql, CancellationToken cancellationToken, params (string Name, object? Value)[] values)
     {
