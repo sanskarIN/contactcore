@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContactCore.Domain;
@@ -35,7 +36,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         GivenName = contact.GivenName;
         FamilyName = contact.FamilyName;
         Nickname = contact.Nickname;
-        BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd") ?? "";
+        BirthdayText = contact.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
         Notes = contact.Notes;
         IsFavorite = contact.IsFavorite;
         IsArchived = contact.IsArchived;
@@ -89,7 +90,7 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         DateOnly? birthday = null;
         if (!string.IsNullOrWhiteSpace(BirthdayText))
         {
-            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", out var parsed))
+            if (!DateOnly.TryParseExact(BirthdayText.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
                 throw new FormatException("Birthday must use yyyy-MM-dd.");
             birthday = parsed;
         }
