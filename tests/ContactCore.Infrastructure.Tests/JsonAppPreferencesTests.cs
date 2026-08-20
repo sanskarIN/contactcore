@@ -1,5 +1,4 @@
 using System.Text.Json;
-using ContactCore.Infrastructure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ContactCore.Infrastructure.Tests;
