@@ -1,14 +1,16 @@
 # Setup
 
-This guide covers a source checkout of ContactCore for development or local desktop execution.
+This guide covers a source checkout of ContactCore for desktop, Android, iOS/iPadOS, and browser/WebAssembly development.
 
-## Requirements
+## Base requirements
 
-- Git.
-- .NET SDK compatible with the repository `global.json` policy.
-- Windows, macOS, or a 64-bit Linux desktop capable of running Avalonia.
+All development paths require:
 
-The repository currently pins:
+- Git;
+- a stable .NET SDK compatible with the repository `global.json` policy;
+- a supported host operating system for the target you intend to build.
+
+The repository pins:
 
 ```json
 {
@@ -20,7 +22,7 @@ The repository currently pins:
 }
 ```
 
-This means the baseline is .NET SDK 10.0.100, with roll-forward to an installed later .NET 10 feature band when allowed by the .NET SDK resolver. Preview SDKs are not accepted by this policy.
+The baseline is .NET SDK 10.0.100, with roll-forward to an installed later .NET 10 feature band when permitted by the .NET SDK resolver. Preview SDKs are not accepted by this policy.
 
 ## Clone
 
@@ -29,67 +31,197 @@ git clone https://github.com/sanskarIN/contactcore.git
 cd contactcore
 ```
 
-For contribution work, use the branch/PR workflow described in `../CONTRIBUTING.md` rather than committing directly to `main`.
+For contribution work, use the branch/PR workflow in `../CONTRIBUTING.md` rather than committing directly to `main`.
 
 ## Confirm SDK resolution
+
+Run from the repository directory:
 
 ```bash
 dotnet --version
 dotnet --info
 ```
 
-Run these commands from the repository directory so `global.json` participates in SDK selection.
+If no compatible SDK resolves, install a stable .NET 10 SDK that satisfies `global.json`. Do not weaken the repository SDK policy merely to fit an unrelated local installation.
 
-If `dotnet --version` reports that a compatible SDK cannot be found, install a stable .NET 10 SDK matching the policy rather than changing `global.json` simply to fit an unrelated local SDK.
+## Understand the two solution files
 
-## Restore
+`ContactCore.slnx` is the **complete solution**. It contains the shared layers plus Desktop, Android, iOS, Browser, and test projects. Restoring/building it requires the workloads needed by every included target.
+
+`ContactCore.Core.slnx` is the **workload-free core verification solution**. It contains Domain, Application, Infrastructure, shared UI/native composition, Desktop, and the existing tests. Use it for ordinary desktop development and for the same core quality gate used by CI/CodeQL.
+
+### Core restore/build/test
 
 ```bash
-dotnet restore ContactCore.slnx
+dotnet restore ContactCore.Core.slnx
+dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.Core.slnx -c Release --no-restore
+dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage"
 ```
 
-Package versions are centrally managed in `Directory.Packages.props`. Individual project files normally reference packages without repeating version numbers.
+The repository enables nullable reference types, current C# language features, latest-recommended analysis, deterministic builds, and warnings-as-errors through `Directory.Build.props`.
 
-## Build
+## Desktop: Windows, Linux, macOS
 
-```bash
-dotnet build ContactCore.slnx -c Release --no-restore
-```
-
-The repository enables nullable reference types, latest C# language features, latest-recommended analysis, deterministic builds, and warnings-as-errors through `Directory.Build.props`.
-
-For a normal development build, omit `-c Release` if desired, but Release is the configuration used by CI quality checks.
-
-## Run the desktop application
+No mobile/WebAssembly workload is needed to run the existing desktop project.
 
 ```bash
+dotnet restore ContactCore.Core.slnx
 dotnet run --project src/ContactCore.Desktop/ContactCore.Desktop.csproj
 ```
 
-The application initializes its local data directory and SQLite database on startup.
+The desktop application initializes its local SQLite data directory on startup.
 
-## Run tests
+### Desktop release RIDs
 
-```bash
-dotnet test ContactCore.slnx -c Release
+The release workflow contains these desktop runtime identifiers:
+
+```text
+win-x64
+win-arm64
+linux-x64
+linux-arm64
+osx-x64
+osx-arm64
 ```
 
-For the same main sequence used in CI:
+A local RID publish can be produced with the same general pattern used by release automation:
+
+```bash
+dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj \
+  -c Release \
+  -r <RID> \
+  --self-contained true \
+  -p:PublishSingleFile=true \
+  -o artifacts/<RID>
+```
+
+Replace `<RID>` with one of the supported values above.
+
+## Android
+
+Project:
+
+```text
+src/ContactCore.Android/ContactCore.Android.csproj
+```
+
+Target framework:
+
+```text
+net10.0-android
+```
+
+Install the workload:
+
+```bash
+dotnet workload install android
+```
+
+Restore and build:
+
+```bash
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+```
+
+For device/emulator deployment, use a configured Android SDK/emulator/device environment supported by the installed .NET Android workload. The project uses the shared Avalonia single-view UI and the native SQLite service composition.
+
+### Android distribution boundary
+
+A successful Release build is not the same as a Play Store-ready signed artifact. Production Android distribution requires a private signing key/keystore and maintainer-controlled credentials. Those secrets must not be committed to this public repository. CI therefore verifies the target build without fabricating release credentials.
+
+## iOS and iPadOS
+
+Project:
+
+```text
+src/ContactCore.iOS/ContactCore.iOS.csproj
+```
+
+Target framework:
+
+```text
+net10.0-ios
+```
+
+Use macOS with the required Apple toolchain for normal iOS development. Install the workload:
+
+```bash
+dotnet workload install ios
+```
+
+Restore and build:
+
+```bash
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
+```
+
+`Info.plist` declares both iPhone and iPad device families. The iOS head uses the shared Avalonia single-view UI and native SQLite composition.
+
+### Apple distribution boundary
+
+Device/App Store distribution requires valid Apple signing certificates, provisioning profiles, entitlements as applicable, and maintainer credentials. Those are environment/release secrets, not repository source. The public CI gate verifies source/build compatibility without claiming App Store certification.
+
+## Browser / WebAssembly
+
+Project:
+
+```text
+src/ContactCore.Browser/ContactCore.Browser.csproj
+```
+
+Target framework:
+
+```text
+net10.0-browser
+```
+
+Install the WebAssembly workload:
+
+```bash
+dotnet workload install wasm-tools
+```
+
+Restore and build:
+
+```bash
+dotnet restore src/ContactCore.Browser/ContactCore.Browser.csproj
+dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release --no-restore
+```
+
+Publish static WebAssembly output:
+
+```bash
+dotnet publish src/ContactCore.Browser/ContactCore.Browser.csproj -c Release -o artifacts/browser
+```
+
+Serve the published web output through an HTTP(S) development/static server. Do not assume direct `file://` loading represents the supported browser host environment.
+
+### Browser data
+
+The browser target does **not** use the native SQLite database. It stores the complete local contact snapshot in IndexedDB through `BrowserContactRepository` and a JavaScript interop bridge. Preferences use local browser storage with an in-session fallback when persistent preferences are blocked.
+
+Browser-local data can disappear if site data is cleared, a private-browsing session ends, a browser profile is removed, storage is evicted, or policy blocks storage. Export CSV/vCard when a portable copy is needed.
+
+SQLite-native backup/restore is intentionally unavailable in WebAssembly. This is a platform boundary, not a missing button accidentally hidden by the UI.
+
+## Full-solution development
+
+After installing Android, iOS, and WebAssembly workloads on a host/toolchain capable of evaluating those targets, the complete solution can be restored:
 
 ```bash
 dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes --no-restore
-dotnet build ContactCore.slnx -c Release --no-restore
-dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage"
 ```
 
-See `testing.md` for the test-project map and coverage expectations.
+In practice, iOS compilation is a macOS-specific responsibility, so CI splits platform heads into dedicated jobs instead of requiring one machine to be a universal build host.
 
-## Local data directory
+## Native local data directory
 
-By default `AppPaths` uses the operating system's local application-data directory and appends `ContactCore`. If the platform returns no local-app-data root, it falls back to `AppContext.BaseDirectory/ContactCore`.
+Desktop, Android, and iOS/iPadOS use the `AppPaths`/SQLite path. `AppPaths` resolves the platform local-application-data location and appends `ContactCore`. If no local-app-data root is returned, it falls back to `AppContext.BaseDirectory/ContactCore`.
 
-The directory contains/derives:
+The native directory derives:
 
 ```text
 ContactCore/
@@ -98,111 +230,107 @@ ContactCore/
 └── backups/
 ```
 
-The exact platform-resolved path is also shown in the application Settings surface.
+The platform-resolved location is shown in Settings in the shared/mobile UI and in the desktop Settings surface.
 
-## Override the data directory
+## Override native data directory
 
-Set `CONTACTCORE_DATA_PATH` to an absolute or relative **directory** path. ContactCore normalizes it with `Path.GetFullPath` and creates it when needed.
+`CONTACTCORE_DATA_PATH` is an optional **directory** override on native runtimes where environment variables are practical. ContactCore normalizes it with `Path.GetFullPath` and creates it when required.
 
-Examples:
-
-### PowerShell
+PowerShell example:
 
 ```powershell
 $env:CONTACTCORE_DATA_PATH = "C:\Temp\ContactCoreDev"
 dotnet run --project src/ContactCore.Desktop/ContactCore.Desktop.csproj
 ```
 
-### Bash/zsh
+Bash/zsh example:
 
 ```bash
 export CONTACTCORE_DATA_PATH="$HOME/.local/share/ContactCoreDev"
 dotnet run --project src/ContactCore.Desktop/ContactCore.Desktop.csproj
 ```
 
-ContactCore still names the database `contactcore.db` inside the selected directory. Do not set this variable to a filename and expect it to be treated as the database file.
+ContactCore still names the database `contactcore.db` inside the selected directory. Do not supply a database filename where a directory is expected.
 
-### Development recommendation
+For destructive migration/import/restore testing, use a deliberately disposable directory containing fictional contacts.
 
-When testing destructive migrations, imports, or restores, point `CONTACTCORE_DATA_PATH` to a disposable directory containing fictional data. This prevents development tests from touching a real personal contact database.
+## Optional native database key
 
-## Optional database-key environment variable
+`CONTACTCORE_DATABASE_KEY` requests keyed SQLite behavior on native targets.
 
-`CONTACTCORE_DATABASE_KEY` requests keyed SQLite behavior.
+The default dependency is ordinary `Microsoft.Data.Sqlite`. ContactCore does not claim that setting a key magically encrypts normal SQLite. When a key is supplied, the connection path attempts key setup and verifies that cipher support actually exists; startup fails closed when a compatible cipher provider is not active.
 
-### Important behavior
-
-The default repository dependency is `Microsoft.Data.Sqlite`; ContactCore does not pretend that merely setting a key makes ordinary SQLite encrypted. When a key is supplied, the connection factory sends a hex-encoded `PRAGMA key` and then queries `PRAGMA cipher_version`. If no compatible cipher provider is active, the connection is closed and startup fails.
-
-Therefore, setting this variable on the default ordinary SQLite runtime may intentionally make the application refuse to open.
-
-### PowerShell example
+Examples:
 
 ```powershell
-$env:CONTACTCORE_DATABASE_KEY = "use-a-secret-source-not-source-control"
+$env:CONTACTCORE_DATABASE_KEY = "load-this-from-a-secret-source"
 ```
-
-### Bash/zsh example
 
 ```bash
-export CONTACTCORE_DATABASE_KEY='use-a-secret-source-not-source-control'
+export CONTACTCORE_DATABASE_KEY='load-this-from-a-secret-source'
 ```
 
-Do not place a real key into `.env.example`, committed scripts, source code, screenshots, issue descriptions, or test fixtures. `JsonAppPreferences` keeps the runtime key out of `settings.json`.
+Never put a real key in `.env.example`, tracked scripts, source, screenshots, issues, fixtures, or documentation. `JsonAppPreferences` deliberately excludes the runtime database key from `settings.json`.
 
-For production encryption-provider integration, read `security.md` and ADR `adr/0003-encryption-provider.md` first.
+The browser target does not use this SQLite encryption integration and reports the capability as unavailable.
 
 ## `.env.example`
 
-The repository includes `.env.example` only as documentation of supported environment names. ContactCore itself reads environment variables through `Environment.GetEnvironmentVariable`; it does not require a dotenv package to load a `.env` file.
+`.env.example` documents supported native environment-variable names. ContactCore reads variables through `Environment.GetEnvironmentVariable`; it does not require a dotenv package.
 
-If your local shell/tooling loads `.env`, ensure the real `.env` remains ignored and never commit it.
+If external tooling loads a real `.env`, keep that file ignored and untracked.
 
 ## Platform notes
 
 ### Windows
 
-Use a supported Windows desktop with the stable .NET 10 SDK. Native Avalonia file pickers are used for import/export/restore. A source run does not require an installer.
+The desktop head runs on supported Windows desktop environments. Release automation publishes both x64 and ARM64 ZIP archives. They are archives, not MSI/MSIX installers unless such packaging is explicitly added later.
 
 ### macOS
 
-The source project targets normal Avalonia desktop execution. Release automation publishes both `osx-x64` and `osx-arm64` self-contained artifacts. Current workflow output is not documented as notarized or signed; macOS security prompts may therefore apply to downloaded release artifacts.
+Desktop release automation publishes Intel and Apple Silicon archives. Current artifacts are not represented as signed/notarized applications. iOS/iPadOS development additionally requires Apple tooling and signing for device/store distribution.
 
 ### Linux
 
-Avalonia requires a functioning graphical desktop/session and compatible native graphics/windowing dependencies. Exact package names vary by distribution. If the app fails before displaying a window, inspect `dotnet --info`, desktop-session availability, and Avalonia runtime prerequisites for the distribution.
+Avalonia desktop execution requires a functioning graphical desktop/session and compatible runtime graphics/windowing dependencies. Exact native dependency package names vary by distribution. Release automation publishes x64 and ARM64 tar.gz archives, but that is not a certification of every Linux distribution/windowing stack.
 
-The current release workflow publishes `linux-x64`.
+### ChromeOS
 
-## Import file behavior
+ContactCore has no separate ChromeOS-native project. ChromeOS users can use the browser/WebAssembly target; compatible ChromeOS devices may also run the Android target. Those routes retain their respective browser/Android storage behavior.
 
-The desktop importer supports one `.csv`, `.vcf`, or `.vcard` file at a time. It decodes UTF-8 text with BOM detection and enforces a 5,000,000-character maximum to bound resource use.
+## Import/export behavior
 
-Use fictional data when testing import behavior.
+Portable UI heads and desktop support one `.csv`, `.vcf`, or `.vcard` import at a time through Avalonia storage APIs where the platform picker supports the action. Import text is bounded at 5,000,000 characters.
 
-## Resetting a disposable development profile
+CSV/vCard are interoperability formats, not complete database backups. Read `import-export.md` before relying on them for data transfer.
 
-Only for a **development directory you intentionally made disposable**:
+## Resetting a disposable native development profile
+
+Only for a directory you deliberately created as disposable:
 
 1. close ContactCore;
 2. verify `CONTACTCORE_DATA_PATH` points to the disposable directory;
-3. preserve anything you need;
-4. delete that directory;
-5. restart the app to create a fresh schema.
+3. preserve anything needed;
+4. delete that disposable directory;
+5. restart the native app to create a fresh schema.
 
-Do not use this procedure on real contact data as a troubleshooting shortcut.
+Do not use this as a shortcut on real contact data.
+
+For browser testing, clear site data only when the browser profile contains fictional/disposable ContactCore data or after exporting anything you need.
 
 ## IDE usage
 
-The repository can be opened in any editor/IDE with .NET 10 and C# support. The `.slnx` solution contains all four production and all four test projects.
+Open `ContactCore.slnx` when you want to inspect every target. Open/use `ContactCore.Core.slnx` for ordinary workload-free desktop/core development.
 
-Regardless of IDE, run the CLI quality commands before proposing changes because GitHub Actions uses the CLI toolchain.
+Your IDE must have the relevant .NET workload/toolchain for platform heads you intend to build. Regardless of IDE, run CLI quality commands because GitHub Actions uses the CLI toolchain.
 
 ## Next reading
 
+- `platform-support.md` — exact platform/persistence/distribution matrix.
+- `architecture.md` — shared layers and platform heads.
 - `user-guide.md` — application workflows.
-- `architecture.md` — project/layer boundaries.
-- `development.md` — coding workflow.
+- `development.md` — contribution workflow.
 - `testing.md` — tests and CI parity.
-- `storage-backup-recovery.md` — database safety.
+- `ci-cd.md` — workload-specific GitHub Actions jobs.
+- `storage-backup-recovery.md` — native database safety and browser boundary.
 - `troubleshooting.md` — failure diagnosis.
