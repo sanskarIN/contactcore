@@ -82,7 +82,7 @@ jobs:
           archive="contactcore-v${{ needs.preflight.outputs.version }}-${{ matrix.rid }}.tar.gz"
           tar -czf "$archive" -C "artifacts/${{ matrix.rid }}" .
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: contactcore-${{ matrix.rid }}
           path: |
@@ -110,7 +110,7 @@ jobs:
           archive="contactcore-v${{ needs.preflight.outputs.version }}-browser-wasm.zip"
           cd artifacts/browser
           zip -r "../../$archive" .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: contactcore-browser-wasm
           path: contactcore-v${{ needs.preflight.outputs.version }}-browser-wasm.zip
@@ -151,7 +151,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
@@ -164,7 +164,7 @@ jobs:
           sha256sum contactcore-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: release-assets/*
