@@ -27,16 +27,18 @@ dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA1861.severity = none
 dotnet_diagnostic.IDE0005.severity = none
 
-# These properties are consumed through Avalonia instance binding. Making them static
-# would break the binding contract even when their current value is constant.
-[src/ContactCore.UI/*.cs]
+# These two summary properties are consumed through Avalonia instance binding. Making
+# them static would remove them from the binding surface even though their values are
+# currently constant. Keep the exception on the one binding view-model that needs it.
+[src/ContactCore.UI/MainViewModel.cs]
 dotnet_diagnostic.CA1822.severity = none
 
-# The desktop view-model file contains Avalonia-bound instance properties. Its contact
-# wrapper intentionally exposes the primary-constructor object through Model as well as
-# binding projections, and the birthday field is already constrained to a literal ISO
-# yyyy-MM-dd representation. Keep these narrowly scoped instead of weakening analyzers
-# for the rest of the production codebase.
+# This desktop view-model is itself an Avalonia binding surface. Its constant About/
+# support/project projections must remain instance properties. The contact wrapper also
+# intentionally exposes the primary-constructor object as Model and as binding projections,
+# and its fixed yyyy-MM-dd birthday text is an interchange/UI contract. Keep these legacy
+# compatibility exceptions isolated to this single file rather than weakening analysis
+# for any other production source.
 [src/ContactCore.Desktop/ViewModels.cs]
 dotnet_diagnostic.CA1822.severity = none
 dotnet_diagnostic.CA1305.severity = none
