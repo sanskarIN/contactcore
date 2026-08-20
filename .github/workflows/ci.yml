@@ -75,9 +75,9 @@ jobs:
       - name: Install Android workload
         run: dotnet workload install android --skip-manifest-update
       - name: Restore Android target
-        run: dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
+        run: dotnet restore src/ContactCore.Android/ContactCore.Android.csproj -r android-arm64
       - name: Build Android target
-        run: dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+        run: dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release -r android-arm64 --no-restore
 
   ios-build:
     runs-on: macos-latest
@@ -91,7 +91,7 @@ jobs:
           cache-dependency-path: Directory.Packages.props
       - name: Install iOS workload
         run: dotnet workload install ios --skip-manifest-update
-      - name: Restore iOS target
-        run: dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
-      - name: Build iOS target
-        run: dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
+      - name: Restore iOS simulator target
+        run: dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj -r iossimulator-arm64
+      - name: Build iOS simulator target
+        run: dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release -r iossimulator-arm64 --no-restore
