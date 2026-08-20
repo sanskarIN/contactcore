@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 
 namespace ContactCore.Infrastructure;
 
-public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factory) : IBackupService
+public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factory, DatabaseMigrator migrator) : IBackupService
 {
     public async Task<string> CreateBackupAsync(string destinationDirectory, CancellationToken cancellationToken = default)
     {
@@ -22,19 +22,84 @@ public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factor
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backupFile);
         if (!File.Exists(backupFile)) throw new FileNotFoundException("Backup file does not exist.", backupFile);
-        var probeBuilder = new SqliteConnectionStringBuilder { DataSource = backupFile, Mode = SqliteOpenMode.ReadOnly };
-        await using (var probe = new SqliteConnection(probeBuilder.ToString()))
-        {
-            await probe.OpenAsync(cancellationToken).ConfigureAwait(false);
-            await using var check = probe.CreateCommand();
-            check.CommandText = "PRAGMA integrity_check;";
-            var integrity = Convert.ToString(await check.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
-            if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Backup failed SQLite integrity_check.");
-        }
+
+        await VerifyIntegrityAsync(backupFile, cancellationToken).ConfigureAwait(false);
+
         Directory.CreateDirectory(paths.DataDirectory);
         var staging = paths.DatabasePath + ".restore";
+        var rollback = paths.DatabasePath + ".pre-restore";
+        var liveReplaced = false;
+
+        TryDelete(staging);
+        TryDelete(rollback);
         File.Copy(backupFile, staging, true);
-        File.Move(staging, paths.DatabasePath, true);
-        foreach (var suffix in new[] { "-wal", "-shm" }) { var sidecar = paths.DatabasePath + suffix; if (File.Exists(sidecar)) File.Delete(sidecar); }
+
+        try
+        {
+            SqliteConnection.ClearAllPools();
+
+            if (File.Exists(paths.DatabasePath))
+            {
+                File.Copy(paths.DatabasePath, rollback, true);
+            }
+
+            DeleteSidecars();
+            File.Move(staging, paths.DatabasePath, true);
+            liveReplaced = true;
+
+            await migrator.ApplyAsync(cancellationToken).ConfigureAwait(false);
+            await VerifyIntegrityAsync(paths.DatabasePath, cancellationToken).ConfigureAwait(false);
+
+            TryDelete(rollback);
+        }
+        catch
+        {
+            SqliteConnection.ClearAllPools();
+
+            if (liveReplaced)
+            {
+                TryDelete(paths.DatabasePath);
+                DeleteSidecars();
+
+                if (File.Exists(rollback))
+                {
+                    File.Move(rollback, paths.DatabasePath, true);
+                }
+            }
+
+            throw;
+        }
+        finally
+        {
+            TryDelete(staging);
+            if (!liveReplaced) TryDelete(rollback);
+        }
+    }
+
+    private static async Task VerifyIntegrityAsync(string databasePath, CancellationToken cancellationToken)
+    {
+        var probeBuilder = new SqliteConnectionStringBuilder { DataSource = databasePath, Mode = SqliteOpenMode.ReadOnly };
+        await using var probe = new SqliteConnection(probeBuilder.ToString());
+        await probe.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var check = probe.CreateCommand();
+        check.CommandText = "PRAGMA integrity_check;";
+        var integrity = Convert.ToString(await check.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("Backup failed SQLite integrity_check.");
+        }
+    }
+
+    private void DeleteSidecars()
+    {
+        foreach (var suffix in new[] { "-wal", "-shm" })
+        {
+            TryDelete(paths.DatabasePath + suffix);
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        if (File.Exists(path)) File.Delete(path);
     }
 }
