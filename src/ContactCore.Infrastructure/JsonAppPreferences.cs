@@ -5,6 +5,7 @@ namespace ContactCore.Infrastructure;
 
 public sealed class JsonAppPreferences : IAppPreferences
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
     private readonly string _path;
 
     public JsonAppPreferences(string path)
@@ -16,7 +17,7 @@ public sealed class JsonAppPreferences : IAppPreferences
         if (!File.Exists(_path)) return;
         try
         {
-            var model = JsonSerializer.Deserialize<Model>(File.ReadAllText(_path));
+            var model = JsonSerializer.Deserialize<Model>(File.ReadAllText(_path), SerializerOptions);
             if (model is not null)
             {
                 Theme = NormalizeTheme(model.Theme);
@@ -42,7 +43,7 @@ public sealed class JsonAppPreferences : IAppPreferences
         Directory.CreateDirectory(directory);
 
         var model = new Model(NormalizeTheme(Theme), ReducedMotion, ConfirmPermanentDelete);
-        var json = JsonSerializer.Serialize(model, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(model, SerializerOptions);
         var tmp = _path + ".tmp";
         try
         {
