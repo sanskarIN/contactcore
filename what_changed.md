@@ -10,6 +10,7 @@ ContactCore is prepared on the final audit branch as **version 2.0.12**.
 - Current integration base: `3900063bcdc2f7f0834118abc2580e030f133d73`
 - Final audit branch: `audit/contactcore-20260819`
 - Authoritative integration pull request: **PR #4**
+- Current handoff checkpoint before this file update: `31b2a81fa1ab1a4ad42d94389744dfb1081c612b`
 - Version: **2.0.12**
 - Intended release tag after merge/verification: **`v2.0.12`**
 - Primary stack: C# / .NET 10 / Avalonia / SQLite
@@ -17,7 +18,22 @@ ContactCore is prepared on the final audit branch as **version 2.0.12**.
 - Product posture: private, offline-first desktop contact manager
 - Visible project credit: **Made by the Sanskar**
 
-PR #1 and PR #3 are closed without merge as superseded. Their useful ideas were compared against the hardened implementation and selectively carried forward; they must not be merged later without a fresh review because they overlap older versions of the same architecture/UI/storage work.
+PR #1, PR #3, and the temporary PR #12 are closed without merge as superseded. PR #12 was created from the older `main` baseline during the 2026-08-20 continuation; its confirmed SQLite dependency fix was transferred to PR #4, while its overlapping weaker implementation changes were deliberately not merged. PR #4 remains the only authoritative v2.0.12 integration path.
+
+## 2026-08-20 final continuation
+
+The final verification pass exposed a release-blocking dependency advisory before compilation could begin. GitHub Actions restore failed because warnings are treated as errors and the resolved `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 native bundle was flagged by GitHub as affected by a high-severity SQLite advisory.
+
+The authoritative PR #4 was hardened as follows:
+
+1. `Microsoft.Data.Sqlite` was updated from **10.0.10** to **10.0.11**, moving the dependency graph past the vulnerable SQLitePCLRaw 2.1.11 line that blocked restore.
+2. CI moved `actions/checkout` to **v6** and `actions/setup-dotnet` to **v5** while preserving the three-OS matrix, caching, formatting, Release build, tests, result upload, timeouts, and concurrency cancellation.
+3. CodeQL moved to `github/codeql-action` **v4**, plus checkout v6 and setup-dotnet v5, while preserving C# analysis, minimal permissions, schedule, and concurrency behavior.
+4. The tag-driven release workflow moved checkout to v6 and setup-dotnet to v5 without changing version preflight, four-runtime publishing, ZIP/tar.gz packaging, checksums, or least-privilege release permissions.
+5. `CHANGELOG.md` and `docs/repository-reference.md` were synchronized with this continuation while keeping the canonical tracked-file inventory at **94 files**.
+6. Temporary PR #12 was closed unmerged after the valid dependency fix was transferred to the stronger PR #4 branch.
+
+No green CI or CodeQL result is claimed in this handoff merely because these fixes were committed. The merge gate remains successful GitHub Actions CI and CodeQL on the **exact final PR #4 head after all documentation changes settle**.
 
 ## Version 2.0.12 metadata
 
@@ -101,7 +117,7 @@ The release workflow resolves the project version before publishing and rejects 
 - Explicit `IsPersisted` draft state; generated GUID is not evidence that a new draft exists in SQLite.
 - Delete/discard on an unsaved draft performs no database deletion and needs no permanent-delete confirmation.
 - Persisted deletion follows the configured confirmation safeguard.
-- Race-safe 180 ms debounced search with cancellation of superseded operations.
+- Race-safe 180 ms debounced search with cancellation of superseded search operations.
 - `Ctrl+F` search focus, `Ctrl+N` new contact, `Esc` close/cancel.
 - `Ctrl+S` restricted to an active contact editor so other surfaces cannot accidentally save stale contact state.
 - Native CSV/vCard import/export pickers.
@@ -115,7 +131,7 @@ The release workflow resolves the project version before publishing and rejects 
 - Interactive duplicate-review surface with candidate list, score, reasons, side-by-side summaries, merge explanation, explicit survivor choice, and confirmation.
 - Both duplicate merge directions available: keep first or keep second.
 
-## Important bugs fixed during the final audit
+## Important bugs and release blockers fixed during the final audit
 
 1. Corrected the compile-time duplicate-merger reference from nonexistent `OrganizationAffiliation` to the real `ContactOrganization` type.
 2. Fixed first-launch database-key handling so `CONTACTCORE_DATABASE_KEY` is not ignored when settings do not exist yet.
@@ -131,6 +147,8 @@ The release workflow resolves the project version before publishing and rejects 
 12. Hardened duplicate CSV-header handling so the first supported column wins with a warning rather than ambiguous/crashing behavior.
 13. Added spreadsheet-formula-prefix warnings while preserving original contact text instead of silently modifying data.
 14. Hardened supported vCard escaping, structured-name delimiters, common TYPE mapping, nested/unterminated-card behavior, and birthday-warning privacy.
+15. Resolved the final restore/security gate that blocked CI before compilation: the centrally managed SQLite provider was advanced to Microsoft.Data.Sqlite 10.0.11 so the dependency graph no longer remains on the vulnerable SQLitePCLRaw.lib.e_sqlite3 2.1.11 bundle.
+16. Refreshed the checkout/.NET setup/CodeQL workflow actions to current major lines so the verification and release automation no longer depends on the older Node-20-targeting action majors that GitHub runners were warning about.
 
 ## Regression coverage added/expanded
 
@@ -220,7 +238,8 @@ The tag-driven workflow is hardened as follows:
 9. final job generates `SHA256SUMS.txt`;
 10. final GitHub Release attaches all four archives plus checksums;
 11. workflow defaults to `contents: read`; only release creation receives `contents: write`;
-12. release SDK selection uses `global.json` rather than a separate version selector.
+12. release SDK selection uses `global.json` rather than a separate version selector;
+13. checkout uses `actions/checkout@v6` and .NET setup uses `actions/setup-dotnet@v5`; CodeQL uses `github/codeql-action@v4` in the analysis workflow.
 
 Expected package names:
 
@@ -238,13 +257,14 @@ Checksums provide byte-integrity checking relative to the published checksum man
 
 The synchronized documentation set covers project overview, user workflows, setup, architecture, data model, desktop UI, import/export, storage/backup/recovery, security/privacy engineering, accessibility, performance, development, testing, CI/CD, release engineering, troubleshooting, maintainers, ADRs, governance/support, changelog/roadmap, and the canonical **94-file repository reference**.
 
-Temporary test/reference addenda created during the audit were folded into canonical documentation and removed.
+Temporary test/reference addenda created during the audit were folded into canonical documentation and removed. The 2026-08-20 continuation additionally synchronized the changelog and canonical repository reference with the final dependency/workflow hardening without changing the tracked-file inventory.
 
 ## Pull-request reconciliation
 
 - **PR #4** — authoritative v2.0.12 integration branch into `main`.
 - **PR #1** — closed without merge as superseded.
 - **PR #3** — closed without merge as superseded by the stronger PR #4 implementation.
+- **PR #12** — closed without merge as superseded after its confirmed SQLite dependency fix was moved onto PR #4; its older-main overlapping changes must not be merged into the release line.
 
 Do not merge the old overlapping branches after #4 without a fresh conflict/data-safety review.
 
@@ -257,7 +277,9 @@ The authoritative gate is GitHub Actions on the **exact final PR #4 head**:
 - CI: restore + format verification + Release build + tests on Ubuntu, Windows, and macOS.
 - CodeQL: C# analysis on the same final pull-request head.
 
-This handoff is intentionally written before the final checks settle. If final CI/CodeQL exposes an actionable defect, fix it in PR #4 and repeat the exact-head verification; do not merge based on an older green/cancelled run.
+The previous PR #4 verification attempt failed during restore before compilation because `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 triggered a high-severity dependency warning that was promoted to an error. That blocker has been addressed by the Microsoft.Data.Sqlite 10.0.11 update, but the final branch must still prove itself through a new exact-head run after this handoff commit.
+
+If final CI/CodeQL exposes another actionable defect, fix it in PR #4 in small commits and repeat exact-head verification. Do not merge based on an older green, cancelled, queued, or superseded run.
 
 ## Remaining non-blocking roadmap after 2.0.12
 
