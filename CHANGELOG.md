@@ -4,10 +4,27 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ## [Unreleased]
 
+### Cross-platform continuation for 2.0.12 integration
+
+- Added `ContactCore.UI`, a portable Avalonia single-view presentation layer containing the shared application host, responsive contact shell, full rich editor, search/filter workflows, duplicate review/merge, import/export, settings, and capability-aware destructive/data tools.
+- Added `ContactCore.Native`, a small native composition layer that reuses the existing hardened `AppPaths`, preferences, SQLite connection/migration/repository, `ContactService`, and verified `BackupService` for mobile heads.
+- Added first-class `net10.0-android` application target with `AvaloniaAndroidApplication<App>`, `AvaloniaMainActivity`, shared responsive UI, and native SQLite persistence.
+- Added first-class `net10.0-ios` application target for iPhone/iPad with `AvaloniaAppDelegate<App>`, UIKit entry point, device-family/orientation metadata, shared responsive UI, and native SQLite persistence.
+- Added first-class `net10.0-browser` WebAssembly target with Avalonia.Browser, browser startup assets, .NET/JavaScript interop, IndexedDB contact persistence, and browser-local preferences.
+- Added `BrowserContactRepository` behind the existing `IContactRepository` contract. Browser writes are serialized, merge operations stale-check both records, and the previous in-memory snapshot is restored when IndexedDB persistence fails.
+- Browser SQLite-native backup/restore and native database-encryption claims are explicitly disabled by platform capability; CSV/vCard export remains the portable-copy path.
+- Added `ContactCore.Core.slnx` so three-OS core restore/format/build/test and CodeQL remain workload-free while `ContactCore.slnx` remains the complete solution containing every platform head.
+- CI now has dedicated WebAssembly (`wasm-tools`), Android, and iOS workload/build jobs in addition to the Ubuntu/Windows/macOS core matrix.
+- CodeQL now restores/builds `ContactCore.Core.slnx` instead of requiring mobile/WebAssembly workloads.
+- Release automation now publishes Windows x64/ARM64, Linux x64/ARM64, macOS Intel/Apple Silicon, and browser WebAssembly packages; Android/iOS Release builds are mandatory release gates.
+- Android/iOS store/device signing remains deliberately external to the public repository; no private keystore, certificate, provisioning profile, or signing secret is committed or fabricated.
+- Added `docs/platform-support.md` and synchronized README/setup/architecture/CI/release documentation with native SQLite vs browser IndexedDB behavior, workload commands, ChromeOS routes, and signing/validation boundaries.
+- Regenerated `docs/repository-reference.md` from the previous 94-file checkpoint to the current **124 tracked files** (30 cross-platform files added, none deleted in this continuation).
+
 ### Release hardening after the 2.0.12 preparation checkpoint
 
 - Updated `Microsoft.Data.Sqlite` from 10.0.10 to 10.0.11 so restore resolves a patched SQLitePCLRaw native bundle instead of vulnerable `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 flagged by GitHub Actions as a high-severity advisory.
-- Updated `actions/checkout` to v6 and `actions/setup-dotnet` to v5 across CI/release workflows, and updated CodeQL actions to v4, while preserving the existing cross-platform gates, concurrency policy, SDK policy, packaging, and least-privilege release permissions.
+- Updated `actions/checkout` to v6 and `actions/setup-dotnet` to v5 across CI/release workflows, and updated CodeQL actions to v4, while preserving concurrency policy, SDK policy, packaging, and least-privilege release permissions.
 - PR #12 was closed without merge after its confirmed dependency fix was transferred to the authoritative v2.0.12 PR #4; the stronger PR #4 implementation remains the only intended integration path.
 - Exact-head CI and CodeQL remain the merge gate; no green result is claimed until those workflows complete successfully on the final PR #4 head.
 
@@ -122,14 +139,16 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Groups/tags are editable per contact; there is no dedicated global group/tag taxonomy-management UI or global rename/cleanup workflow yet.
 - Orphaned shared group/tag dictionary rows can remain after the last relationship is removed; ordinary per-contact editing does not silently delete them.
 - Duplicate review uses an in-memory pairwise candidate scan; large address books may require indexed candidate generation before high-scale use.
-- Duplicate merge has confirmation and transaction safety but no general-purpose undo stack.
+- Duplicate merge has confirmation and storage-safety protections but no general-purpose undo stack.
 - CSV remains a limited interchange format (first phone/email and selected scalar fields), not a full-fidelity backup.
 - CSV formula-like content is preserved rather than spreadsheet-neutralized.
 - vCard support remains a focused subset rather than a complete implementation of every property/encoding/parameter.
-- The default ordinary SQLite build is not encrypted at rest unless a compatible cipher provider is deliberately integrated.
+- The default ordinary SQLite native build is not encrypted at rest unless a compatible cipher provider is deliberately integrated.
+- Browser persistence is browser-profile/origin-managed and can be removed by site-data clearing, private-session teardown, policy, or storage eviction; it is not represented as a native SQLite backup model.
+- Android/iOS build support does not equal Play Store/App Store signing/certification.
 - Release artifacts are not documented as code-signed or notarized.
-- Manual accessibility, screen-reader, high-DPI, native-picker, and platform release verification remains required before conformance claims.
+- Manual accessibility, screen-reader, high-DPI, native-picker, phone/tablet lifecycle/orientation, and representative browser verification remains required before stronger conformance claims.
 
 ### Documentation checkpoint
 
-The 2.0.12 documentation pass is synchronized with the intended release branch. See `docs/README.md` for navigation, `docs/repository-reference.md` for tracked-file coverage, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
+The current documentation pass is synchronized with the cross-platform v2.0.12 integration branch. See `docs/README.md` for navigation, `docs/platform-support.md` for the platform matrix, `docs/repository-reference.md` for the 124-file inventory, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
