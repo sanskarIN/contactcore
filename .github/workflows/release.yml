@@ -38,7 +38,7 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-  publish:
+  desktop-publish:
     needs: preflight
     strategy:
       fail-fast: false
@@ -46,21 +46,25 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
+          - os: windows-latest
+            rid: win-arm64
           - os: ubuntu-latest
             rid: linux-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
           - os: macos-latest
             rid: osx-x64
           - os: macos-latest
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-      - run: dotnet restore ContactCore.slnx
-      - run: dotnet test ContactCore.slnx -c Release --no-restore
+      - run: dotnet restore ContactCore.Core.slnx
+      - run: dotnet test ContactCore.Core.slnx -c Release --no-restore
       - run: dotnet publish src/ContactCore.Desktop/ContactCore.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o artifacts/${{ matrix.rid }}
 
       - name: Package Windows artifact
@@ -86,8 +90,58 @@ jobs:
             contactcore-v${{ needs.preflight.outputs.version }}-${{ matrix.rid }}.tar.gz
           if-no-files-found: error
 
+  browser-publish:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Install WebAssembly workload
+        run: dotnet workload install wasm-tools --skip-manifest-update
+      - name: Publish browser target
+        run: dotnet publish src/ContactCore.Browser/ContactCore.Browser.csproj -c Release -o artifacts/browser
+      - name: Package browser artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="contactcore-v${{ needs.preflight.outputs.version }}-browser-wasm.zip"
+          cd artifacts/browser
+          zip -r "../../$archive" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: contactcore-browser-wasm
+          path: contactcore-v${{ needs.preflight.outputs.version }}-browser-wasm.zip
+          if-no-files-found: error
+
+  mobile-build-gate:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            workload: android
+            project: src/ContactCore.Android/ContactCore.Android.csproj
+          - os: macos-latest
+            workload: ios
+            project: src/ContactCore.iOS/ContactCore.iOS.csproj
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Install mobile workload
+        run: dotnet workload install ${{ matrix.workload }} --skip-manifest-update
+      - name: Build mobile target
+        run: dotnet build ${{ matrix.project }} -c Release
+
   release:
-    needs: [preflight, publish]
+    needs: [preflight, desktop-publish, browser-publish, mobile-build-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
