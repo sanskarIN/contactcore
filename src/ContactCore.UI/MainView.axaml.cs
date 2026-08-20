@@ -58,11 +58,11 @@ public sealed partial class MainView : UserControl
             ]
         });
 
-        await using var stream = files.FirstOrDefault() is { } file ? await file.OpenReadAsync() : null;
-        if (stream is null || files.Count == 0) return null;
-
+        using var file = files.FirstOrDefault();
+        if (file is null) return null;
+        await using var stream = await file.OpenReadAsync();
         var content = await ReadLimitedTextAsync(stream, MaxImportCharacters);
-        return new PickedTextFile(files[0].Name, content);
+        return new PickedTextFile(file.Name, content);
     }
 
     private async Task<bool> SaveTextAsync(string suggestedName, string content)
@@ -85,7 +85,11 @@ public sealed partial class MainView : UserControl
 
         await using var stream = await file.OpenWriteAsync();
         if (stream.CanSeek) stream.SetLength(0);
-        await using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: false);
+        await using var writer = new StreamWriter(
+            stream,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            bufferSize: 1024,
+            leaveOpen: false);
         await writer.WriteAsync(content);
         await writer.FlushAsync();
         return true;
