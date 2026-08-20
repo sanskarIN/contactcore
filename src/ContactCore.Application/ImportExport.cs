@@ -35,7 +35,7 @@ public static class ContactCsvCodec
         {
             var row = rows[rowIndex];
             if (row.All(string.IsNullOrWhiteSpace)) continue;
-            string Get(string name) => map.TryGetValue(name, out var i) && i < row.Count ? row[i].Trim() : string.Empty;
+            string Get(string name) => map.TryGetValue(name, out var i) && i < row.Count ? UnprotectSpreadsheetFormula(row[i].Trim()) : string.Empty;
             var contact = new Contact { GivenName = Get("GivenName"), FamilyName = Get("FamilyName"), Nickname = Get("Nickname"), Notes = Get("Notes") };
             var email = Get("Email"); if (email.Length > 0) contact.Emails.Add(new(Guid.NewGuid(), "Email", email));
             var phone = Get("Phone"); if (phone.Length > 0) contact.Phones.Add(new(Guid.NewGuid(), "Phone", phone));
@@ -50,7 +50,27 @@ public static class ContactCsvCodec
         return new(contacts, warnings);
     }
 
-    private static string Escape(string value) => '"' + value.Replace("\"", "\"\"") + '"';
+    private static string Escape(string value)
+    {
+        var safeValue = ProtectSpreadsheetFormula(value);
+        return '"' + safeValue.Replace("\"", "\"\"") + '"';
+    }
+
+    private static string ProtectSpreadsheetFormula(string value)
+    {
+        var trimmed = value.TrimStart();
+        if (trimmed.Length == 0) return value;
+        return IsSpreadsheetFormulaPrefix(trimmed[0]) ? "'" + value : value;
+    }
+
+    private static string UnprotectSpreadsheetFormula(string value)
+    {
+        if (value.Length < 2 || value[0] != '\'') return value;
+        var trimmed = value[1..].TrimStart();
+        return trimmed.Length > 0 && IsSpreadsheetFormulaPrefix(trimmed[0]) ? value[1..] : value;
+    }
+
+    private static bool IsSpreadsheetFormulaPrefix(char value) => value is '=' or '+' or '-' or '@' or '\t' or '\r' or '\n';
 
     private static IEnumerable<List<string>> Parse(string text)
     {
