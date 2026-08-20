@@ -1,6 +1,6 @@
 # Roadmap
 
-This roadmap distinguishes **implemented** behavior from future intent. A checked item means the capability exists in the repository at the current checkpoint; it does not automatically mean every release platform has been manually verified or that every edge case is complete.
+This roadmap distinguishes **implemented** behavior from future intent. A checked item means the capability exists in the repository at the current checkpoint; it does not automatically mean every device/browser/distribution channel has been manually verified or store-certified.
 
 Current release-preparation version: **2.0.12**.
 
@@ -38,7 +38,7 @@ Current release-preparation version: **2.0.12**.
 - [x] Restore confirmation.
 - [x] Native file-picker import/export UI.
 - [x] Native/stream-backed backup picker handling.
-- [x] 5,000,000-character desktop import bound.
+- [x] 5,000,000-character import bound.
 - [x] Data Tools view for import/export/backup/restore.
 - [x] Dedicated Settings/About/privacy surface.
 - [x] System/Light/Dark theme switching.
@@ -51,7 +51,7 @@ Current release-preparation version: **2.0.12**.
 - [x] Unchanged group/tag assignments preserve shared dictionary identity.
 - [x] True per-contact group/tag rename uses safe new-identity reassignment instead of reusing a shared ID with a different name.
 - [x] Explicit unsaved/persisted draft state and safe unsaved discard.
-- [x] Atomic duplicate survivor-update + secondary-delete persistence.
+- [x] Atomic duplicate survivor-update + secondary-delete native persistence.
 - [x] Duplicate merge rejects stale operations when either reviewed contact disappeared.
 - [x] Interactive duplicate review with evidence, preview, survivor choice, and confirmation.
 
@@ -68,6 +68,8 @@ Current release-preparation version: **2.0.12**.
 - [x] ADRs for modular monolith, SQLite, and encryption-provider boundary.
 - [x] Exhaustive tracked-file repository reference.
 - [x] Root README/changelog/roadmap synchronized for the 2.0.12 checkpoint.
+- [x] Dedicated cross-platform support guide documenting target/persistence/signing boundaries.
+- [x] Repository reference regenerated for the 124-file cross-platform tree.
 
 ## 0.4 — Rich UX completion
 
@@ -85,7 +87,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Side-by-side duplicate comparison/merge preview.
 - [x] User-confirmed merge workflow wired through `ContactService`/`ContactMerger`.
 - [x] Explicit user choice of which duplicate record survives.
-- [x] One-transaction duplicate merge/delete with rollback when either reviewed contact is stale/missing.
+- [x] Storage-safe duplicate merge/delete with stale reviewed-record checks.
 - [ ] Drag/drop or other reorder controls for repeated rich fields.
 - [ ] Dedicated global group/tag taxonomy-management screen with explicit global rename/delete/orphan-cleanup semantics.
 - [ ] Undo/recovery UX for high-impact contact modifications where practical.
@@ -104,7 +106,9 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] App-path environment/fallback tests.
 - [x] Redaction truncation/PII-shape tests.
 - [x] ContactService save/import normalization and indexed import-validation tests, including rich address/organization/group/tag normalization.
-- [ ] Forced post-switch restore verification failure/rollback test.
+- [x] Dedicated CI compile gates for Android, iOS, and WebAssembly heads.
+- [ ] Browser repository automated tests with an isolated browser/IndexedDB harness.
+- [ ] Forced post-switch native restore verification failure/rollback test.
 - [ ] Restore staging/temp cleanup failure-path tests beyond current successful/invalid-source flows.
 - [ ] Search debounce/cancellation view-model tests.
 - [ ] Destructive-action and restore confirmation view-model tests.
@@ -114,20 +118,22 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 ## 0.6 — Performance and scale
 
 - [ ] Reproducible generated-data benchmarks at 100/1,000/10,000 contacts.
-- [ ] Measure root + child SQL statement amplification.
+- [ ] Measure native root + child SQL statement amplification.
+- [ ] Benchmark browser IndexedDB snapshot serialization/write behavior at representative address-book sizes.
 - [ ] Evaluate lightweight list projections and fetch-full-on-selection.
 - [ ] Evaluate pagination/incremental loading.
 - [ ] Evaluate FTS5 only with an ADR and migration/index-sync plan.
 - [ ] Optimize duplicate candidate generation before quadratic scan at high counts.
-- [ ] Evaluate streaming CSV/vCard encode/decode while preserving import atomicity.
+- [ ] Evaluate streaming CSV/vCard encode/decode while preserving import atomicity/storage consistency.
 
 ## 0.7 — Encryption and secret-storage maturity
 
-- [ ] Select/document an officially supported SQLCipher-compatible provider if the project chooses to ship encryption directly.
-- [ ] Validate provider licensing and native packaging for every release RID.
-- [ ] Add encrypted database/backup/restore integration tests per supported platform.
-- [ ] Add an OS credential/secret-store abstraction for runtime database key retrieval.
-- [ ] Add user-visible verified encryption state only after provider detection can prove it.
+- [ ] Select/document an officially supported SQLCipher-compatible provider if the project chooses to ship native encryption directly.
+- [ ] Validate provider licensing and native packaging for every applicable release target.
+- [ ] Add encrypted native database/backup/restore integration tests per supported platform.
+- [ ] Add an OS credential/secret-store abstraction for native runtime database-key retrieval.
+- [ ] Add user-visible verified native encryption state only after provider detection can prove it.
+- [ ] Define a separate browser security/encryption-at-rest policy if browser-side cryptographic storage is ever proposed; do not reuse SQLite claims for IndexedDB.
 
 ## 0.8 — Release hardening
 
@@ -137,16 +143,44 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Package Windows output as ZIP and Unix outputs as permission-preserving tar.gz archives.
 - [x] Publish SHA-256 checksum manifest for release archives.
 - [x] Restrict release workflow write permission to the final GitHub Release job.
+- [x] Add Windows ARM64 and Linux ARM64 desktop release RIDs.
+- [x] Add browser/WebAssembly published ZIP artifact.
+- [x] Require Android/iOS Release build success before final tag release.
 - [ ] Capture real product screenshots using fictional data after verified release builds.
-- [ ] Manual keyboard/screen-reader/high-DPI/theme audit on supported platforms.
+- [ ] Manual keyboard/screen-reader/high-DPI/theme audit on supported desktop platforms.
+- [ ] Manual touch/orientation/file-picker/lifecycle/accessibility audit on representative Android/iOS devices.
+- [ ] Representative browser-engine/profile persistence/accessibility smoke testing.
 - [ ] Windows signing pipeline when credentials/policy are available.
 - [ ] macOS Developer ID signing and notarization when credentials/policy are available.
-- [ ] Decide installer/package formats per platform beyond the current portable archives.
+- [ ] Android production keystore/signing pipeline when credentials/policy are securely available.
+- [ ] iOS/iPadOS signing/provisioning/App Store pipeline when credentials/policy are securely available.
+- [ ] Decide installer/package-manager/store formats beyond current desktop/browser archives and mobile build targets.
 - [ ] Publish a repeatable manual release smoke-test record/template.
+
+## 0.9 — Cross-platform application architecture
+
+- [x] Extract portable Avalonia `ContactCore.UI` project for single-view platforms.
+- [x] Support both classic desktop and `ISingleViewApplicationLifetime` in the portable app host.
+- [x] Provide responsive shared contact list/editor/duplicate/data/settings UI.
+- [x] Extract native SQLite service composition into `ContactCore.Native`.
+- [x] Add Android project/head using shared UI + native SQLite.
+- [x] Add iOS/iPadOS project/head using shared UI + native SQLite.
+- [x] Add Browser/WebAssembly project/head.
+- [x] Implement `BrowserContactRepository` behind `IContactRepository`.
+- [x] Persist browser contact state in IndexedDB via .NET/JavaScript interop.
+- [x] Persist browser preferences locally with safe fallback.
+- [x] Make native backup/encryption capability explicit so browser UI does not overclaim native database features.
+- [x] Add workload-free `ContactCore.Core.slnx` plus complete `ContactCore.slnx`.
+- [x] Add platform-specific CI workload/build jobs.
+- [x] Add six desktop architecture release targets and browser package.
+- [x] Document ChromeOS browser/Android routes without claiming a separate native ChromeOS project.
+- [ ] Cross-tab browser optimistic concurrency/conflict handling if multi-tab editing becomes a supported workflow.
+- [ ] Platform-specific integration/device test automation beyond current compile gates.
+- [ ] Store-distribution signing/packaging automation after secure credential policy is established.
 
 ## Future product exploration
 
-Only after data-preservation, test, scale, and release fundamentals remain strong:
+Only after data preservation, test, scale, release, and cross-platform validation fundamentals remain strong:
 
 - [ ] Optional contact photos with local storage/privacy rules.
 - [ ] More complete vCard interoperability.
