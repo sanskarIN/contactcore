@@ -19,3 +19,15 @@ csharp_style_var_for_built_in_types = true:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
 csharp_style_var_elsewhere = false:suggestion
 dotnet_diagnostic.IDE0005.severity = warning
+
+# Test methods intentionally use descriptive underscore-separated names, and test-only
+# helper expressions favor readability over production micro-optimization diagnostics.
+[tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.IDE0005.severity = none
+
+# These properties are consumed through Avalonia instance binding. Making them static
+# would break the binding contract even when their current value is constant.
+[src/ContactCore.UI/**/*.cs]
+dotnet_diagnostic.CA1822.severity = none
