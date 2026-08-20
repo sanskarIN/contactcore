@@ -125,9 +125,11 @@ jobs:
           - os: ubuntu-latest
             workload: android
             project: src/ContactCore.Android/ContactCore.Android.csproj
+            rid: android-arm64
           - os: macos-latest
             workload: ios
             project: src/ContactCore.iOS/ContactCore.iOS.csproj
+            rid: iossimulator-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -137,8 +139,10 @@ jobs:
           global-json-file: global.json
       - name: Install mobile workload
         run: dotnet workload install ${{ matrix.workload }} --skip-manifest-update
+      - name: Restore mobile target
+        run: dotnet restore ${{ matrix.project }} -r ${{ matrix.rid }}
       - name: Build mobile target
-        run: dotnet build ${{ matrix.project }} -c Release
+        run: dotnet build ${{ matrix.project }} -c Release -r ${{ matrix.rid }} --no-restore
 
   release:
     needs: [preflight, desktop-publish, browser-publish, mobile-build-gate]
