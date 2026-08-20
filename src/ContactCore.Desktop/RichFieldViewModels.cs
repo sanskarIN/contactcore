@@ -56,15 +56,15 @@ public sealed partial class TagDraftViewModel : ObservableObject
 public sealed class DuplicatePairViewModel(DuplicateCandidate candidate)
 {
     public DuplicateCandidate Candidate { get; } = candidate;
-    public string PrimaryName => candidate.Left.DisplayName;
-    public string SecondaryName => candidate.Right.DisplayName;
-    public string PrimaryDetails => Describe(candidate.Left);
-    public string SecondaryDetails => Describe(candidate.Right);
-    public string ScoreText => $"{candidate.Score:P0}";
-    public string ReasonsText => candidate.Reasons.Count == 0 ? "No matching signals" : string.Join(" • ", candidate.Reasons);
+    public string PrimaryName => Candidate.Left.DisplayName;
+    public string SecondaryName => Candidate.Right.DisplayName;
+    public string PrimaryDetails => Describe(Candidate.Left);
+    public string SecondaryDetails => Describe(Candidate.Right);
+    public string ScoreText => $"{Candidate.Score:P0}";
+    public string ReasonsText => Candidate.Reasons.Count == 0 ? "No matching signals" : string.Join(" • ", Candidate.Reasons);
     public string Summary => $"{PrimaryName} ↔ {SecondaryName} — {ScoreText}";
     public string MergePreview =>
-        "The kept contact retains its existing identity/name values when present. Unique phones, emails, addresses, organizations, groups and tags are added; notes are combined; favorite status is preserved if either record is favorite.";
+        $"Match score {ScoreText}. The kept contact retains its existing identity/name values when present. Unique phones, emails, addresses, organizations, groups and tags are added; notes are combined; favorite status is preserved if either record is favorite.";
 
     private static string Describe(Contact contact)
     {
