@@ -3,7 +3,12 @@
     <Project Path="src/ContactCore.Domain/ContactCore.Domain.csproj" />
     <Project Path="src/ContactCore.Application/ContactCore.Application.csproj" />
     <Project Path="src/ContactCore.Infrastructure/ContactCore.Infrastructure.csproj" />
+    <Project Path="src/ContactCore.UI/ContactCore.UI.csproj" />
+    <Project Path="src/ContactCore.Native/ContactCore.Native.csproj" />
     <Project Path="src/ContactCore.Desktop/ContactCore.Desktop.csproj" />
+    <Project Path="src/ContactCore.Android/ContactCore.Android.csproj" />
+    <Project Path="src/ContactCore.iOS/ContactCore.iOS.csproj" />
+    <Project Path="src/ContactCore.Browser/ContactCore.Browser.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ContactCore.Domain.Tests/ContactCore.Domain.Tests.csproj" />
