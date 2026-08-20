@@ -1,155 +1,161 @@
 # Repository Reference
 
-This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 94 tracked files** present after the 2026-08-20 final release-hardening continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, exports, backups, restore staging files, secrets, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
+This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 124 tracked files** present after the 2026-08-20 cross-platform continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
 
-If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change. Temporary addenda used during the audit were folded into this file and removed so this remains the single authoritative inventory.
+The previous 94-file checkpoint predates the shared UI/native composition projects and Android/iOS/Browser heads. This reference supersedes that count. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
 
-## 1. Repository root — 18 files
+## 1. Repository root — 19 files
 
 ### `.editorconfig`
-Repository-wide editor/format conventions used with `dotnet format`. Changes can create broad diffs and should not be mixed casually with feature work.
+Repository-wide editor/format conventions used with `dotnet format`.
 
 ### `.env.example`
-Documents optional `CONTACTCORE_DATA_PATH` and `CONTACTCORE_DATABASE_KEY` environment-variable names without containing a real key. The data path is a directory override; the database key is runtime-only.
+Documents optional native `CONTACTCORE_DATA_PATH` and `CONTACTCORE_DATABASE_KEY` names without containing a real key.
 
 ### `.gitattributes`
-Git text/line-ending handling rules. Keeps platform checkouts consistent.
+Git text/line-ending handling rules for consistent cross-platform checkouts.
 
 ### `.gitignore`
-Ignores build/IDE output plus local databases, WAL/SHM files, backups, exports, restore/temp artifacts, environment secrets, signing-key material, and other private/generated files covered by the current policy.
+Ignores build/IDE output, local databases/WAL/SHM, backups/exports/temp restore artifacts, environment secrets, signing-key material, and other generated/private files.
 
 ### `CHANGELOG.md`
-Release/change history. Contains the dated **2.0.12** release-preparation section covering the full editor, shared group/tag dictionary reassignment semantics, parser hardening, stale-safe duplicate merge/data-safety fixes, tests, version/release automation, documentation, security boundaries, and known limitations. Its post-checkpoint `Unreleased` section records the patched SQLite provider dependency, current GitHub Actions major-version refresh, PR reconciliation, and the exact-head verification requirement.
+Release/change history for 2.0.12 and Unreleased hardening/cross-platform work.
 
 ### `CODE_OF_CONDUCT.md`
 Community behavior/enforcement policy, including privacy-conscious handling of accidentally shared sensitive data.
 
 ### `CONTRIBUTING.md`
-Contributor entry point for branch, quality, testing, documentation, privacy, and review expectations. Deeper engineering rules are in `docs/development.md` and `docs/maintainer-guide.md`.
+Contributor entry point for branch, quality, testing, documentation, privacy, and review expectations.
+
+### `ContactCore.Core.slnx`
+Workload-free core verification solution. Contains Domain, Application, Infrastructure, shared UI, native composition, Desktop, and the four existing test projects. CI/CodeQL use it so ordinary runners do not need Android/iOS/WebAssembly workloads.
 
 ### `ContactCore.slnx`
-Solution containing four production projects and four corresponding test projects. Repository restore/format/build/test commands operate on this solution.
+Complete repository solution containing Domain, Application, Infrastructure, shared UI, native composition, Desktop, Android, iOS, Browser, and all existing test projects.
 
 ### `Directory.Build.props`
-Shared MSBuild/compiler/analyzer policy: .NET 10 target, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI build settings, analyzer configuration, and centralized **2.0.12** project/assembly/file/informational version metadata.
+Shared MSBuild/compiler/analyzer policy: .NET 10 baseline for ordinary projects, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI settings, and centralized 2.0.12 version metadata. Platform heads override `TargetFramework` where required.
 
 ### `Directory.Packages.props`
-Central NuGet version management for Avalonia, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite, MSTest, test SDK, coverage collector, and related dependencies. The current 2.0.12 release-hardening head uses Microsoft.Data.Sqlite 10.0.11 to avoid the vulnerable SQLitePCLRaw native-bundle line that blocked restore in CI.
+Central NuGet version management for Avalonia core/Desktop/Android/iOS/Browser/themes, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite 10.0.11, MSTest, test SDK, and coverage collector.
 
 ### `LICENSE`
-MIT license text for ContactCore's repository code. Third-party/native dependency licenses remain separate.
+MIT license text for repository code; third-party dependency licenses remain separate.
 
 ### `PRIVACY.md`
-User-facing privacy posture: offline/local-first behavior, storage/export/backup implications, temporary copies, runtime-key handling, and absence of mandatory telemetry/cloud behavior.
+User-facing privacy posture for local-first behavior, native storage/export/backup, runtime-key handling, and absence of mandatory telemetry/cloud behavior.
 
 ### `README.md`
-Primary project landing page. Identifies version 2.0.12 and documents the full rich editor, contact-owned versus shared group/tag identity semantics, search/filtering, import/export, stale-safe duplicate review/atomic merge, backup/restore, themes, security boundaries, release targets/package names/checksums, setup, documentation links, support/funding, and current limitations without overclaiming encryption/signing/accessibility.
+Primary project landing page. Documents the cross-platform matrix, native SQLite/browser IndexedDB split, rich contact behavior, build commands, release targets, signing boundaries, privacy/security, and documentation links.
 
 ### `ROADMAP.md`
-Separates completed 2.0.12 work from future work. Rich editing, unsaved-draft safety, stale-safe duplicate transactions, rich normalization tests, and release-version/package/checksum hardening are complete; reorder/global taxonomy/undo/deeper failure injection/scale/encryption-provider/signing/manual-audit work remains open.
+Separates completed 2.0.12/cross-platform work from future UX, resilience, performance, signing, packaging, and manual validation work.
 
 ### `SECURITY.md`
-Public vulnerability-reporting and supported-security-policy document. Routes private vulnerabilities away from public issues and complements `docs/security.md`.
+Public vulnerability-reporting and supported-security-policy document.
 
 ### `SUPPORT.md`
-Support channels and privacy-safe diagnostic guidance. Covers the full 2.0.12 editor and stale-safe duplicate expectations while discouraging real contact databases, backups, exports, or keys in public reports.
+Support channels and privacy-safe diagnostic guidance that discourages public sharing of real contact databases, exports, backups, secrets, or signing material.
 
 ### `global.json`
-Pins the stable .NET 10 SDK baseline (`10.0.100`) with latest-compatible feature-band roll-forward and prereleases disabled. Development, CI and the hardened release workflow use this policy.
+Pins stable .NET SDK baseline `10.0.100` with latest-compatible feature-band roll-forward and prereleases disabled.
 
 ### `what_changed.md`
-Authoritative v2.0.12 continuation/handoff ledger. Records branch/PR reconciliation, version metadata, implemented features/fixes, the SQLite advisory resolution, regression coverage, release pipeline, verification boundary, remaining roadmap, and exact merge/release procedure.
+Authoritative continuation/handoff ledger for branch/PR reconciliation, versioning, implementation, release hardening, cross-platform expansion, verification, and remaining boundaries.
 
 ## 2. GitHub configuration — 8 files
 
 ### `.github/FUNDING.yml`
-GitHub funding configuration for the project's support/funding link.
+GitHub funding configuration.
 
 ### `.github/ISSUE_TEMPLATE/bug_report.yml`
-Structured privacy-conscious bug-report form. Requests reproducible details, uses v2.0.12 as the current version example, and explicitly discourages real contact data/secrets in public reports.
+Structured privacy-conscious bug-report form.
 
 ### `.github/ISSUE_TEMPLATE/feature_request.yml`
-Structured feature-request form that asks for use case plus privacy/offline/accessibility/data-compatibility considerations.
+Feature-request form that asks for use case plus privacy/offline/accessibility/data-compatibility considerations.
 
 ### `.github/dependabot.yml`
-Dependabot configuration for dependency update proposals. Automated updates still require normal compatibility/security/license review.
+Dependabot configuration for configured dependency ecosystems.
 
 ### `.github/pull_request_template.md`
-PR checklist covering CI/CodeQL, tests, data-safety/aggregate preservation, contact-owned versus shared-dictionary identity semantics, stale duplicate protection, migrations/recovery, privacy, documentation, and review evidence.
+PR checklist covering CI/CodeQL, tests, data safety, identity semantics, migrations/recovery, privacy, documentation, and review evidence.
 
 ### `.github/workflows/ci.yml`
-Cross-platform CI matrix for Ubuntu, Windows, and macOS. Restores, verifies formatting, builds Release, runs tests with XPlat coverage, uploads available results, and cancels obsolete same-ref runs. Checkout uses v6 and .NET setup uses v5 on the current release-hardening head.
+Workload-aware cross-platform CI. `ContactCore.Core.slnx` restores/formats/builds/tests on Ubuntu, Windows, and macOS. Dedicated jobs install `wasm-tools`, Android, and iOS workloads and build the Browser, Android, and iOS heads respectively.
 
 ### `.github/workflows/codeql.yml`
-C# CodeQL analysis for relevant pushes/pull requests plus scheduled analysis, with minimal required permissions and concurrency handling. The current workflow uses checkout v6, setup-dotnet v5, and CodeQL v4.
+C# CodeQL workflow using checkout v6, setup-dotnet v5, CodeQL v4, and the workload-free `ContactCore.Core.slnx` so security analysis does not depend on mobile workloads.
 
 ### `.github/workflows/release.yml`
-Tag-driven release workflow for `win-x64`, `linux-x64`, `osx-x64`, and `osx-arm64`. Preflight resolves the project version and rejects a mismatched tag; SDK setup uses `global.json`; each target runs tests/publishes and is packaged as ZIP or tar.gz; the final job publishes `SHA256SUMS.txt`; repository write permission is limited to that final release job. Checkout uses v6 and .NET setup uses v5. The workflow does not implement or claim code signing/notarization.
+Tag-driven 2.0.12 release workflow. Enforces tag/source-version equality; publishes six desktop RIDs plus browser WebAssembly ZIP; build-gates Android/iOS; generates SHA-256 checksums; limits repository write permission to final release creation; does not claim store signing/notarization.
 
-## 3. Documentation — 21 files
+## 3. Documentation — 22 files
 
 ### `docs/README.md`
-Documentation navigation hub and documentation-quality principles for users, contributors, maintainers, reviewers, and security auditors.
+Documentation hub/index and documentation-quality principles, including explicit native/browser and build/signing boundaries.
 
 ### `docs/accessibility.md`
-Implemented keyboard/focus/theme/reduced-motion behavior plus full-editor/duplicate-review accessibility risks, keyboard/screen-reader/scaling scenarios, platform test matrix, and explicit non-certification boundary.
+Keyboard/focus/theme/reduced-motion behavior, editor/duplicate-review accessibility risks, platform test scenarios, and non-certification boundary.
 
 ### `docs/adr/0001-modular-monolith.md`
-Accepted architecture decision to use a layered modular monolith instead of a coupled single project or distributed-service design.
+Accepted decision for layered modular-monolith architecture.
 
 ### `docs/adr/0002-sqlite-persistence.md`
-Accepted decision to use local SQLite behind Application abstractions, including migration/aggregate/backup tradeoffs and guardrails.
+Accepted native SQLite persistence decision and associated migration/aggregate/backup guardrails.
 
 ### `docs/adr/0003-encryption-provider.md`
-Accepted decision to keep SQLCipher-compatible provider integration optional while failing closed when a runtime key is requested but cipher support cannot be proven.
+Accepted optional SQLCipher-compatible provider boundary with fail-closed requested-key behavior.
 
 ### `docs/architecture.md`
-Layer/dependency map plus startup/read/write/import/backup/restore flows, full-editor identity invariant, unsaved-draft boundary, atomic duplicate merge flow, platform/error/security/test architecture, and evolution rules.
+Cross-platform project/dependency map; desktop/mobile/browser startup; native SQLite/browser IndexedDB flows; shared UI; persistence, identity, import, duplicate, backup, security, and evolution rules.
 
 ### `docs/ci-cd.md`
-CI/CodeQL behavior plus the 2.0.12 version-gated release workflow, SDK policy, packaging, SHA-256 checksums, least-privilege release permissions, quality gate, dependency automation, and failure diagnosis.
+Three-OS core CI, platform workload jobs, CodeQL, six-RID desktop release matrix, WebAssembly publish, mobile build gate, permissions, checksums, and troubleshooting.
 
 ### `docs/data-model.md`
-Complete domain-to-SQLite mapping for scalar/repeated fields, shared group/tag dictionaries, per-contact rename-as-reassignment semantics, identity/timestamps, complete-aggregate replacement, stale-safe duplicate merge, indexes, normalization, schema identity, and migrations.
+Domain-to-SQLite mapping, scalar/repeated fields, shared group/tag identities, timestamps, complete aggregate replacement, duplicate merge, indexes, normalization, schema identity, and migrations.
 
 ### `docs/desktop-ui.md`
-Exact current Avalonia behavior: composition, three-column layout, full repeated-field editor, contact-owned versus shared group/tag identity behavior, persisted/unsaved drafts, search/debounce, filters, permanent delete, stale-safe duplicate review/survivor choice/atomic merge, data tools, picker limits, settings, shortcuts, callbacks, errors, and manual UI verification.
+Mature desktop Avalonia behavior: desktop composition/layout, rich editor, duplicate review, native pickers/dialogs, settings, shortcuts, and manual verification.
 
 ### `docs/development.md`
-Contributor engineering rules for project layering, complete aggregate editing, shared dictionary reassignment, persistence-state semantics, stale-safe duplicate merge, SQL/migrations, import, backup/restore, privacy, UI, tests, Git discipline, PRs, and documentation definition of done.
+Contributor engineering rules for layering, complete aggregates, persistence identity/state, SQL/migrations, imports, backup/restore, privacy, UI, tests, Git discipline, PRs, and documentation.
 
 ### `docs/import-export.md`
-CSV/focused-vCard contracts, supported fields, escaping/parsing, unsupported/duplicate CSV-header handling, formula-prefix warnings, vCard TYPE/escaping behavior, batch validation/atomicity, field-fidelity limits, and safe extension guidance.
+CSV/focused-vCard contracts, supported fields, escaping/parsing, warnings, batch validation, fidelity limits, and privacy/safe-extension guidance.
 
 ### `docs/maintainer-guide.md`
-Long-term maintainer invariants and workflows for fields/migrations, contact-owned/shared-dictionary editor identities, unsaved drafts, stale-safe duplicate transactions, backup/restore, encryption, preferences, parsers, performance, accessibility, dependencies, CI/releases, docs, security, and repository hygiene.
+Maintainer invariants/workflows for fields/migrations, identities, drafts, duplicates, backup/restore, encryption, preferences, parsers, performance, accessibility, dependencies, CI/releases, docs, and security.
 
 ### `docs/performance.md`
-Current complexity/performance characteristics and non-claims: leading-wildcard search, root-plus-child loading, pairwise duplicate scan, in-memory codec behavior, backup/restore costs, benchmark scenarios, profiling, and optimization priorities.
+Current complexity/performance characteristics, non-claims, benchmark scenarios, profiling, and optimization priorities.
+
+### `docs/platform-support.md`
+Canonical platform matrix for Windows/Linux/macOS architectures, Android, iPhone/iPad, Browser/WebAssembly, and ChromeOS routes. Documents persistence models, workload commands, CI coverage, store-signing boundaries, and meaning of cross-platform support.
 
 ### `docs/release.md`
-Exact 2.0.12 release procedure: source version/tag equality, four RIDs/packages, global.json SDK policy, preflight/publish/release stages, checksum generation, permission model, smoke-test requirements, signing/notarization truth, schema compatibility, failed/partial release handling, and post-release checks.
+2.0.12 tag/version preflight, six desktop packages, browser package, mobile build gate, signing/provisioning boundaries, verification/smoke tests, failures/rollback, and post-release process.
 
 ### `docs/repository-reference.md`
-This canonical exhaustive tracked-file inventory. It supersedes/removes the temporary reference/addendum files used during the audit.
+This canonical 124-file inventory.
 
 ### `docs/security.md`
-Engineering security/privacy model: assets/trust boundaries, SQL controls, complete-aggregate data-loss boundary, unsaved-draft protection, duplicate heuristic/atomic merge safeguards, backup/restore, fail-closed encryption request, import/parser hardening, diagnostics, dependencies, release and unmitigated threats.
+Engineering threat model and controls for native SQL, aggregate data-loss boundaries, draft/duplicate/backup safeguards, encryption requests, parsers, diagnostics, dependencies, and release risk.
 
 ### `docs/setup.md`
-Source setup for SDK/clone/restore/build/run/test, paths/environment values, disposable development profiles, platform notes, keyed-SQLite behavior, and IDE/CLI parity.
+Cross-platform source setup. Explains `ContactCore.Core.slnx` vs complete solution, desktop commands, Android/iOS/WebAssembly workloads, browser storage, native paths/keys, and safe disposable development profiles.
 
 ### `docs/storage-backup-recovery.md`
-Local storage, connection policy, schema/migrations, aggregate transaction model, backup verification, staged restore/rollback sequence, recovery artifacts, encryption-provider interactions, failure behavior, and operational recommendations.
+Native local storage, SQLite connection/schema/migration/transaction policy, backup verification, staged restore/rollback, recovery artifacts, encryption interactions, and operational recommendations.
 
 ### `docs/testing.md`
-Concrete v2.0.12 coverage map across all four test projects, including rich Application normalization, shared group/tag reassignment and both stale duplicate-merge directions, quality commands, deterministic/temp-data rules, remaining high-value cases, manual release matrix, CI-only failure diagnosis, and regression workflow.
+Behavioral test-project coverage, deterministic/temp-data rules, quality commands, CI-only diagnosis, manual release matrix, and regression workflow.
 
 ### `docs/troubleshooting.md`
-Safety-first diagnosis for SDK/build/startup, encryption/path/settings/search, rich editor invariants, unsaved drafts, shortcuts, CSV/vCard, backup/restore, permanent delete, duplicate merge, themes, file locks, CI platform differences, and privacy-safe diagnostics.
+Safety-first diagnosis for SDK/build/startup, paths/settings/search, editor invariants, imports, backup/restore, duplicate merge, themes, file locks, CI differences, and privacy-safe diagnostics.
 
 ### `docs/user-guide.md`
-End-user guide for full contact editing, unsaved discard, validation/search/favorites/archive, permanent delete, duplicate review/merge, import/export, backup/restore, settings, storage/encryption, privacy habits, keyboard and accessibility behavior.
+End-user guide for contact editing, validation/search/favorites/archive, delete, duplicate review/merge, import/export, native backup/restore, settings, storage/privacy, keyboard and accessibility behavior.
 
 ## 4. Domain production project — 4 files
 
@@ -157,10 +163,10 @@ End-user guide for full contact editing, unsaved discard, validation/search/favo
 Minimal Domain project definition using repository-wide build settings and no infrastructure/UI dependency.
 
 ### `src/ContactCore.Domain/ContactModels.cs`
-Core `Contact`, `ContactFieldKind`, phone/email/address/organization/group/tag records, display-name fallback, and `DeepCopy` aggregate behavior.
+Core `Contact`, `ContactFieldKind`, phone/email/address/organization/group/tag records, display-name fallback, and aggregate `DeepCopy` behavior.
 
 ### `src/ContactCore.Domain/ContactValidation.cs`
-Domain validation for practical name/note bounds, email syntax/length, and phone syntax/length, returning field-oriented messages that avoid echoing invalid values.
+Domain validation for practical field bounds/syntax with field-oriented messages that avoid echoing invalid values.
 
 ### `src/ContactCore.Domain/TextNormalizer.cs`
 Accent-insensitive/lowercase Unicode search key plus digits-only phone key used by matching, merge, and identity comparisons.
@@ -168,116 +174,210 @@ Accent-insensitive/lowercase Unicode search key plus digits-only phone key used 
 ## 5. Application production project — 5 files
 
 ### `src/ContactCore.Application/ContactCore.Application.csproj`
-Application project definition with the Domain project reference.
+Application project definition referencing Domain.
 
 ### `src/ContactCore.Application/Abstractions.cs`
-`ContactQuery`, `IContactRepository`, `IBackupService`, and `IAppPreferences`. The repository contract includes bulk upsert and atomic `MergeAsync`.
+`ContactQuery`, `IContactRepository`, `IBackupService`, and `IAppPreferences`; repository contract includes bulk upsert and stale-safe merge operation.
 
 ### `src/ContactCore.Application/ContactService.cs`
-Use-case boundary for initialize/count/search/save/import/duplicate-merge/favorite/archive/delete. Normalizes scalar and all current repeated rich fields, timestamps, validates, performs whole-batch import validation, and delegates persistence/atomic merge to repository abstractions.
+Use-case boundary for initialize/count/search/save/import/merge/favorite/archive/delete. Normalizes/timestamps/validates and delegates persistence to abstractions.
 
 ### `src/ContactCore.Application/DuplicateDetector.cs`
-Duplicate candidate scoring/comparison plus `ContactMerger`. Uses normalized name/email/phone/birthday signals, clamps thresholds, rejects self-merge, structurally de-duplicates richer child data, and assigns fresh IDs to copied secondary contact-owned child records where needed.
+Duplicate candidate scoring/comparison plus `ContactMerger`; normalizes signals, rejects self-merge, deduplicates rich child data, and gives copied contact-owned rows fresh IDs where needed.
 
 ### `src/ContactCore.Application/ImportExport.cs`
-`ImportResult`, CSV codec, and focused vCard codec. Handles quoting/escaping/warnings/header hardening/formula warnings/TYPE mapping and never persists directly.
+`ImportResult`, CSV codec, and focused vCard codec with escaping, warnings, header hardening, formula-prefix warnings, TYPE mapping, and no direct persistence.
 
 ## 6. Infrastructure production project — 8 files
 
 ### `src/ContactCore.Infrastructure/ContactCore.Infrastructure.csproj`
-Infrastructure project definition referencing Domain/Application and centrally versioned SQLite dependency.
+Native Infrastructure project referencing Domain/Application and centrally versioned SQLite dependency.
 
 ### `src/ContactCore.Infrastructure/AppPaths.cs`
-Resolves/creates ContactCore data directory and derives database/settings/backups paths, honoring optional directory override/fallback behavior.
+Resolves/creates native ContactCore data directory and derives database/settings/backups paths.
 
 ### `src/ContactCore.Infrastructure/BackupService.cs`
-SQLite-native verified backup plus staged verified restore with pre-restore snapshot, migration, identity/integrity/version checks, sidecar/pool handling, final verification, failed-copy retention, and rollback attempt.
+SQLite-native verified backup plus staged verified restore with pre-restore snapshot, migration, identity/integrity/version checks, sidecar/pool handling, failed-copy retention, and rollback attempt.
 
 ### `src/ContactCore.Infrastructure/DatabaseMigrator.cs`
-Schema authority: migration tracking, ordered transactional migrations, relational tables/indexes, schema-family marker, future-schema rejection, and identity validation.
+Native SQLite schema authority: migration tracking, relational tables/indexes, schema-family marker, and future-schema rejection.
 
 ### `src/ContactCore.Infrastructure/JsonAppPreferences.cs`
-Local preferences implementation with safe defaults, theme normalization, temp/replacement writes, first-run runtime-key loading, and deliberate non-serialization of the database key.
+Native preferences with safe defaults, theme normalization, replacement writes, first-run runtime-key loading, and deliberate non-serialization of database key.
 
 ### `src/ContactCore.Infrastructure/RedactingLog.cs`
-Defense-in-depth sanitizer for UI-visible diagnostics: common email/long-number shape redaction plus output-length cap. Not a complete PII classifier.
+Defense-in-depth sanitizer for UI-visible diagnostics.
 
 ### `src/ContactCore.Infrastructure/SqliteConnectionFactory.cs`
-Central connection policy for paths, access/read-only mode, pooling/cache, foreign keys, busy timeout, runtime key application, and fail-closed cipher-version verification.
+Central native SQLite connection policy for path/mode/pooling/cache, foreign keys, busy timeout, optional runtime key, and fail-closed cipher verification.
 
 ### `src/ContactCore.Infrastructure/SqliteContactRepository.cs`
-Concrete repository: count/get/search/delete, filters/literal wildcard escaping, aggregate load, transactional single/bulk upsert, contact-owned child/link replacement, shared group/tag insertion/linking, and atomic duplicate merge. Shared group/tag values are resolved by case-insensitive name, allowing safe per-contact reassignment to a new dictionary identity. Duplicate merge requires both the chosen primary/survivor and secondary records to still exist, preventing stale-primary resurrection and rolling back when either reviewed record disappeared.
+Concrete native repository for query/filter/load/delete, transactional aggregate upsert/bulk import, shared group/tag linking, literal wildcard escaping, and atomic stale-safe duplicate merge.
 
 ## 7. Desktop production project — 14 files
 
 ### `src/ContactCore.Desktop/App.axaml`
-Avalonia application resource root/theme/style inclusion.
+Desktop Avalonia application resources/theme/style inclusion.
 
 ### `src/ContactCore.Desktop/App.axaml.cs`
-Desktop composition root. Creates paths/preferences/factory/migrator/repository/services/view model, applies theme, assigns main window, and initializes the application.
+Mature desktop composition root creating native paths/preferences/SQLite/services/view model/window and initializing the application.
 
 ### `src/ContactCore.Desktop/Assets/logo.svg`
-Tracked ContactCore vector logo used by README/project presentation and available to the desktop project.
+Tracked ContactCore vector logo used by README/project presentation and desktop assets.
 
 ### `src/ContactCore.Desktop/ConfirmDialog.axaml`
 Modal owner-centered destructive-action confirmation dialog visual tree.
 
 ### `src/ContactCore.Desktop/ConfirmDialog.axaml.cs`
-Confirmation dialog code-behind returning nullable Boolean result; only explicit `true` is treated as confirmation by callers.
+Dialog code-behind returning nullable Boolean result; only explicit `true` confirms.
 
 ### `src/ContactCore.Desktop/ContactCore.Desktop.csproj`
-Avalonia executable project definition, resources and project/package references.
+Desktop Avalonia executable project definition and project/package references.
 
 ### `src/ContactCore.Desktop/DataSafetyCommands.cs`
-Partial `MainWindowViewModel` commands for persisted contact deletion, unsaved-draft discard, restore confirmation/execution, and picker-temp cleanup.
+Partial desktop main-view-model commands for persisted delete, unsaved discard, restore confirmation/execution, and picker-temp cleanup.
 
 ### `src/ContactCore.Desktop/DuplicateCommands.cs`
-Partial `MainWindowViewModel` command for the reverse duplicate-merge direction, allowing the user to keep the second candidate explicitly.
+Partial desktop command for reverse duplicate survivor direction.
 
 ### `src/ContactCore.Desktop/MainWindow.axaml`
-Primary desktop visual tree: search/navigation/list, full scalar/repeated-field editor, exact group/tag row UI, Settings, Data Tools, duplicate candidate/comparison/survivor controls, and status/footer.
+Primary mature desktop visual tree: search/navigation/list, full rich editor, Settings, Data Tools, duplicate comparison/survivor controls, and status/footer.
 
 ### `src/ContactCore.Desktop/MainWindow.axaml.cs`
-Platform adapter for import/export/backup pickers, bounded UTF-8 text reads, stream-backed backup temp copies, confirmation dialogs, delegate wiring/unwiring, and keyboard shortcuts including editor-only `Ctrl+S`.
+Desktop platform adapter for import/export/backup pickers, bounded text reads, stream-backed backup temp copies, confirmation dialogs, callback wiring, and keyboard shortcuts.
 
 ### `src/ContactCore.Desktop/Program.cs`
-Desktop process entry point configuring and starting Avalonia application lifetime.
+Desktop process entry point configuring Avalonia classic desktop lifetime.
 
 ### `src/ContactCore.Desktop/RichFieldViewModels.cs`
-Editable row models for phone, email, address, organization, group and tag plus duplicate-pair preview model. Group/tag draft rows retain `OriginalName` so true per-contact renames can become new shared-dictionary assignments while normalization-equivalent edits keep the canonical existing identity/name.
+Desktop editable rich row models plus duplicate preview model and group/tag original-name identity support.
 
 ### `src/ContactCore.Desktop/Styles/DesignSystem.axaml`
-Shared desktop visual styles for surfaces, cards, labels, buttons, avatar/logo, status/muted text, alphabet controls, and visible focus behavior using theme resources.
+Desktop visual styles for surfaces/cards/labels/buttons/avatar/status/alphabet/focus behavior.
 
 ### `src/ContactCore.Desktop/ViewModels.cs`
-Core list/draft/main view-model implementation. Preserves root identity and contact-owned child IDs, retains unchanged group/tag shared identities, converts true group/tag renames to fresh dictionary identities, preserves complete aggregate state, tracks explicit persistence state, handles rich add/remove commands, search/filter/debounce, editor-only save guard, import/export/backup/settings, duplicate review/first-direction merge, and status handling.
+Desktop list/draft/main view-model implementation preserving full aggregate/identity semantics, persistence state, search/debounce, import/export/backup/settings, duplicates, and status handling.
 
-## 8. Domain tests — 2 files
+## 8. Shared UI production project — 9 files
+
+### `src/ContactCore.UI/ContactCore.UI.csproj`
+Portable Avalonia UI library referencing Application/Domain plus Avalonia core/themes and CommunityToolkit.Mvvm. Compiled bindings are disabled by default for the current portable binding model.
+
+### `src/ContactCore.UI/AppServices.cs`
+Defines `AppPlatformCapabilities`, the shared `AppServices` composition record, and `AppBootstrapper` factory used by Android/iOS/Browser heads.
+
+### `src/ContactCore.UI/App.axaml`
+Portable Avalonia application resource root with Fluent theme.
+
+### `src/ContactCore.UI/App.axaml.cs`
+Portable Avalonia `App`. Supports classic desktop and `ISingleViewApplicationLifetime`, applies theme, constructs shared `MainViewModel/MainView`, and starts initialization.
+
+### `src/ContactCore.UI/RichFieldViewModels.cs`
+Portable phone/email/address/organization/group/tag draft view models, contact list item, and duplicate pair preview model.
+
+### `src/ContactCore.UI/ContactDraftViewModel.cs`
+Portable full aggregate editor/draft conversion. Preserves root/contact-owned IDs and shared group/tag reassignment semantics; provides rich add/remove commands and birthday parsing.
+
+### `src/ContactCore.UI/MainViewModel.cs`
+Portable contact workflow for search/filters/new/edit/save/delete, duplicates, CSV/vCard import/export, capability-aware backup/restore, settings/theme, confirmation overlay, debounce, and safe status messages.
+
+### `src/ContactCore.UI/MainView.axaml`
+Responsive single-view visual shell used by phone/tablet/browser heads. Contains contact list, full rich editor, duplicates, data tools, settings/About, horizontal navigation, and in-view destructive-action confirmation.
+
+### `src/ContactCore.UI/MainView.axaml.cs`
+Portable Avalonia `StorageProvider` picker integration, bounded import reader, export writer, stream-backed native backup picker handling, delegate wiring, and keyboard shortcuts where applicable.
+
+## 9. Native composition project — 2 files
+
+### `src/ContactCore.Native/ContactCore.Native.csproj`
+Small native composition library referencing Application, Infrastructure, and shared UI.
+
+### `src/ContactCore.Native/NativeAppServices.cs`
+`NativeAppServiceFactory` that composes `AppPaths`, native preferences, SQLite connection/migrator/repository, `ContactService`, and `BackupService` for Android/iOS shared UI heads.
+
+## 10. Android application project — 3 files
+
+### `src/ContactCore.Android/ContactCore.Android.csproj`
+`net10.0-android` executable with application ID/version, Android package format, Avalonia.Android dependency, and shared UI/native composition references.
+
+### `src/ContactCore.Android/Application.cs`
+Android `AvaloniaAndroidApplication<App>` host. Configures `AppBootstrapper` with Android native SQLite services.
+
+### `src/ContactCore.Android/MainActivity.cs`
+Exported main-launcher `AvaloniaMainActivity` with orientation/screen-size/UI-mode configuration-change handling.
+
+## 11. iOS/iPadOS application project — 4 files
+
+### `src/ContactCore.iOS/ContactCore.iOS.csproj`
+`net10.0-ios` executable with application ID/version, minimum OS metadata, Avalonia.iOS dependency, and shared UI/native composition references.
+
+### `src/ContactCore.iOS/AppDelegate.cs`
+Registered `AvaloniaAppDelegate<App>` host configuring native iOS/iPadOS services.
+
+### `src/ContactCore.iOS/Main.cs`
+UIKit application entry point invoking `UIApplication.Main` with `AppDelegate`.
+
+### `src/ContactCore.iOS/Info.plist`
+Application metadata declaring ContactCore ID/version/minimum OS, iPhone+iPad device families, and supported orientations.
+
+## 12. Browser/WebAssembly application project — 10 files
+
+### `src/ContactCore.Browser/ContactCore.Browser.csproj`
+`Microsoft.NET.Sdk.WebAssembly` executable targeting `net10.0-browser`, referencing Avalonia.Browser plus shared UI/Application/Domain without native Infrastructure.
+
+### `src/ContactCore.Browser/BrowserStorageInterop.cs`
+.NET 10 `[JSImport]` declarations for asynchronous contact load/save and preference load/save through the browser storage module.
+
+### `src/ContactCore.Browser/BrowserContactRepository.cs`
+`IContactRepository` browser implementation. Loads full aggregate state, performs local queries, serializes writes behind a gate, stale-checks merges, persists versioned JSON through IndexedDB, and restores prior in-memory state on persistence failure.
+
+### `src/ContactCore.Browser/BrowserAppServices.cs`
+Browser composition: `ContactService`, `BrowserContactRepository`, browser preferences, unsupported native-backup adapter, and capability metadata indicating IndexedDB/no native DB backup/encryption.
+
+### `src/ContactCore.Browser/Program.cs`
+WebAssembly .NET entry point configuring browser services and starting Avalonia via `StartBrowserAppAsync("out")`.
+
+### `src/ContactCore.Browser/runtimeconfig.template.json`
+WebAssembly browser host runtime configuration template.
+
+### `src/ContactCore.Browser/wwwroot/contactcore-storage.js`
+JavaScript storage module. Creates/opens IndexedDB, reads/writes the single contact-state record transactionally, and stores preferences in localStorage with session fallback behavior in the .NET layer.
+
+### `src/ContactCore.Browser/wwwroot/main.js`
+Loads the ContactCore storage module before starting the .NET WebAssembly runtime, exposes the expected global interop object, creates runtime, and invokes .NET main.
+
+### `src/ContactCore.Browser/wwwroot/index.html`
+Static browser host document containing the `out` application container, loading placeholder, stylesheet, and module bootstrap script.
+
+### `src/ContactCore.Browser/wwwroot/app.css`
+Browser host/full-viewport/loading-shell CSS around the Avalonia WebAssembly surface.
+
+## 13. Domain tests — 2 files
 
 ### `tests/ContactCore.Domain.Tests/ContactCore.Domain.Tests.csproj`
 Domain MSTest project definition/reference.
 
 ### `tests/ContactCore.Domain.Tests/ContactValidationTests.cs`
-Validation/normalization/domain-model regression tests, including valid/invalid fields, non-echoing messages, Unicode search normalization, display/deep-copy/phone-key behavior represented by the current suite.
+Validation/normalization/domain-model regression tests including invalid/valid fields, non-echoing errors, Unicode search normalization, display/deep-copy/phone-key behavior.
 
-## 9. Application tests — 5 files
+## 14. Application tests — 5 files
 
 ### `tests/ContactCore.Application.Tests/ContactCore.Application.Tests.csproj`
 Application MSTest project definition/reference.
 
 ### `tests/ContactCore.Application.Tests/ContactServiceTests.cs`
-Fake-repository tests for scalar/phone/email normalization, full address/organization/group/tag normalization, timestamping, whole-batch import validation-before-write, indexed issue fields, deep-copy import behavior, one bulk call/shared timestamp, and trimmed search forwarding.
+Fake-repository tests for scalar/rich normalization, timestamping, batch import validation-before-write, deep-copy behavior, shared timestamp, and query forwarding.
 
 ### `tests/ContactCore.Application.Tests/DuplicateDetectorTests.cs`
-Duplicate scoring and merge tests for normalized signals, duplicate phone suppression, copied contact-owned child ID safety, and self-merge rejection.
+Duplicate scoring/merge tests for normalized signals, duplicate suppression, copied child-ID safety, and self-merge rejection.
 
 ### `tests/ContactCore.Application.Tests/ImportExportHardeningTests.cs`
-Regression tests for unsupported/duplicate CSV headers, spreadsheet-formula-prefix warnings, supported escaped vCard round trips, common TYPE mapping, and invalid birthday warning privacy.
+Regression tests for CSV header/formula hardening, vCard escaping/TYPE mapping, and warning privacy.
 
 ### `tests/ContactCore.Application.Tests/ImportExportTests.cs`
 Baseline CSV/vCard round-trip tests plus deterministic randomized Unicode/malformed parser robustness coverage.
 
-## 10. Infrastructure tests — 7 files
+## 15. Infrastructure tests — 7 files
 
 ### `tests/ContactCore.Infrastructure.Tests/ContactCore.Infrastructure.Tests.csproj`
 Infrastructure MSTest project definition/reference.
@@ -286,43 +386,48 @@ Infrastructure MSTest project definition/reference.
 Environment/fallback path resolution/derivation tests using controlled disposable paths.
 
 ### `tests/ContactCore.Infrastructure.Tests/BackupServiceTests.cs`
-Backup/restore safety tests: verified restore, retained pre-restore state, missing/self source guards, invalid/unrelated SQLite rejection, schema-family tampering, legacy migration, future schema rejection, and unique backup names.
+Backup/restore safety tests covering verified restore, snapshots, missing/self sources, unrelated/tampered SQLite rejection, migration/future-schema behavior, and unique backup names.
 
 ### `tests/ContactCore.Infrastructure.Tests/JsonAppPreferencesTests.cs`
-Preferences regression tests for runtime-key non-persistence/first-run handling, malformed JSON safe defaults, theme and safety preference behavior, and temp-write semantics represented by the suite.
+Preferences regression tests for runtime-key non-persistence/first-run handling, malformed JSON defaults, themes/safety preferences, and write semantics.
 
 ### `tests/ContactCore.Infrastructure.Tests/RedactingLogTests.cs`
-Diagnostic sanitizer tests for likely email/long-number redaction and output-length boundaries.
+Diagnostic sanitizer tests for likely email/long-number redaction and output bounds.
 
 ### `tests/ContactCore.Infrastructure.Tests/SqliteMergeTests.cs`
-Atomic duplicate persistence tests: successful survivor update/secondary deletion, rollback when the secondary record is missing, and rejection/non-resurrection when the reviewed primary disappeared while preserving the secondary record.
+Atomic duplicate persistence tests for success plus stale missing-secondary and missing-primary/non-resurrection rollback behavior.
 
 ### `tests/ContactCore.Infrastructure.Tests/SqliteRepositoryTests.cs`
-Repository tests for base/rich aggregate round trip/replacement, shared group/tag reassignment after rename, favorites, literal `%`/`_`/backslash search, tag/group/StartsWith filters, cascade delete, and whole-batch rollback.
+Repository tests for base/rich aggregate round trip/replacement, dictionary reassignment, favorites, literal wildcard search, tag/group/A-Z filters, cascade delete, and batch rollback.
 
-## 11. Desktop tests — 2 files
+## 16. Desktop tests — 2 files
 
 ### `tests/ContactCore.Desktop.Tests/ContactCore.Desktop.Tests.csproj`
-Desktop MSTest project definition/reference to the desktop production project.
+Desktop MSTest project referencing the mature desktop production project.
 
 ### `tests/ContactCore.Desktop.Tests/ContactDraftViewModelTests.cs`
-Non-visual editor regression tests: root identity/timestamps/flags, persisted versus unsaved state, exact birthday parsing, contact-owned phone/email/address/organization ID preservation/editing/removal, unchanged group/tag shared identity preservation, true rename-to-new-dictionary-identity behavior, case-only canonical identity/name preservation, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
+Non-visual desktop editor regressions for root/timestamp/flags/persistence state, birthday, contact-owned IDs, group/tag identity/reassignment/case behavior, delimiter names, label-only addresses, blank-row suppression, and source non-mutation.
 
 ## Inventory totals
 
 | Area | Tracked files |
 |---|---:|
-| Root | 18 |
+| Root | 19 |
 | `.github` | 8 |
-| `docs` | 21 |
+| `docs` | 22 |
 | Domain source | 4 |
 | Application source | 5 |
 | Infrastructure source | 8 |
 | Desktop source | 14 |
+| Shared UI source | 9 |
+| Native composition source | 2 |
+| Android source | 3 |
+| iOS/iPadOS source | 4 |
+| Browser/WebAssembly source | 10 |
 | Domain tests | 2 |
 | Application tests | 5 |
 | Infrastructure tests | 7 |
 | Desktop tests | 2 |
-| **Total** | **94** |
+| **Total** | **124** |
 
-This total intentionally counts files only, not directories. The canonical reference must be regenerated if the tracked tree changes after this checkpoint.
+This total intentionally counts tracked files only, not directories. It is derived from the previous verified 94-file inventory plus the 30 tracked files added by the cross-platform continuation; no tracked file was deleted in that continuation. Regenerate this inventory whenever the tracked tree changes.
