@@ -4,7 +4,12 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ## [Unreleased]
 
-No changes have been recorded after the 2.0.12 release-preparation checkpoint.
+### Release hardening after the 2.0.12 preparation checkpoint
+
+- Updated `Microsoft.Data.Sqlite` from 10.0.10 to 10.0.11 so restore resolves a patched SQLitePCLRaw native bundle instead of vulnerable `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 flagged by GitHub Actions as a high-severity advisory.
+- Updated `actions/checkout` to v6 and `actions/setup-dotnet` to v5 across CI/release workflows, and updated CodeQL actions to v4, while preserving the existing cross-platform gates, concurrency policy, SDK policy, packaging, and least-privilege release permissions.
+- PR #12 was closed without merge after its confirmed dependency fix was transferred to the authoritative v2.0.12 PR #4; the stronger PR #4 implementation remains the only intended integration path.
+- Exact-head CI and CodeQL remain the merge gate; no green result is claimed until those workflows complete successfully on the final PR #4 head.
 
 ## [2.0.12] - 2026-08-19
 
