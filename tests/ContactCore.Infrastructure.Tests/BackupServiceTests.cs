@@ -1,8 +1,6 @@
 using ContactCore.Application;
 using ContactCore.Domain;
-using ContactCore.Infrastructure;
 using Microsoft.Data.Sqlite;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ContactCore.Infrastructure.Tests;
 
@@ -206,7 +204,7 @@ public sealed class BackupServiceTests
         await using var command = connection.CreateCommand();
         command.CommandText = "INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $at);";
         command.Parameters.AddWithValue("$version", DatabaseMigrator.LatestSchemaVersion + 100);
-        command.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
         await command.ExecuteNonQueryAsync();
     }
 
