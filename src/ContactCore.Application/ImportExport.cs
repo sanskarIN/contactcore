@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using ContactCore.Domain;
 
@@ -24,7 +25,7 @@ public static class ContactCsvCodec
             {
                 Escape(c.GivenName), Escape(c.FamilyName), Escape(c.Nickname),
                 Escape(c.Emails.FirstOrDefault()?.Address ?? ""), Escape(c.Phones.FirstOrDefault()?.Number ?? ""),
-                Escape(c.Birthday?.ToString("yyyy-MM-dd") ?? ""), Escape(c.Notes)
+                Escape(c.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""), Escape(c.Notes)
             }));
         }
         return sb.ToString();
@@ -65,7 +66,7 @@ public static class ContactCsvCodec
             var birthday = Get("Birthday");
             if (birthday.Length > 0)
             {
-                if (DateOnly.TryParseExact(birthday, "yyyy-MM-dd", out var parsed)) contact.Birthday = parsed;
+                if (DateOnly.TryParseExact(birthday, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) contact.Birthday = parsed;
                 else warnings.Add($"Row {rowIndex + 1}: birthday was not yyyy-MM-dd.");
             }
             if (HasSpreadsheetFormulaPrefix(contact))
@@ -87,7 +88,7 @@ public static class ContactCsvCodec
                contact.Emails.Any(x => Risky(x.Address)) || contact.Phones.Any(x => Risky(x.Number));
     }
 
-    private static string Escape(string value) => '"' + value.Replace("\"", "\"\"") + '"';
+    private static string Escape(string value) => '"' + value.Replace("\"", "\"\"", StringComparison.Ordinal) + '"';
 
     private static IEnumerable<List<string>> Parse(string text)
     {
@@ -128,7 +129,7 @@ public static class VCardCodec
             AppendLine(sb, $"FN:{Esc(c.DisplayName)}");
             foreach (var phone in c.Phones) AppendLine(sb, $"TEL;TYPE={phone.Kind.ToString().ToLowerInvariant()}:{Esc(phone.Number)}");
             foreach (var email in c.Emails) AppendLine(sb, $"EMAIL;TYPE={email.Kind.ToString().ToLowerInvariant()}:{Esc(email.Address)}");
-            if (c.Birthday is not null) AppendLine(sb, $"BDAY:{c.Birthday:yyyyMMdd}");
+            if (c.Birthday is not null) AppendLine(sb, $"BDAY:{c.Birthday.Value.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}");
             if (c.Notes.Length > 0) AppendLine(sb, $"NOTE:{Esc(c.Notes)}");
             AppendLine(sb, "END:VCARD");
         }
@@ -185,7 +186,7 @@ public static class VCardCodec
             else if (property.Equals("BDAY", StringComparison.OrdinalIgnoreCase))
             {
                 var value = Unesc(rawValue);
-                if (DateOnly.TryParseExact(value.Replace("-", ""), "yyyyMMdd", out var date)) current.Birthday = date;
+                if (DateOnly.TryParseExact(value.Replace("-", "", StringComparison.Ordinal), "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) current.Birthday = date;
                 else warnings.Add("A vCard birthday could not be parsed; expected YYYYMMDD or YYYY-MM-DD.");
             }
             else if (property.Equals("NOTE", StringComparison.OrdinalIgnoreCase))
@@ -214,7 +215,7 @@ public static class VCardCodec
         return fallback;
     }
 
-    private static IEnumerable<string> SplitEscaped(string value, char separator)
+    private static List<string> SplitEscaped(string value, char separator)
     {
         var output = new List<string>();
         var field = new StringBuilder();
@@ -236,7 +237,7 @@ public static class VCardCodec
         return output;
     }
 
-    private static IEnumerable<string> Unfold(string text)
+    private static List<string> Unfold(string text)
     {
         var output = new List<string>();
         foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
@@ -249,7 +250,7 @@ public static class VCardCodec
 
     private static void AppendLine(StringBuilder builder, string value) => builder.Append(value).Append("\r\n");
 
-    private static string Esc(string value) => value.Replace("\\", "\\\\").Replace("\n", "\\n").Replace(",", "\\,").Replace(";", "\\;");
+    private static string Esc(string value) => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal).Replace(",", "\\,", StringComparison.Ordinal).Replace(";", "\\;", StringComparison.Ordinal);
 
     private static string Unesc(string value)
     {
