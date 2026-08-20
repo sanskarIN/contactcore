@@ -1,0 +1,367 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ContactCore.UI.MainView"
+             x:Name="Root"
+             x:CompileBindings="False"
+             Focusable="True">
+  <UserControl.Styles>
+    <Style Selector="Border.card">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,6,0,4" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Opacity" Value="0.68" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Border Grid.Row="0" Padding="12" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <Button Content="Contacts" Command="{Binding ShowContactsCommand}" VerticalAlignment="Center" />
+        <TextBox x:Name="SearchBox"
+                 Grid.Column="1"
+                 Watermark="Search names, phones, or emails…"
+                 Text="{Binding SearchText, Mode=TwoWay}"
+                 HorizontalAlignment="Stretch" />
+        <Button Grid.Column="2" Content="New" Command="{Binding NewContactCommand}" Classes="primary" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1" Padding="10,8" BorderThickness="0,0,0,1">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="7">
+          <Button Content="All" Command="{Binding ShowAllCommand}" />
+          <Button Content="Favorites" Command="{Binding FavoritesCommand}" />
+          <Button Content="Archived" Command="{Binding ArchivedCommand}" />
+          <Button Content="Duplicates" Command="{Binding FindDuplicatesCommand}" />
+          <Button Content="Data" Command="{Binding ShowDataToolsCommand}" />
+          <Button Content="Settings" Command="{Binding ShowSettingsCommand}" />
+          <Separator Width="1" Margin="4,0" />
+          <ItemsControl ItemsSource="{Binding Alphabet}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Content="{Binding}"
+                        Padding="8,4"
+                        Command="{Binding $parent[UserControl].DataContext.FilterLetterCommand}"
+                        CommandParameter="{Binding}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2" Margin="12">
+      <Grid IsVisible="{Binding IsListVisible}" RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+          <StackPanel>
+            <TextBlock Text="{Binding ListHeading}" Classes="heading" />
+            <TextBlock Text="Private, offline-first contacts on this device" Classes="muted" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="{Binding ResultCountText}" VerticalAlignment="Center" Classes="muted" />
+        </Grid>
+        <ListBox Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedContact, Mode=TwoWay}">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="46,*,Auto" Margin="3,7" ColumnSpacing="10">
+                <Border Width="42" Height="42" CornerRadius="21" BorderThickness="1">
+                  <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Subtitle}" Classes="muted" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                  <TextBlock Text="★" IsVisible="{Binding IsFavorite}" />
+                  <TextBlock Text="Archived" IsVisible="{Binding IsArchived}" Classes="muted" FontSize="10" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+
+      <ScrollViewer IsVisible="{Binding IsEditorVisible}">
+        <StackPanel Spacing="10" MaxWidth="820" HorizontalAlignment="Stretch">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <StackPanel>
+              <TextBlock Text="{Binding EditorTitle}" Classes="heading" />
+              <TextBlock Text="Edit the complete local contact record." Classes="muted" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Back" Command="{Binding CancelEditCommand}" />
+          </Grid>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Name" Classes="section" />
+              <TextBox Watermark="Given name" Text="{Binding Draft.GivenName, Mode=TwoWay}" />
+              <TextBox Watermark="Family name" Text="{Binding Draft.FamilyName, Mode=TwoWay}" />
+              <TextBox Watermark="Nickname" Text="{Binding Draft.Nickname, Mode=TwoWay}" />
+              <TextBox Watermark="Birthday (yyyy-MM-dd)" Text="{Binding Draft.BirthdayText, Mode=TwoWay}" />
+              <StackPanel Orientation="Horizontal" Spacing="14">
+                <CheckBox Content="Favorite" IsChecked="{Binding Draft.IsFavorite, Mode=TwoWay}" />
+                <CheckBox Content="Archived" IsChecked="{Binding Draft.IsArchived, Mode=TwoWay}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Phone numbers" Classes="section"/><Button Grid.Column="1" Content="Add" Command="{Binding Draft.AddPhoneCommand}" /></Grid>
+              <ItemsControl ItemsSource="{Binding Draft.Phones}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Spacing="6" Margin="0,4,0,8">
+                      <TextBox Watermark="Label" Text="{Binding Label, Mode=TwoWay}" />
+                      <TextBox Watermark="Phone number" Text="{Binding Number, Mode=TwoWay}" />
+                      <ComboBox ItemsSource="{Binding $parent[UserControl].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
+                      <Button Content="Remove phone" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemovePhoneCommand}" CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Email addresses" Classes="section"/><Button Grid.Column="1" Content="Add" Command="{Binding Draft.AddEmailCommand}" /></Grid>
+              <ItemsControl ItemsSource="{Binding Draft.Emails}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Spacing="6" Margin="0,4,0,8">
+                      <TextBox Watermark="Label" Text="{Binding Label, Mode=TwoWay}" />
+                      <TextBox Watermark="Email address" Text="{Binding Address, Mode=TwoWay}" />
+                      <ComboBox ItemsSource="{Binding $parent[UserControl].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
+                      <Button Content="Remove email" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Addresses" Classes="section"/><Button Grid.Column="1" Content="Add" Command="{Binding Draft.AddAddressCommand}" /></Grid>
+              <ItemsControl ItemsSource="{Binding Draft.Addresses}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Spacing="6" Margin="0,4,0,10">
+                      <TextBox Watermark="Label" Text="{Binding Label, Mode=TwoWay}" />
+                      <TextBox Watermark="Street" Text="{Binding Street, Mode=TwoWay}" />
+                      <TextBox Watermark="City" Text="{Binding City, Mode=TwoWay}" />
+                      <TextBox Watermark="Region / state" Text="{Binding Region, Mode=TwoWay}" />
+                      <TextBox Watermark="Postal code" Text="{Binding PostalCode, Mode=TwoWay}" />
+                      <TextBox Watermark="Country" Text="{Binding Country, Mode=TwoWay}" />
+                      <Button Content="Remove address" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveAddressCommand}" CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Organizations" Classes="section"/><Button Grid.Column="1" Content="Add" Command="{Binding Draft.AddOrganizationCommand}" /></Grid>
+              <ItemsControl ItemsSource="{Binding Draft.Organizations}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Spacing="6" Margin="0,4,0,10">
+                      <TextBox Watermark="Organization" Text="{Binding Name, Mode=TwoWay}" />
+                      <TextBox Watermark="Title" Text="{Binding Title, Mode=TwoWay}" />
+                      <TextBox Watermark="Department" Text="{Binding Department, Mode=TwoWay}" />
+                      <Button Content="Remove organization" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveOrganizationCommand}" CommandParameter="{Binding}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Groups" Classes="section"/><Button Grid.Column="1" Content="Add" Command="{Binding Draft.AddGroupCommand}" /></Grid>
+              <ItemsControl ItemsSource="{Binding Draft.Groups}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
+                      <TextBox Watermark="Group name" Text="{Binding Name, Mode=TwoWay}" />
+                      <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Tags" Classes="section"/><Button Grid.Column="1" Content="Add" Command="{Binding Draft.AddTagCommand}" /></Grid>
+              <ItemsControl ItemsSource="{Binding Draft.Tags}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
+                      <TextBox Watermark="Tag name" Text="{Binding Name, Mode=TwoWay}" />
+                      <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Notes" Classes="section" />
+              <TextBox Text="{Binding Draft.Notes, Mode=TwoWay}" AcceptsReturn="True" MinHeight="120" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Save" Command="{Binding SaveCommand}" Classes="primary" />
+            <Button Content="Delete / discard" Command="{Binding RequestDeleteCommand}" />
+            <Button Content="Back" Command="{Binding CancelEditCommand}" />
+          </StackPanel>
+          <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer IsVisible="{Binding IsDuplicatesVisible}">
+        <StackPanel Spacing="12" MaxWidth="820">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="Duplicate review" Classes="heading"/><TextBlock Text="Review evidence before a destructive merge." Classes="muted"/></StackPanel>
+            <Button Grid.Column="1" Content="Back" Command="{Binding CancelEditCommand}" />
+          </Grid>
+          <TextBlock Text="{Binding DuplicateMessage}" TextWrapping="Wrap" />
+          <ListBox ItemsSource="{Binding DuplicatePairs}" SelectedItem="{Binding SelectedDuplicate, Mode=TwoWay}" MinHeight="160">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="2,7"><TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding ReasonsText}" Classes="muted" TextWrapping="Wrap"/></StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Text="First record" Classes="section"/><TextBlock Text="{Binding SelectedDuplicate.PrimaryName}" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedDuplicate.PrimaryDetails}" TextWrapping="Wrap"/>
+              <TextBlock Text="Second record" Classes="section"/><TextBlock Text="{Binding SelectedDuplicate.SecondaryName}" FontWeight="SemiBold"/><TextBlock Text="{Binding SelectedDuplicate.SecondaryDetails}" TextWrapping="Wrap"/>
+              <TextBlock Text="Matching evidence" Classes="section"/><TextBlock Text="{Binding SelectedDuplicate.ReasonsText}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding SelectedDuplicate.MergePreview}" Classes="muted" TextWrapping="Wrap"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Keep first…" Command="{Binding MergeSelectedDuplicateCommand}" Classes="primary" />
+                <Button Content="Keep second…" Command="{Binding MergeSelectedDuplicateIntoSecondaryCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer IsVisible="{Binding IsDataToolsVisible}">
+        <StackPanel Spacing="12" MaxWidth="720">
+          <Grid ColumnDefinitions="*,Auto"><StackPanel><TextBlock Text="Data tools" Classes="heading"/><TextBlock Text="Import, export, backup, and recovery" Classes="muted"/></StackPanel><Button Grid.Column="1" Content="Back" Command="{Binding CancelEditCommand}" /></Grid>
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Portable import / export" Classes="section" />
+              <TextBlock Text="CSV and vCard are interchange formats, not full-fidelity backups." TextWrapping="Wrap" Classes="muted" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Import CSV / vCard" Command="{Binding ImportContactsCommand}" />
+                <Button Content="Export CSV" Command="{Binding ExportCsvCommand}" />
+                <Button Content="Export vCard" Command="{Binding ExportVCardCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="card" IsVisible="{Binding CanUseDatabaseBackups}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Verified native database backup" Classes="section" />
+              <TextBlock Text="{Binding BackupLocation}" TextWrapping="Wrap" Classes="muted" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Create backup" Command="{Binding CreateBackupCommand}" />
+                <Button Content="Restore backup" Command="{Binding RestoreBackupCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="card" IsVisible="{Binding !CanUseDatabaseBackups}">
+            <TextBlock Text="This platform uses browser-managed durable storage. Native SQLite backup/restore is intentionally unavailable; export CSV or vCard for a portable copy." TextWrapping="Wrap" />
+          </Border>
+          <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer IsVisible="{Binding IsSettingsVisible}">
+        <StackPanel Spacing="12" MaxWidth="720">
+          <Grid ColumnDefinitions="*,Auto"><StackPanel><TextBlock Text="Settings" Classes="heading"/><TextBlock Text="Appearance, safety, storage, and About" Classes="muted"/></StackPanel><Button Grid.Column="1" Content="Back" Command="{Binding CancelEditCommand}" /></Grid>
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Appearance &amp; safety" Classes="section" />
+              <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" />
+              <CheckBox Content="Reduce nonessential motion" IsChecked="{Binding ReducedMotion, Mode=TwoWay}" />
+              <CheckBox Content="Confirm before permanently deleting a contact" IsChecked="{Binding ConfirmPermanentDelete, Mode=TwoWay}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="7">
+              <TextBlock Text="Local data" Classes="section" />
+              <TextBlock Text="{Binding PlatformName}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding DataLocation}" TextWrapping="Wrap" />
+              <TextBlock Text="Database encryption integration" Classes="muted" />
+              <TextBlock Text="Available on native SQLite targets when a compatible provider is configured." IsVisible="{Binding CanUseDatabaseEncryption}" TextWrapping="Wrap" />
+              <TextBlock Text="Not applicable to the browser IndexedDB target." IsVisible="{Binding !CanUseDatabaseEncryption}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="6"><TextBlock Text="About" Classes="section"/><TextBlock Text="{Binding AboutSummary}" TextWrapping="Wrap"/><TextBlock Text="{Binding SupportSummary}" TextWrapping="Wrap"/><TextBlock Text="{Binding ProjectSummary}" TextWrapping="Wrap"/><TextBlock Text="Open source • no mandatory account • no telemetry dependency" Classes="muted" TextWrapping="Wrap"/></StackPanel>
+          </Border>
+          <Button Content="Save settings" Command="{Binding SaveSettingsCommand}" Classes="primary" HorizontalAlignment="Left" />
+          <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+
+    <Border Grid.Row="3" Padding="10,6" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding FooterText}" Classes="muted"/><TextBlock Grid.Column="1" Text="Made by the Sanskar" Classes="muted"/></Grid>
+    </Border>
+
+    <Border Grid.RowSpan="4"
+            IsVisible="{Binding IsConfirmationVisible}"
+            Background="#99000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+      <Border Background="{DynamicResource ThemeBackgroundBrush}"
+              BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+              BorderThickness="1"
+              CornerRadius="12"
+              Padding="18"
+              Margin="24"
+              MaxWidth="520"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Confirm action" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding ConfirmationMessage}" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelPendingCommand}" />
+            <Button Content="Confirm" Command="{Binding ConfirmPendingCommand}" Classes="primary" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>
