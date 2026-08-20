@@ -13,7 +13,7 @@
             <TextBlock Text="Private, offline-first contacts" Classes="Muted" FontSize="11" />
           </StackPanel>
         </StackPanel>
-        <TextBox x:Name="SearchBox" Grid.Column="1" Watermark="Search names, phones, or emails…" Text="{Binding SearchText, Mode=TwoWay}" MaxWidth="520" HorizontalAlignment="Stretch" />
+        <TextBox x:Name="SearchBox" Grid.Column="1" PlaceholderText="Search names, phones, or emails…" Text="{Binding SearchText, Mode=TwoWay}" MaxWidth="520" HorizontalAlignment="Stretch" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button Content="New contact" Command="{Binding NewContactCommand}" Classes="Primary" />
           <Button Content="Settings" Command="{Binding ShowSettingsCommand}" />
@@ -105,8 +105,8 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <Grid ColumnDefinitions="120,*,130,Auto" ColumnSpacing="8" Margin="0,4">
-                          <TextBox Watermark="Label" Text="{Binding Label, Mode=TwoWay}" />
-                          <TextBox Grid.Column="1" Watermark="Phone number" Text="{Binding Number, Mode=TwoWay}" />
+                          <TextBox PlaceholderText="Label" Text="{Binding Label, Mode=TwoWay}" />
+                          <TextBox Grid.Column="1" PlaceholderText="Phone number" Text="{Binding Number, Mode=TwoWay}" />
                           <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
                           <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemovePhoneCommand}" CommandParameter="{Binding}" />
                         </Grid>
@@ -126,8 +126,8 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <Grid ColumnDefinitions="120,*,130,Auto" ColumnSpacing="8" Margin="0,4">
-                          <TextBox Watermark="Label" Text="{Binding Label, Mode=TwoWay}" />
-                          <TextBox Grid.Column="1" Watermark="Email address" Text="{Binding Address, Mode=TwoWay}" />
+                          <TextBox PlaceholderText="Label" Text="{Binding Label, Mode=TwoWay}" />
+                          <TextBox Grid.Column="1" PlaceholderText="Email address" Text="{Binding Address, Mode=TwoWay}" />
                           <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
                           <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
                         </Grid>
@@ -149,17 +149,17 @@
                         <Border BorderThickness="0,0,0,1" Padding="0,6,0,10">
                           <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                              <TextBox Watermark="Label (Home, Work…)" Text="{Binding Label, Mode=TwoWay}" />
+                              <TextBox PlaceholderText="Label (Home, Work…)" Text="{Binding Label, Mode=TwoWay}" />
                               <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveAddressCommand}" CommandParameter="{Binding}" />
                             </Grid>
-                            <TextBox Watermark="Street" Text="{Binding Street, Mode=TwoWay}" />
+                            <TextBox PlaceholderText="Street" Text="{Binding Street, Mode=TwoWay}" />
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                              <TextBox Watermark="City" Text="{Binding City, Mode=TwoWay}" />
-                              <TextBox Grid.Column="1" Watermark="Region / state" Text="{Binding Region, Mode=TwoWay}" />
+                              <TextBox PlaceholderText="City" Text="{Binding City, Mode=TwoWay}" />
+                              <TextBox Grid.Column="1" PlaceholderText="Region / state" Text="{Binding Region, Mode=TwoWay}" />
                             </Grid>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                              <TextBox Watermark="Postal code" Text="{Binding PostalCode, Mode=TwoWay}" />
-                              <TextBox Grid.Column="1" Watermark="Country" Text="{Binding Country, Mode=TwoWay}" />
+                              <TextBox PlaceholderText="Postal code" Text="{Binding PostalCode, Mode=TwoWay}" />
+                              <TextBox Grid.Column="1" PlaceholderText="Country" Text="{Binding Country, Mode=TwoWay}" />
                             </Grid>
                           </StackPanel>
                         </Border>
@@ -179,9 +179,9 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="8" Margin="0,4">
-                          <TextBox Watermark="Organization" Text="{Binding Name, Mode=TwoWay}" />
-                          <TextBox Grid.Column="1" Watermark="Title" Text="{Binding Title, Mode=TwoWay}" />
-                          <TextBox Grid.Column="2" Watermark="Department" Text="{Binding Department, Mode=TwoWay}" />
+                          <TextBox PlaceholderText="Organization" Text="{Binding Name, Mode=TwoWay}" />
+                          <TextBox Grid.Column="1" PlaceholderText="Title" Text="{Binding Title, Mode=TwoWay}" />
+                          <TextBox Grid.Column="2" PlaceholderText="Department" Text="{Binding Department, Mode=TwoWay}" />
                           <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveOrganizationCommand}" CommandParameter="{Binding}" />
                         </Grid>
                       </DataTemplate>
@@ -201,7 +201,7 @@
                       <ItemsControl.ItemTemplate>
                         <DataTemplate>
                           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
-                            <TextBox Watermark="Group name" Text="{Binding Name, Mode=TwoWay}" />
+                            <TextBox PlaceholderText="Group name" Text="{Binding Name, Mode=TwoWay}" />
                             <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
                           </Grid>
                         </DataTemplate>
@@ -220,7 +220,7 @@
                       <ItemsControl.ItemTemplate>
                         <DataTemplate>
                           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
-                            <TextBox Watermark="Tag name" Text="{Binding Name, Mode=TwoWay}" />
+                            <TextBox PlaceholderText="Tag name" Text="{Binding Name, Mode=TwoWay}" />
                             <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
                           </Grid>
                         </DataTemplate>
