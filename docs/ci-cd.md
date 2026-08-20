@@ -1,41 +1,102 @@
 # CI/CD
 
-ContactCore uses GitHub Actions for cross-platform build/test checks, CodeQL analysis, and tag-driven release publishing. The workflows live under `.github/workflows/`.
+ContactCore uses GitHub Actions for core build/test checks, platform-specific Android/iOS/WebAssembly compilation, CodeQL analysis, and tag-driven release publishing. Workflows live under `.github/workflows/`.
 
 The current source/application version is **2.0.12**, centralized in `Directory.Build.props`.
+
+## Why CI is split
+
+The complete `ContactCore.slnx` contains Android, iOS, Browser, Desktop, shared layers, and tests. Android/iOS/WebAssembly projects need .NET workloads that are not installed on every GitHub-hosted runner, and iOS compilation belongs on macOS.
+
+For that reason:
+
+- `ContactCore.Core.slnx` is the workload-free quality solution used for three-OS restore/format/build/test and CodeQL;
+- platform heads are built by dedicated jobs that install exactly the needed workload;
+- `ContactCore.slnx` remains the complete repository solution for IDE/source organization.
+
+This prevents an ordinary Linux core job from failing merely because an Apple workload is absent while still making every platform head an explicit merge gate.
 
 ## CI workflow
 
 `.github/workflows/ci.yml` runs on pushes to `main` and pull requests targeting `main`.
 
-The `build-test` job uses a three-OS matrix:
+### `core-build-test`
+
+Matrix:
 
 - `ubuntu-latest`
 - `windows-latest`
 - `macos-latest`
 
-`fail-fast: false` means one operating-system failure does not cancel the other matrix variants. Each job has a 25-minute timeout.
+`fail-fast: false` means one operating-system failure does not cancel the other matrix variants. Each matrix job:
 
-The workflow:
-
-1. checks out the repository;
-2. installs the SDK from `global.json`;
-3. enables the setup-dotnet package cache keyed through `Directory.Packages.props`;
-4. restores `ContactCore.slnx`;
-5. runs `dotnet format ... --verify-no-changes --no-restore`;
+1. checks out with `actions/checkout@v6`;
+2. installs the SDK using `actions/setup-dotnet@v5` and `global.json`;
+3. enables NuGet caching keyed from `Directory.Packages.props`;
+4. restores `ContactCore.Core.slnx`;
+5. runs `dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore`;
 6. builds Release with `--no-restore`;
-7. runs the complete solution tests with coverage collection and `--no-build`;
-8. uploads `TestResults` as an artifact even when earlier test execution fails, when files are present.
+7. runs tests with XPlat Code Coverage and `--no-build`;
+8. uploads `TestResults` when present, including after failures.
 
-Test-result artifacts are named by operating system and retained for 14 days.
+Core test artifacts are named by runner OS and retained for 14 days.
 
-### Concurrency
+### `browser-build`
 
-CI uses a concurrency group based on pull-request number or Git ref and `cancel-in-progress: true`. A newer commit on the same PR cancels an obsolete in-progress CI run so feedback converges on the latest branch head.
+Runner: `ubuntu-latest`.
 
-### Permissions
+The job:
 
-CI requests only `contents: read`.
+```text
+setup .NET from global.json
+→ dotnet workload install wasm-tools --skip-manifest-update
+→ restore ContactCore.Browser
+→ Release build ContactCore.Browser
+```
+
+This is the compile gate for `net10.0-browser`, Avalonia.Browser, .NET/JavaScript interop, shared UI references, and browser repository code.
+
+### `android-build`
+
+Runner: `ubuntu-latest`.
+
+The job:
+
+```text
+setup .NET from global.json
+→ dotnet workload install android --skip-manifest-update
+→ restore ContactCore.Android
+→ Release build ContactCore.Android
+```
+
+It verifies the Android application head and transitive shared/native SQLite composition. It does not inject a private Android signing key.
+
+### `ios-build`
+
+Runner: `macos-latest`.
+
+The job:
+
+```text
+setup .NET from global.json
+→ dotnet workload install ios --skip-manifest-update
+→ restore ContactCore.iOS
+→ Release build ContactCore.iOS
+```
+
+macOS is used because iOS compilation requires the Apple development toolchain. The build gate does not invent Apple signing/provisioning credentials.
+
+### CI concurrency
+
+CI uses a concurrency group based on pull-request number or Git ref with `cancel-in-progress: true`. A new commit on the same PR cancels obsolete in-progress CI so the merge signal converges on the current head.
+
+### CI permissions
+
+The workflow requests only:
+
+```text
+contents: read
+```
 
 ## CodeQL
 
@@ -43,115 +104,179 @@ CI requests only `contents: read`.
 
 - on pushes to `main`;
 - on pull requests targeting `main`;
-- weekly on Monday at `03:23` UTC (`23 3 * * 1`).
+- weekly Monday at `03:23` UTC (`23 3 * * 1`).
 
-It analyzes C# on Ubuntu with a 30-minute timeout.
+It analyzes C# on Ubuntu.
 
-The job checks out code, initializes CodeQL, installs the SDK from `global.json`, restores the solution, performs a Release build, and invokes CodeQL analysis.
+The sequence is:
 
-Permissions are limited to `contents: read` and `security-events: write`, the latter being required to publish analysis results.
+1. checkout v6;
+2. initialize CodeQL v4 for C#;
+3. setup .NET v5 from `global.json`;
+4. restore `ContactCore.Core.slnx`;
+5. Release build `ContactCore.Core.slnx`;
+6. run CodeQL analysis.
 
-Like CI, CodeQL cancels obsolete runs for the same PR/ref.
+CodeQL deliberately uses the workload-free core solution. Android/iOS/WebAssembly compilation is already enforced by CI and should not force CodeQL's Linux analysis job to install unrelated workloads.
+
+Permissions are limited to:
+
+```text
+contents: read
+security-events: write
+```
+
+CodeQL uses the same obsolete-run cancellation principle as CI.
 
 ## Release workflow
 
-`.github/workflows/release.yml` runs when a tag matches `v*.*.*`, but syntactic tag matching alone is no longer enough to publish.
+`.github/workflows/release.yml` triggers on tags matching:
 
-### Release preflight
+```text
+v*.*.*
+```
+
+The pattern alone is not sufficient to publish; version preflight must succeed.
+
+## Release preflight
 
 The `preflight` job:
 
 1. checks out the tagged commit;
 2. installs the SDK from `global.json`;
 3. resolves `ContactCore.Desktop`'s `Version` through MSBuild;
-4. verifies that the pushed tag exactly equals `v<Version>`;
+4. verifies the tag exactly equals `v<Version>`;
 5. exposes the resolved version to downstream jobs.
 
-For the current source tree the only correct release tag is:
+For this source tree the intended tag is:
 
 ```text
 v2.0.12
 ```
 
-A tag such as `v2.0.13` fails preflight rather than publishing mismatched binaries.
+A mismatched tag such as `v2.0.13` fails before publishing.
 
-### Publish matrix
+## Desktop publish matrix
 
-The publish matrix targets:
+`desktop-publish` produces six native desktop archives:
 
 | Runner | Runtime identifier | Package |
 |---|---|---|
 | Windows | `win-x64` | `.zip` |
+| Windows | `win-arm64` | `.zip` |
 | Ubuntu | `linux-x64` | `.tar.gz` |
+| Ubuntu | `linux-arm64` | `.tar.gz` |
 | macOS | `osx-x64` | `.tar.gz` |
 | macOS | `osx-arm64` | `.tar.gz` |
 
 Each matrix job:
 
 1. checks out the tag;
-2. installs the SDK from `global.json`;
-3. restores the solution;
-4. runs the full solution tests in Release;
-5. publishes `ContactCore.Desktop` as a self-contained, single-file-targeted application for the matrix RID;
-6. packages Windows output as a ZIP and Linux/macOS output as a tar.gz archive;
-7. uploads the packaged archive as a GitHub Actions artifact.
+2. sets up .NET through `global.json`;
+3. restores `ContactCore.Core.slnx`;
+4. runs core tests in Release;
+5. publishes `ContactCore.Desktop` for the matrix RID as self-contained/single-file-targeted output;
+6. packages Windows output as ZIP or Linux/macOS output as tar.gz;
+7. uploads the archive as a workflow artifact.
 
-Packaging Unix output before `actions/upload-artifact` preserves executable metadata inside the tar archive instead of depending on Actions artifact permission preservation.
+Unix output is packaged in tar.gz before upload so executable metadata is retained inside the archive.
 
-The resulting 2.0.12 package names are:
+Expected names for 2.0.12:
 
 ```text
 contactcore-v2.0.12-win-x64.zip
+contactcore-v2.0.12-win-arm64.zip
 contactcore-v2.0.12-linux-x64.tar.gz
+contactcore-v2.0.12-linux-arm64.tar.gz
 contactcore-v2.0.12-osx-x64.tar.gz
 contactcore-v2.0.12-osx-arm64.tar.gz
 ```
 
-### Final release job
+## Browser publishing
 
-After all publish jobs succeed, the `release` job:
+`browser-publish` runs on Ubuntu:
 
-1. downloads and merges the four packaged artifacts into one directory;
-2. generates `SHA256SUMS.txt` with SHA-256 hashes of `contactcore-*` archives;
-3. prints the checksums in the job output;
+1. setup .NET;
+2. install `wasm-tools`;
+3. publish `ContactCore.Browser` in Release;
+4. ZIP the complete static WebAssembly output;
+5. upload `contactcore-v2.0.12-browser-wasm.zip`.
+
+The browser ZIP is a static-hosting artifact. It must be deployed to a suitable HTTP(S) web host; it is not a desktop executable.
+
+## Mobile release gate
+
+`mobile-build-gate` has two matrix entries:
+
+- Android on Ubuntu, `android` workload, `ContactCore.Android` Release build;
+- iOS on macOS, `ios` workload, `ContactCore.iOS` Release build.
+
+The final GitHub Release depends on this gate, so a tag should not publish desktop/browser assets while the mobile source heads are broken.
+
+### Why mobile packages are not attached automatically
+
+Production Android and Apple distribution requires private maintainer-controlled signing material. The repository intentionally does not contain fake, example-as-production, or real signing credentials.
+
+Therefore v2.0.12 release automation treats Android/iOS as **build-gated source targets**, while desktop/browser artifacts are the automatically attachable unsigned packages.
+
+When a secure secret/signing policy is added later, signed mobile packaging can be layered on top without weakening this boundary.
+
+## Final release job
+
+After `preflight`, `desktop-publish`, `browser-publish`, and `mobile-build-gate` succeed, `release`:
+
+1. downloads and merges packaged workflow artifacts;
+2. generates `SHA256SUMS.txt` using SHA-256 over `contactcore-*` packages;
+3. prints the checksum list in workflow output;
 4. creates/updates the GitHub Release with generated release notes;
-5. attaches the four archives and checksum file.
+5. attaches packaged desktop/browser artifacts plus the checksum file.
 
-### Release permissions
+## Release permissions
 
-The workflow defaults to:
+Workflow default:
 
 ```text
 contents: read
 ```
 
-Only the final `release` job receives:
+Only the final release-creation job receives:
 
 ```text
 contents: write
 ```
 
-This follows least privilege more closely than granting write permission to test/publish jobs.
+The mobile build gate does not receive repository write permission or signing secrets by default.
 
-### Release concurrency
+## Release concurrency
 
-The release workflow uses a tag-ref concurrency group with `cancel-in-progress: false`. A release that has started is not intentionally cancelled merely because another event for the same ref appears.
+Release uses a tag-ref concurrency group with `cancel-in-progress: false`. An already-started release is not intentionally cancelled merely because another event appears for the same ref.
 
 ## Important release claims
 
-The workflow creates self-contained/single-file-targeted publishes and packages them for download, but repository documentation must **not** describe them as code-signed, notarized, installer-packaged, store-certified, or cryptographically authenticated binaries unless those steps are explicitly added and verified.
+Current automation must not be described as doing work it does not perform.
 
-`SHA256SUMS.txt` provides byte-integrity checking relative to the published checksum file; it is not a substitute for trusted code signing/notarization.
+Desktop archives are not claimed as signed installers or notarized applications. Browser output is not a hosted service by itself. Android/iOS targets are not claimed as Play Store/App Store-certified packages. `SHA256SUMS.txt` provides byte-integrity comparison against the published checksum file; it is not a replacement for trusted platform code signing/notarization.
 
-## SDK consistency
+## SDK/package consistency
 
-Development, CI, CodeQL build preparation, and release automation all use the repository SDK policy in `global.json`. This removes the previous release-only `10.0.x` selector and reduces CI/release SDK drift.
+Development, CI, CodeQL, and release automation use `global.json` with SDK 10.0.100 plus `latestFeature` roll-forward and prereleases disabled.
 
-The current baseline is SDK `10.0.100` with `latestFeature` roll-forward and prereleases disabled.
+Avalonia/mobile/browser package versions are centrally managed in `Directory.Packages.props`, including:
+
+```text
+Avalonia
+Avalonia.Desktop
+Avalonia.Android
+Avalonia.iOS
+Avalonia.Browser
+Avalonia.Themes.Fluent
+```
+
+Do not add independent project-level package versions unless there is a deliberate, documented exception.
 
 ## Versioning policy
 
-`Directory.Build.props` currently defines:
+`Directory.Build.props` defines:
 
 ```text
 VersionPrefix        2.0.12
@@ -161,89 +286,91 @@ FileVersion          2.0.12.0
 InformationalVersion 2.0.12
 ```
 
-When preparing the next release, update this metadata and the changelog/docs before tagging. The release preflight should remain the guard preventing tag/project-version divergence.
+When preparing another release, update source version metadata and release documentation before tagging. Keep preflight as the guard against tag/project divergence.
 
 ## Dependency automation
 
-`.github/dependabot.yml` tracks dependency updates for the package/workflow ecosystems configured there. Dependency PRs must still pass the same normal review and CI rules; automated version discovery is not equivalent to compatibility approval.
+`.github/dependabot.yml` tracks configured package/workflow ecosystems. Automated update discovery is not compatibility approval; dependency PRs must pass the same review and platform CI gates.
 
-## Pull-request quality gate
+## Pull-request merge gate
 
-Before merging code-changing work, reviewers should require at minimum:
+For changes touching production code/workflows, require the **exact final head** to have:
 
-- restore succeeds;
-- format verification succeeds;
-- Release build succeeds;
-- all solution tests pass on the supported CI matrix;
-- CodeQL reports no unresolved newly introduced actionable finding;
-- documentation is updated for changed behavior;
-- no real contact data, databases, exports, credentials, signing material, or private endpoints were committed.
+- core restore success on Ubuntu/Windows/macOS;
+- core format success;
+- core Release build success;
+- all current core tests passing;
+- Browser Release build success after `wasm-tools` installation;
+- Android Release build success after Android workload installation;
+- iOS Release build success on macOS after iOS workload installation;
+- CodeQL with no unresolved newly introduced actionable finding;
+- documentation aligned with the code;
+- no real contact data, databases, exports, credentials, signing material, or private endpoints committed.
 
-For release-preparation work, additionally verify the exact final branch/main commit after version/documentation/workflow edits. A green result for an earlier commit is not evidence for a newer head.
+A green run for an older commit does not verify a newer documentation/code/workflow head.
 
 ## Diagnosing failures
 
-### Restore failure
+### Core restore
 
-Check package versions, NuGet availability, SDK compatibility, and project references. Because versions are centrally managed, inspect `Directory.Packages.props` before adding package-version attributes to individual project files.
+Check `global.json`, central package versions, package availability, and project references. Inspect `Directory.Packages.props` before adding package-version attributes to individual projects.
 
-### Format failure
-
-Run:
+### Format
 
 ```bash
-dotnet format ContactCore.slnx
+dotnet format ContactCore.Core.slnx
 ```
 
-Then inspect and commit only intended formatting changes.
+Inspect resulting changes before committing them.
 
-### Build failure on one OS
+### Android workload/build
 
-Treat it as a platform-compatibility issue until shown otherwise. Avalonia/storage/native SQLite behavior can differ by runner. Avoid suppressing one matrix leg merely to obtain a green badge.
+Confirm the stable .NET 10 SDK resolves, `dotnet workload list` includes Android after installation, and the Android SDK/toolchain is available. Do not “fix” a compile error by silently deleting the Android CI gate.
+
+### iOS workload/build
+
+Use the macOS job logs. Check .NET iOS workload/toolchain compatibility and Apple tooling. Distinguish compilation/toolchain failures from signing/provisioning failures; the current gate is not intended to perform store signing.
+
+### Browser workload/build
+
+Check `wasm-tools`, WebAssembly SDK errors, `[JSImport]` source generation, JavaScript host assets, and Avalonia Browser references. A browser compile failure is a first-class platform regression.
 
 ### Test failure
 
-Use the uploaded OS-specific `TestResults` artifacts where available. Reproduce locally with the same Release configuration and, when relevant, the same operating system.
+Use uploaded OS-specific `TestResults` where present. Reproduce with Release configuration and the relevant host OS when possible.
 
-### CodeQL finding
+### CodeQL
 
-Follow the data/control path to determine whether the finding is exploitable, false-positive, or defense-in-depth. Prefer code changes over blanket suppressions. Any necessary suppression should be narrow, justified in code/review, and revisited later.
+Follow the data/control path to determine whether a finding is actionable. Prefer code changes over broad suppression. Any unavoidable suppression should be narrow and justified.
 
-### Release preflight failure
+### Release preflight
 
-If the message says the tag does not match the project version:
+If tag/version mismatch occurs, inspect `Directory.Build.props` and the pushed tag. Correct the release version/tag instead of weakening preflight.
 
-- inspect `Directory.Build.props`;
-- inspect the pushed tag;
-- decide which version is actually intended;
-- correct the release preparation instead of weakening/removing the check.
+### Desktop packaging
 
-For 2.0.12, the tag must be exactly `v2.0.12`.
+On Windows inspect `Compress-Archive` and publish output. On Linux/macOS inspect `tar`, paths, and executable metadata.
 
-### Packaging failure
+### Browser packaging
 
-On Windows, inspect the `Compress-Archive` step and publish-directory contents. On Linux/macOS, inspect the `tar` step, path, and file permissions. Do not switch Unix packaging to an approach that loses executable metadata without understanding the consequence.
+Ensure `dotnet publish` produced the expected static output and ZIP packaging starts from the publish directory rather than accidentally omitting `_framework` or `wwwroot` assets.
 
-### Checksum/release failure
+### Checksum/final release
 
-The final job expects all publish jobs to succeed and all packaged files to be downloaded. If `sha256sum contactcore-*` finds no files, investigate artifact naming/download rather than publishing a checksum-less partial release silently.
-
-### Partial release
-
-Do not retag over an ambiguous public partial release without understanding what assets were produced. Fix workflow/code, verify normal CI, and use a clean version/tag policy consistent with the changelog.
+If `sha256sum contactcore-*` sees no files, investigate upstream artifact naming/download. Do not publish a silently incomplete release.
 
 ## Workflow-change checklist
 
 When changing GitHub Actions:
 
-- use least-privilege permissions;
-- pin to maintained major action versions and review upstream release/security notices;
-- preserve sensible timeouts;
-- preserve or improve concurrency controls;
-- keep release tags tied to source version metadata;
-- avoid exposing secrets to untrusted pull-request code;
-- package Unix executables in a permission-preserving format;
-- publish checksums for release archives;
-- keep generated artifacts free of real user data;
-- document newly added signing/notarization requirements honestly;
-- update this file, `docs/release.md`, `README.md`, `CHANGELOG.md`, and `what_changed.md`.
+- preserve least-privilege permissions;
+- keep maintained action major versions under review;
+- preserve sensible timeouts/concurrency;
+- keep source version tied to release tags;
+- do not expose secrets to untrusted pull-request code;
+- keep mobile signing credentials out of source;
+- keep Unix executable packaging permission-safe;
+- publish checksums for downloadable archives;
+- keep generated artifacts free of user data;
+- treat Android/iOS/Browser gates as first-class rather than optional decoration;
+- update `platform-support.md`, `release.md`, `README.md`, `CHANGELOG.md`, and `what_changed.md` when platform behavior changes.
