@@ -65,6 +65,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IAppPreferences _preferences;
     private readonly AppPaths _paths;
     private CancellationTokenSource? _searchCts;
+    private int _refreshGeneration;
     public MainWindowViewModel(ContactService service, IBackupService backup, IAppPreferences preferences, AppPaths paths)
     {
         _service = service; _backup = backup; _preferences = preferences; _paths = paths;
@@ -155,9 +156,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
-        var query = new ContactQuery(SearchText, FavoritesOnly, IncludeArchived: ArchivedOnly, StartsWith: _letter);
+        var generation = Interlocked.Increment(ref _refreshGeneration);
+        var archivedOnly = ArchivedOnly;
+        var query = new ContactQuery(SearchText, FavoritesOnly, IncludeArchived: archivedOnly, StartsWith: _letter);
         var contacts = await _service.SearchAsync(query, cancellationToken);
-        if (ArchivedOnly) contacts = contacts.Where(x => x.IsArchived).ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (generation != Volatile.Read(ref _refreshGeneration)) return;
+        if (archivedOnly) contacts = contacts.Where(x => x.IsArchived).ToArray();
         Contacts.Clear(); foreach (var contact in contacts) Contacts.Add(new(contact));
         ResultCountText = $"{Contacts.Count} {(Contacts.Count == 1 ? "contact" : "contacts")}";
     }
