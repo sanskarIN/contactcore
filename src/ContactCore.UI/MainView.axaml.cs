@@ -58,7 +58,7 @@ public sealed partial class MainView : UserControl
             ]
         });
 
-        using var file = files.FirstOrDefault();
+        using var file = files.Count > 0 ? files[0] : null;
         if (file is null) return null;
         await using var stream = await file.OpenReadAsync();
         var content = await ReadLimitedTextAsync(stream, MaxImportCharacters);
@@ -107,7 +107,7 @@ public sealed partial class MainView : UserControl
             FileTypeFilter = [new FilePickerFileType("ContactCore database backup") { Patterns = ["*.db"] }]
         });
 
-        using var file = files.FirstOrDefault();
+        using var file = files.Count > 0 ? files[0] : null;
         if (file is null) return null;
 
         var localPath = file.TryGetLocalPath();
