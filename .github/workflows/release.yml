@@ -7,6 +7,7 @@ permissions:
 jobs:
   publish:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -19,8 +20,8 @@ jobs:
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - run: dotnet restore ContactCore.slnx
@@ -30,6 +31,7 @@ jobs:
         with:
           name: contactcore-${{ matrix.rid }}
           path: artifacts/${{ matrix.rid }}
+          if-no-files-found: error
   release:
     needs: publish
     runs-on: ubuntu-latest
