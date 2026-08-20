@@ -8,17 +8,29 @@ public sealed record ImportResult(IReadOnlyList<Contact> Contacts, IReadOnlyList
 
 public static class ContactCsvCodec
 {
-    public static string Export(IEnumerable<Contact> contacts)
+    public static string Export(IEnumerable<Contact> contacts) => ExportCore(contacts, spreadsheetSafe: false);
+
+    /// <summary>
+    /// Exports CSV intended for direct opening in spreadsheet applications. Text cells that begin with
+    /// characters commonly interpreted as formulas are prefixed with an apostrophe before CSV escaping.
+    /// Use <see cref="Export"/> when exact text round-tripping is more important than spreadsheet safety.
+    /// </summary>
+    public static string ExportForSpreadsheet(IEnumerable<Contact> contacts) => ExportCore(contacts, spreadsheetSafe: true);
+
+    private static string ExportCore(IEnumerable<Contact> contacts, bool spreadsheetSafe)
     {
+        ArgumentNullException.ThrowIfNull(contacts);
         var sb = new StringBuilder();
         sb.AppendLine("GivenName,FamilyName,Nickname,Email,Phone,Birthday,Notes");
         foreach (var c in contacts)
         {
+            ArgumentNullException.ThrowIfNull(c);
+            string Encode(string value) => Escape(spreadsheetSafe ? NeutralizeSpreadsheetFormula(value) : value);
             sb.AppendLine(string.Join(',', new[]
             {
-                Escape(c.GivenName), Escape(c.FamilyName), Escape(c.Nickname),
-                Escape(c.Emails.FirstOrDefault()?.Address ?? ""), Escape(c.Phones.FirstOrDefault()?.Number ?? ""),
-                Escape(c.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""), Escape(c.Notes)
+                Encode(c.GivenName), Encode(c.FamilyName), Encode(c.Nickname),
+                Encode(c.Emails.FirstOrDefault()?.Address ?? ""), Encode(c.Phones.FirstOrDefault()?.Number ?? ""),
+                Encode(c.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""), Encode(c.Notes)
             }));
         }
         return sb.ToString();
@@ -26,6 +38,7 @@ public static class ContactCsvCodec
 
     public static ImportResult Import(string csv)
     {
+        ArgumentNullException.ThrowIfNull(csv);
         var rows = Parse(csv).ToList();
         if (rows.Count == 0) return new([], []);
         var header = rows[0].Select(x => x.Trim()).ToArray();
@@ -51,7 +64,17 @@ public static class ContactCsvCodec
         return new(contacts, warnings);
     }
 
-    private static string Escape(string value) => '"' + value.Replace("\"", "\"\"") + '"';
+    private static string NeutralizeSpreadsheetFormula(string value)
+    {
+        if (value.Length == 0) return value;
+        return IsSpreadsheetFormulaPrefix(value[0]) ? "'" + value : value;
+    }
+
+    private static bool IsSpreadsheetFormulaPrefix(char value) => value is
+        '=' or '+' or '-' or '@' or '\t' or '\r' or '\n' or
+        '\uFF1D' or '\uFF0B' or '\uFF0D' or '\uFF20';
+
+    private static string Escape(string value) => '"' + value.Replace("\"", "\"\"", StringComparison.Ordinal) + '"';
 
     private static IEnumerable<List<string>> Parse(string text)
     {
@@ -81,9 +104,11 @@ public static class VCardCodec
 {
     public static string Export(IEnumerable<Contact> contacts)
     {
+        ArgumentNullException.ThrowIfNull(contacts);
         var sb = new StringBuilder();
         foreach (var c in contacts)
         {
+            ArgumentNullException.ThrowIfNull(c);
             sb.AppendLine("BEGIN:VCARD"); sb.AppendLine("VERSION:4.0");
             sb.AppendLine($"N:{Esc(c.FamilyName)};{Esc(c.GivenName)};;;");
             sb.AppendLine($"FN:{Esc(c.DisplayName)}");
@@ -98,6 +123,7 @@ public static class VCardCodec
 
     public static ImportResult Import(string text)
     {
+        ArgumentNullException.ThrowIfNull(text);
         var contacts = new List<Contact>();
         var warnings = new List<string>();
         Contact? current = null;
