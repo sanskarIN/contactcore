@@ -30,6 +30,6 @@ jobs:
           global-json-file: global.json
           cache: true
           cache-dependency-path: Directory.Packages.props
-      - run: dotnet restore ContactCore.slnx
-      - run: dotnet build ContactCore.slnx -c Release --no-restore
+      - run: dotnet restore ContactCore.Core.slnx
+      - run: dotnet build ContactCore.Core.slnx -c Release --no-restore
       - uses: github/codeql-action/analyze@v4
