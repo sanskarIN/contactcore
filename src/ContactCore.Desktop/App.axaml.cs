@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
@@ -7,7 +6,7 @@ using ContactCore.Infrastructure;
 
 namespace ContactCore.Desktop;
 
-public sealed class App : Application
+public sealed class App : Avalonia.Application
 {
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
