@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using ContactCore.Domain;
 
@@ -17,7 +18,7 @@ public static class ContactCsvCodec
             {
                 Escape(c.GivenName), Escape(c.FamilyName), Escape(c.Nickname),
                 Escape(c.Emails.FirstOrDefault()?.Address ?? ""), Escape(c.Phones.FirstOrDefault()?.Number ?? ""),
-                Escape(c.Birthday?.ToString("yyyy-MM-dd") ?? ""), Escape(c.Notes)
+                Escape(c.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""), Escape(c.Notes)
             }));
         }
         return sb.ToString();
@@ -42,7 +43,7 @@ public static class ContactCsvCodec
             var birthday = Get("Birthday");
             if (birthday.Length > 0)
             {
-                if (DateOnly.TryParseExact(birthday, "yyyy-MM-dd", out var parsed)) contact.Birthday = parsed;
+                if (DateOnly.TryParseExact(birthday, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) contact.Birthday = parsed;
                 else warnings.Add($"Row {rowIndex + 1}: birthday was not yyyy-MM-dd.");
             }
             contacts.Add(contact);
@@ -88,7 +89,7 @@ public static class VCardCodec
             sb.AppendLine($"FN:{Esc(c.DisplayName)}");
             foreach (var phone in c.Phones) sb.AppendLine($"TEL;TYPE={phone.Kind.ToString().ToLowerInvariant()}:{Esc(phone.Number)}");
             foreach (var email in c.Emails) sb.AppendLine($"EMAIL;TYPE={email.Kind.ToString().ToLowerInvariant()}:{Esc(email.Address)}");
-            if (c.Birthday is not null) sb.AppendLine($"BDAY:{c.Birthday:yyyyMMdd}");
+            if (c.Birthday is not null) sb.AppendLine($"BDAY:{c.Birthday.Value.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}");
             if (c.Notes.Length > 0) sb.AppendLine($"NOTE:{Esc(c.Notes)}");
             sb.AppendLine("END:VCARD");
         }
@@ -119,7 +120,7 @@ public static class VCardCodec
             else if (property.Equals("EMAIL", StringComparison.OrdinalIgnoreCase)) current.Emails.Add(new(Guid.NewGuid(), "Imported", value));
             else if (property.Equals("BDAY", StringComparison.OrdinalIgnoreCase))
             {
-                if (DateOnly.TryParseExact(value.Replace("-", ""), "yyyyMMdd", out var date)) current.Birthday = date;
+                if (DateOnly.TryParseExact(value.Replace("-", "", StringComparison.Ordinal), "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) current.Birthday = date;
                 else warnings.Add($"Could not parse vCard birthday '{value}'.");
             }
             else if (property.Equals("NOTE", StringComparison.OrdinalIgnoreCase)) current.Notes = value;
@@ -131,13 +132,13 @@ public static class VCardCodec
     private static IEnumerable<string> Unfold(string text)
     {
         var output = new List<string>();
-        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+        foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
         {
             if ((line.StartsWith(' ') || line.StartsWith('\t')) && output.Count > 0) output[^1] += line[1..];
             else output.Add(line);
         }
         return output;
     }
-    private static string Esc(string value) => value.Replace("\\", "\\\\").Replace("\n", "\\n").Replace(",", "\\,").Replace(";", "\\;");
-    private static string Unesc(string value) => value.Replace("\\n", "\n", StringComparison.OrdinalIgnoreCase).Replace("\\,", ",").Replace("\\;", ";").Replace("\\\\", "\\");
+    private static string Esc(string value) => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal).Replace(",", "\\,", StringComparison.Ordinal).Replace(";", "\\;", StringComparison.Ordinal);
+    private static string Unesc(string value) => value.Replace("\\n", "\n", StringComparison.OrdinalIgnoreCase).Replace("\\,", ",", StringComparison.Ordinal).Replace("\\;", ";", StringComparison.Ordinal).Replace("\\\\", "\\", StringComparison.Ordinal);
 }
