@@ -16,7 +16,7 @@ FileVersion          2.0.12.0
 InformationalVersion 2.0.12
 ```
 
-The release workflow resolves the desktop project's `Version` through MSBuild before any matrix publishing begins. It then requires:
+The release workflow resolves the desktop project's `Version` through MSBuild and requires:
 
 ```text
 GITHUB_REF_NAME == "v" + Version
@@ -26,20 +26,32 @@ For this source tree, `v2.0.12` is accepted; a mismatched tag such as `v2.0.13` 
 
 Application version and SQLite schema version remain separate concepts.
 
-## Current automated targets
+## Release-support matrix
 
-The release workflow publishes `ContactCore.Desktop` as a self-contained, single-file-targeted application for:
+### Automated downloadable packages
 
-| Platform | RID | Runner | Release package |
+| Platform | Target | Runner | Release package |
 |---|---|---|---|
 | Windows x64 | `win-x64` | `windows-latest` | `contactcore-v2.0.12-win-x64.zip` |
+| Windows ARM64 | `win-arm64` | `windows-latest` | `contactcore-v2.0.12-win-arm64.zip` |
 | Linux x64 | `linux-x64` | `ubuntu-latest` | `contactcore-v2.0.12-linux-x64.tar.gz` |
+| Linux ARM64 | `linux-arm64` | `ubuntu-latest` | `contactcore-v2.0.12-linux-arm64.tar.gz` |
 | macOS Intel | `osx-x64` | `macos-latest` | `contactcore-v2.0.12-osx-x64.tar.gz` |
 | macOS Apple Silicon | `osx-arm64` | `macos-latest` | `contactcore-v2.0.12-osx-arm64.tar.gz` |
+| Browser/WebAssembly | `net10.0-browser` | `ubuntu-latest` | `contactcore-v2.0.12-browser-wasm.zip` |
 
-The final release job also creates `SHA256SUMS.txt` containing SHA-256 checksums for all packaged archives.
+The final release job generates `SHA256SUMS.txt` for packaged release assets.
 
-The workflow does not currently publish Windows ARM64, Linux ARM64, installers, app-store packages, or platform-specific package-manager formats.
+### Build-gated mobile targets
+
+| Platform | Project | Runner | Release gate |
+|---|---|---|---|
+| Android | `ContactCore.Android` / `net10.0-android` | `ubuntu-latest` | install Android workload + Release build |
+| iPhone/iPad | `ContactCore.iOS` / `net10.0-ios` | `macos-latest` | install iOS workload + Release build |
+
+Mobile source/build compatibility is a release requirement, but this public workflow does not attach production Android/iOS store packages because store/device distribution requires private signing/provisioning credentials.
+
+That boundary is intentional. Never add a real keystore, certificate, provisioning profile, signing password, or private key to source merely to make a public workflow produce a mobile store binary.
 
 ## Trigger
 
@@ -49,42 +61,60 @@ A push of a tag matching:
 v*.*.*
 ```
 
-starts `.github/workflows/release.yml`.
-
-The preflight version check then rejects any syntactically matching tag that does not equal the project version.
+starts `.github/workflows/release.yml`. Preflight rejects tags that do not equal the project version.
 
 ## Pre-release checklist for 2.0.12
 
 Before creating `v2.0.12`:
 
-1. `main` contains the intended 2.0.12 changes.
-2. The exact final `main` commit has successful CI on Windows, Ubuntu, and macOS.
-3. CodeQL for that exact commit has no unresolved newly introduced actionable issue.
-4. `Directory.Build.props` resolves project version `2.0.12`.
-5. `CHANGELOG.md` contains the 2.0.12 release section.
-6. `README.md`, `docs/README.md`, user guide, architecture, UI, data/storage/security/testing/release docs match actual code.
-7. `what_changed.md` records the exact final verification state rather than an older green commit.
-8. No real contact data, database, backup, export, `.env`, key, certificate/private signing material, or private endpoint is tracked.
-9. Any schema migration has upgrade tests and restore compatibility review.
-10. Import/export changes have round-trip/malformed-input/privacy tests.
-11. Full rich-contact editing has been smoke-tested with fictional data.
-12. Both duplicate-survivor directions and cancellation/confirmation behavior have been manually exercised with fictional contacts.
-13. Backup creation and restore have been tested against a disposable profile.
-14. Permanent-delete and unsaved-draft discard behavior have been checked.
-15. Known limitations are present in the changelog/release notes.
+1. `main` contains the intended 2.0.12 source and documentation.
+2. The exact final commit has successful `core-build-test` CI on Ubuntu, Windows, and macOS.
+3. The exact final commit has successful Browser, Android, and iOS build jobs.
+4. CodeQL for that exact commit has no unresolved newly introduced actionable issue.
+5. `Directory.Build.props` resolves project version `2.0.12`.
+6. `CHANGELOG.md` contains the 2.0.12/cross-platform release-preparation changes.
+7. `README.md`, `docs/README.md`, `platform-support.md`, setup, architecture, data/storage/security/testing/CI/release docs match actual code.
+8. `what_changed.md` records the exact final verification state rather than an older green commit.
+9. No real contact data, database, backup, export, `.env`, key, certificate, keystore, provisioning profile, signing material, or private endpoint is tracked.
+10. Native schema changes, if any, have upgrade tests and restore compatibility review.
+11. Import/export changes have malformed-input/privacy/regression coverage.
+12. Rich-contact editing has been smoke-tested with fictional data on representative UI targets where practical.
+13. Both duplicate-survivor directions and confirmation/cancellation behavior have been exercised with fictional data.
+14. Native backup creation/restore has been tested against a disposable profile.
+15. Browser import/export and IndexedDB persistence behavior has been tested in a disposable browser profile when preparing a user-facing browser release.
+16. Known platform/signing/accessibility limitations are present in release notes.
 
-## Local quality pass
+## Local core quality pass
 
-From a clean checkout when possible:
+The workload-free quality sequence is:
 
 ```bash
-dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes --no-restore
-dotnet build ContactCore.slnx -c Release --no-restore
-dotnet test ContactCore.slnx -c Release --no-build
+dotnet restore ContactCore.Core.slnx
+dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.Core.slnx -c Release --no-restore
+dotnet test ContactCore.Core.slnx -c Release --no-build
 ```
 
-Local success is valuable but does not replace the GitHub cross-platform matrix.
+Platform builds require their workload:
+
+```bash
+dotnet workload install wasm-tools
+dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release
+```
+
+```bash
+dotnet workload install android
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release
+```
+
+On macOS:
+
+```bash
+dotnet workload install ios
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release
+```
+
+Local success is useful but does not replace the GitHub matrix on the exact final head.
 
 ## Tagging 2.0.12
 
@@ -97,44 +127,59 @@ git tag -a v2.0.12 -m "ContactCore v2.0.12"
 git push origin v2.0.12
 ```
 
-Do not create the release tag from the audit branch before the intended commit is merged to `main` unless the project deliberately chooses a branch-based release policy.
+Do not create the intended public release tag from an unmerged audit branch unless the project explicitly adopts a branch-based release policy.
 
-## Automated publish sequence
+## Automated release sequence
 
-### Preflight job
+### 1. Preflight
 
-1. checks out the tag;
-2. installs the SDK using `global.json`;
-3. resolves the desktop project `Version` with MSBuild;
-4. fails if the tag does not equal `v<Version>`.
+- checkout tag;
+- setup .NET from `global.json`;
+- resolve `ContactCore.Desktop` version;
+- fail if tag != `v<Version>`.
 
-### Per-RID publish jobs
+### 2. Desktop publish matrix
 
-Each matrix job:
+For each of the six RIDs:
 
-1. checks out the tag;
-2. installs the SDK using `global.json`;
-3. restores `ContactCore.slnx`;
-4. runs solution tests in Release;
-5. publishes the desktop project with Release configuration, target RID, self-contained runtime, and single-file publishing enabled;
-6. packages Windows output as `.zip` or Linux/macOS output as `.tar.gz`;
-7. uploads the packaged archive as an Actions artifact.
+- restore `ContactCore.Core.slnx`;
+- run core tests in Release;
+- publish `ContactCore.Desktop` self-contained and single-file-targeted;
+- package Windows as ZIP or Linux/macOS as tar.gz;
+- upload the package as an Actions artifact.
 
-Unix output is tarred **before** `actions/upload-artifact`, preserving executable metadata inside the tar archive instead of relying on Actions artifact file-mode preservation.
+Unix output is tarred before `actions/upload-artifact` to retain executable metadata inside the archive.
 
-### Final GitHub Release job
+### 3. Browser publish
 
-The final job:
+- install `wasm-tools`;
+- `dotnet publish` `ContactCore.Browser` in Release;
+- ZIP the full static output;
+- upload `contactcore-v2.0.12-browser-wasm.zip`.
 
-1. waits for all four target jobs;
-2. downloads and merges the packaged Actions artifacts into one release-assets directory;
-3. generates SHA-256 checksums with `sha256sum`;
-4. attaches all archives plus `SHA256SUMS.txt` to the GitHub Release;
-5. asks `softprops/action-gh-release@v2` to generate release notes.
+The browser artifact is deployable static web content. It is not a hosted website until a maintainer deploys it to an appropriate HTTP(S) server.
+
+### 4. Mobile build gate
+
+In parallel matrix entries:
+
+- Ubuntu installs Android workload and Release-builds `ContactCore.Android`;
+- macOS installs iOS workload and Release-builds `ContactCore.iOS`.
+
+The final release depends on this job. Broken mobile source should therefore block the tag release even though mobile store packages are not attached automatically.
+
+### 5. Final GitHub Release
+
+After preflight, desktop publish, browser publish, and mobile build gate succeed:
+
+- download/merge packaged artifacts;
+- generate SHA-256 checksum file;
+- publish release notes;
+- attach desktop/browser archives and checksums.
 
 ## Workflow permissions
 
-The workflow defaults to:
+Default:
 
 ```text
 contents: read
@@ -146,119 +191,130 @@ Only the final GitHub Release job receives:
 contents: write
 ```
 
-This reduces write permission exposure during checkout/test/publish jobs.
-
-## SDK consistency
-
-Development, CI, CodeQL build preparation, and the 2.0.12 release workflow should resolve .NET using `global.json`. The release workflow now uses `actions/setup-dotnet` with `global-json-file: global.json` rather than a separate hard-coded `10.0.x` policy.
-
-This removes one source of release-versus-CI SDK drift.
+Build jobs do not need repository write permission.
 
 ## Artifact verification
 
-Checksums provide transport/integrity verification, not authenticity comparable to signed/notarized binaries.
+Checksums support byte-integrity comparison against the published checksum list; they do not provide the identity/authenticity guarantees of trusted platform code signing.
 
-After download, a user/maintainer can compute SHA-256 and compare it with `SHA256SUMS.txt`. The exact command varies by OS/tooling.
+### Desktop smoke checks
 
-Maintainers should additionally inspect each archive for:
+For representative native packages verify with fictional/disposable data:
 
-- expected executable/bundle files;
-- no unexpected debug/private/generated files;
-- startup on its target architecture;
-- logo/branding/resources;
-- ability to create a disposable local database;
-- full rich contact create/edit/save behavior;
-- search/favorite/archive/A–Z navigation;
-- duplicate review and both survivor choices;
-- Settings theme behavior;
-- fictional CSV/vCard import/export;
-- verified backup creation;
-- restore to a disposable profile;
-- unsaved-draft discard;
-- permanent-delete confirmation.
+- startup;
+- database creation;
+- rich contact create/edit/save;
+- search/favorites/archive/A-Z;
+- duplicate review and both survivor directions;
+- theme/settings;
+- CSV/vCard import/export;
+- verified backup creation and restore;
+- unsaved-draft discard and permanent-delete confirmation.
 
-Record what was actually smoke-tested.
+### Browser smoke checks
+
+After serving the browser publish over HTTP(S), verify:
+
+- WebAssembly boot;
+- IndexedDB persistence across reloads;
+- rich edit/search/filter/duplicate flows;
+- import/export through the browser storage picker path;
+- theme/preferences behavior;
+- correct absence of native SQLite backup/restore claims;
+- useful failure behavior if browser storage is blocked.
+
+Do not test destructive storage behavior in a browser profile containing real contacts.
+
+### Android/iOS smoke checks
+
+A compile gate is not equivalent to device testing. Before public store distribution, use representative devices/simulators with fictional data and verify touch layout, keyboard/input behavior, local persistence, file-picker availability, orientation, accessibility, and lifecycle/background/restore behavior as applicable.
 
 ## Signing and notarization
 
 The current workflow does **not** implement or claim:
 
 - Authenticode signing for Windows;
-- Apple Developer ID signing;
-- macOS notarization/stapling;
+- Windows installer signing;
+- Apple Developer ID signing/notarization for macOS;
 - Linux package signing;
-- signed installers.
+- Play Store production signing;
+- iOS/iPadOS distribution signing/provisioning;
+- App Store or Play Store certification.
 
-SHA-256 checksums detect changed bytes relative to the published checksum file but do not replace trusted code signing/notarization.
+If signing is added:
 
-If signing is added later:
-
-- keep private keys/certificates in an appropriate secret system, never Git;
+- keep keys/certificates/profiles in an appropriate secret system, never Git;
 - use least-privilege workflow permissions;
-- prevent untrusted PR code from accessing signing secrets;
-- document certificate identity and verification instructions;
-- add an ADR or release-security design note for the signing pipeline.
+- prevent untrusted PR code from receiving signing secrets;
+- document signing identity and verification instructions;
+- prefer a dedicated release/signing design review or ADR.
+
+## Browser security/deployment boundary
+
+The browser target is local-first in the sense that contacts are persisted to browser-managed local storage by the application. Hosting the static WebAssembly assets still involves a web origin/server for application delivery.
+
+The current ContactCore source does not add an account/cloud synchronization API. A future web deployment must not silently add telemetry, remote contact upload, or analytics and continue claiming the same privacy posture without explicit documentation/review.
+
+Browser data can be removed by site-data clearing, private-mode teardown, policy, or storage eviction. Release notes should encourage explicit exports for important portable copies.
 
 ## Version and schema compatibility
 
-Application version 2.0.12 and the SQLite schema version are different concepts. A patch application release can still contain migrations if project policy permits, but migrations must remain forward-compatible from supported previous database versions.
+Application version 2.0.12 and native SQLite schema version are separate. ContactCore rejects native databases with a schema version newer than the running build. Users moving between versions should retain verified native backups before incompatible schema changes.
 
-ContactCore rejects a database whose schema version is newer than the running build. Users who open data with a newer app should therefore keep a verified pre-upgrade backup before attempting to use an older build.
-
-Restore can migrate an older supported backup in staging before making it active.
+Browser persistence has its own serialized-document/storage-version boundary and should be migrated deliberately if its representation changes in the future.
 
 ## Release notes for 2.0.12
 
 At minimum mention:
 
-- full repeated-field contact editor and identity-preservation behavior;
-- explicit unsaved-draft safety;
-- interactive duplicate review, survivor choice, and atomic merge/delete;
-- CSV/vCard parser hardening and interchange limitations;
-- verified backup/restore hardening;
-- first-run runtime database-key fix and fail-closed encryption-provider boundary;
-- literal search wildcard behavior;
-- cross-platform test/CodeQL status of the exact release commit;
-- packaged RIDs and `SHA256SUMS.txt`;
-- unsigned/unnotarized status;
-- lack of global taxonomy UI, field reordering, general undo, full vCard fidelity, default encryption-at-rest, and high-scale duplicate optimization;
-- manual accessibility/platform validation status.
+- Windows x64/ARM64, Linux x64/ARM64, macOS Intel/Apple Silicon desktop targets;
+- Android and iOS/iPadOS application heads and build-gate status;
+- browser/WebAssembly target and IndexedDB persistence;
+- native SQLite vs browser persistence/backup distinction;
+- shared responsive UI for mobile/browser;
+- rich repeated-field contact editor and identity behavior;
+- unsaved-draft safety;
+- duplicate review/survivor choice/stale-safe merge;
+- CSV/vCard hardening/limitations;
+- native verified backup/restore hardening;
+- native database-key fail-closed encryption-provider boundary;
+- exact-head CI/CodeQL state;
+- browser package, six desktop packages, and checksums;
+- unsigned/unnotarized/mobile-unprovisioned status;
+- remaining manual device/browser/accessibility validation boundaries.
 
-Never include real user data in examples/screenshots.
+Never include real user data in screenshots/examples.
 
 ## Screenshots
 
-Only publish screenshots made from a disposable profile with clearly fictional contacts. Review the entire image for OS notifications, usernames, paths, email addresses, or other accidental personal information.
+Only publish screenshots made from disposable profiles with clearly fictional contacts. Review the entire image for OS notifications, usernames, paths, email addresses, or other personal information.
 
 ## Failed or partial release
 
-If preflight fails because the tag does not match the project version, correct the version/tag plan rather than bypassing the check.
+If preflight fails due tag/version mismatch, correct the version/tag plan instead of bypassing preflight.
 
-If one matrix leg fails, do not present 2.0.12 as fully cross-platform. Fix the cause and use a clean follow-up release strategy rather than silently omitting the failed platform.
+If a desktop, browser, Android, or iOS release gate fails, do not advertise that exact tag as fully verified across the platform matrix. Fix the issue and use a clean release strategy.
 
-If a GitHub Release already contains partial assets, inspect/delete/replace them according to project policy and preserve a clear audit trail.
+If a GitHub Release already contains partial assets, preserve a clear audit trail. Do not silently move an existing public semantic-version tag to unrelated code after users may have fetched it; prefer a corrected patch release where appropriate.
 
-Do not move an existing public semantic version tag to unrelated code after users may have fetched it. Prefer a new corrected patch version.
+## Data rollback guidance
 
-## Rollback guidance
+Native application rollback and **native data rollback** are separate. An older binary can reject a database migrated to a newer schema. The safe native data rollback is usually a verified backup created before an incompatible upgrade and a build that supports that backup.
 
-Application rollback and **data rollback** are separate.
-
-Because newer releases can migrate the SQLite schema, installing an older binary may be rejected by the future-schema check. The safe data rollback path is usually to restore a verified backup created before an incompatible schema upgrade using a build that supports that backup.
+Browser rollback likewise needs deliberate storage compatibility. Do not assume older browser code understands a future browser document version.
 
 ## Post-release checks
 
 After publishing 2.0.12:
 
-- confirm all four intended archives plus `SHA256SUMS.txt` are attached;
-- verify checksum file entries match the released archives;
-- verify generated release notes/changelog accuracy;
-- smoke-test downloads/startup on representative targets;
-- record any platform-specific limitations;
-- monitor repository issues for reproducible regressions;
+- confirm six desktop archives, browser ZIP, and `SHA256SUMS.txt` are attached;
+- verify checksum entries;
+- confirm generated release notes/changelog/platform matrix are accurate;
+- smoke-test representative desktop downloads;
+- host/test the browser artifact from a disposable origin/profile;
+- record Android/iOS build status and any device/store validation performed separately;
+- document platform-specific issues instead of hiding them;
 - move roadmap/changelog/`what_changed.md` to the next milestone;
-- never request users upload a real contact database publicly when reporting defects.
+- never request public upload of a real contact database when diagnosing bugs.
 
-## Release automation details
-
-See `ci-cd.md` for workflow permissions, concurrency, quality matrices, artifacts, and troubleshooting.
+See `ci-cd.md` and `platform-support.md` for workflow and platform details.
