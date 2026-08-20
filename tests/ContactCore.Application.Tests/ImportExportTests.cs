@@ -17,6 +17,26 @@ public sealed class ImportExportTests
     }
 
     [TestMethod]
+    public void Csv_export_neutralizes_spreadsheet_formulas_and_round_trips()
+    {
+        var c = new Contact { GivenName = "=2+2", FamilyName = "  @SUM(A1:A2)", Notes = "-10" };
+        c.Phones.Add(new(Guid.NewGuid(), "Mobile", "+91 99999 00000"));
+
+        var csv = ContactCsvCodec.Export([c]);
+
+        Assert.IsTrue(csv.Contains("\"'=2+2\"", StringComparison.Ordinal));
+        Assert.IsTrue(csv.Contains("\"'  @SUM(A1:A2)\"", StringComparison.Ordinal));
+        Assert.IsTrue(csv.Contains("\"'-10\"", StringComparison.Ordinal));
+        Assert.IsTrue(csv.Contains("\"'+91 99999 00000\"", StringComparison.Ordinal));
+
+        var decoded = ContactCsvCodec.Import(csv).Contacts.Single();
+        Assert.AreEqual(c.GivenName, decoded.GivenName);
+        Assert.AreEqual(c.FamilyName.Trim(), decoded.FamilyName);
+        Assert.AreEqual(c.Notes, decoded.Notes);
+        Assert.AreEqual("+91 99999 00000", decoded.Phones.Single().Number);
+    }
+
+    [TestMethod]
     public void Vcard_round_trip_preserves_primary_fields_and_note()
     {
         var c = new Contact { GivenName = "Lin", FamilyName = "Chen", Birthday = new DateOnly(2000, 1, 2), Notes = "Hello" };
