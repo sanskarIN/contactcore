@@ -14,13 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
+  core-build-test:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -28,14 +28,14 @@ jobs:
           global-json-file: global.json
           cache: true
           cache-dependency-path: Directory.Packages.props
-      - name: Restore
-        run: dotnet restore ContactCore.slnx
+      - name: Restore core solution
+        run: dotnet restore ContactCore.Core.slnx
       - name: Format check
-        run: dotnet format ContactCore.slnx --verify-no-changes --no-restore
-      - name: Build
-        run: dotnet build ContactCore.slnx -c Release --no-restore
-      - name: Test
-        run: dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
+        run: dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
+      - name: Build core solution
+        run: dotnet build ContactCore.Core.slnx -c Release --no-restore
+      - name: Test core solution
+        run: dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,3 +44,54 @@ jobs:
           path: TestResults
           if-no-files-found: ignore
           retention-days: 14
+
+  browser-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props
+      - name: Install WebAssembly workload
+        run: dotnet workload install wasm-tools --skip-manifest-update
+      - name: Restore browser target
+        run: dotnet restore src/ContactCore.Browser/ContactCore.Browser.csproj
+      - name: Build browser target
+        run: dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release --no-restore
+
+  android-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props
+      - name: Install Android workload
+        run: dotnet workload install android --skip-manifest-update
+      - name: Restore Android target
+        run: dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
+      - name: Build Android target
+        run: dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+
+  ios-build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props
+      - name: Install iOS workload
+        run: dotnet workload install ios --skip-manifest-update
+      - name: Restore iOS target
+        run: dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
+      - name: Build iOS target
+        run: dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
