@@ -1,8 +1,6 @@
 # Testing
 
-ContactCore uses MSTest with one test project per production layer. The suite is intended to prove domain rules, use-case orchestration, interchange behavior, SQLite consistency, backup/recovery safety, preferences/secrets behavior, and non-visual desktop draft semantics.
-
-All four test projects are included in `ContactCore.slnx`.
+ContactCore uses MSTest for behavioral Domain/Application/Infrastructure/Desktop coverage and GitHub Actions build gates for the new Android, iOS/iPadOS, and WebAssembly heads. This separation is intentional: existing tests prove core rules/data safety, while platform jobs prove each application target restores/compiles with its required workload.
 
 ## Test stack
 
@@ -12,33 +10,62 @@ Central versions live in `Directory.Packages.props`:
 - `MSTest`;
 - `coverlet.collector`.
 
-The repository targets .NET 10, identifies the current application version as **2.0.12**, and treats build warnings as errors.
+ContactCore is version **2.0.12** and treats build warnings as errors.
 
-## Run the full quality sequence
+## Solution choice
+
+Use `ContactCore.Core.slnx` for ordinary quality verification. It contains shared Domain/Application/Infrastructure/UI/native-composition/Desktop code plus all four current test projects without forcing Android/iOS/WebAssembly workloads onto every machine.
+
+`ContactCore.slnx` is the complete solution and additionally contains Android, iOS, and Browser application heads.
+
+## Core quality sequence
 
 ```bash
-dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes --no-restore
-dotnet build ContactCore.slnx -c Release --no-restore
-dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
+dotnet restore ContactCore.Core.slnx
+dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.Core.slnx -c Release --no-restore
+dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
 ```
 
-The CI workflow is configured to execute restore/format/build/test on Ubuntu, Windows, and macOS and to upload available test-result/coverage artifacts. CodeQL runs separately.
+CI executes this sequence on Ubuntu, Windows, and macOS.
+
+## Platform build gates
+
+### Browser / WebAssembly
+
+```bash
+dotnet workload install wasm-tools
+dotnet restore src/ContactCore.Browser/ContactCore.Browser.csproj
+dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release --no-restore
+```
+
+The CI browser job is the compile gate for `net10.0-browser`, Avalonia.Browser, `[JSImport]` declarations, the shared UI, and browser repository code.
+
+### Android
+
+```bash
+dotnet workload install android
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+```
+
+### iOS/iPadOS
+
+On macOS:
+
+```bash
+dotnet workload install ios
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
+```
+
+A successful build gate is not a substitute for representative device/simulator/browser testing or store signing/certification.
 
 ## Domain tests
 
 Project: `tests/ContactCore.Domain.Tests`
 
-`ContactValidationTests.cs` covers current validation/normalization behavior including:
-
-- representative valid contacts;
-- malformed email detection;
-- non-echoing invalid email/phone validation messages;
-- Unicode/accent search normalization;
-- trimming/lowercasing search keys;
-- boundary/model behavior represented by the current suite, including display/deep-copy/phone-key cases added during hardening.
-
-Useful future additions can still target unusual Unicode/combining-mark combinations and any new validation rule introduced after 2.0.12.
+Coverage includes representative validation, non-echoing invalid values, Unicode/accent search normalization, display-name/deep-copy behavior, and phone-key normalization.
 
 ## Application tests
 
@@ -46,252 +73,217 @@ Project: `tests/ContactCore.Application.Tests`
 
 ### `ContactServiceTests.cs`
 
-Current coverage includes:
+Coverage includes:
 
-- save normalization for scalar values, phone label/number, and email label/address;
-- rich-field save normalization for address label/street/city/region/postal/country;
-- organization name/title normalization and whitespace-to-null optional department behavior;
-- group and tag name normalization;
-- timestamp refresh on save;
-- whole-batch import validation before any repository bulk write;
-- imported validation-field indexing such as `Contact[2].Email`;
-- deep-copy import normalization so source objects are not mutated;
-- one normalized bulk call for a valid batch;
-- one shared import update timestamp;
-- search-text trimming while all other query filters are preserved.
-
-The service normalization contract for every current repeated collection is therefore directly asserted rather than only inferred from implementation.
+- scalar/phone/email normalization;
+- rich address/organization/group/tag normalization;
+- save timestamps;
+- whole-batch import validation before write;
+- indexed import validation fields;
+- deep-copy import behavior;
+- one normalized bulk call/shared import timestamp;
+- trimmed search forwarding while preserving filters.
 
 ### `DuplicateDetectorTests.cs`
 
-Current coverage includes:
-
-- high-confidence matching from normalized signals;
-- normalized-phone duplicate suppression during merge;
-- fresh IDs for phone/email/address/organization children copied from a secondary contact;
-- self-merge rejection.
-
-The repository/application integration path is additionally protected by `SqliteMergeTests.cs` in Infrastructure.
-
-Future additions could exercise threshold clamping, reason ordering, no-signal pairs, every note-combination branch, and more group/tag/address/organization equivalence cases.
+Coverage includes normalized duplicate signals, duplicate phone suppression, safe fresh IDs for contact-owned children copied from a secondary contact, and self-merge rejection.
 
 ### `ImportExportTests.cs`
 
-Current coverage includes:
-
-- CSV round trip with commas, quotes, and embedded newlines;
-- vCard round trip for supported name/birthday/note/phone fields;
-- seeded randomized Unicode CSV inputs to check ordinary arbitrary/malformed text does not crash the parser.
-
-The randomized test is deterministic robustness coverage, not a full fuzzing campaign.
+Covers CSV/vCard supported round trips and deterministic randomized Unicode/malformed parser robustness.
 
 ### `ImportExportHardeningTests.cs`
 
-Hardening coverage includes:
-
-- CSV files with no recognized ContactCore headers import zero contacts;
-- duplicate CSV headers use the first occurrence and warn;
-- formula-like CSV text is preserved and produces a spreadsheet-safety warning;
-- escaped vCard name delimiters, backslashes, and newlines round-trip across supported fields;
-- common vCard `TYPE` parameters map to `ContactFieldKind`;
-- invalid vCard birthday warnings do not echo the invalid imported value.
-
-Future parser work should continue to add a minimal regression for each newly supported syntax/edge case.
+Covers unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard delimiters/newlines/backslashes, common `TYPE` mapping, and birthday warning privacy.
 
 ## Infrastructure tests
 
 Project: `tests/ContactCore.Infrastructure.Tests`
 
-All storage tests use unique temporary directories/databases rather than the user's normal ContactCore path.
+All storage tests use disposable paths rather than a normal user profile.
 
 ### `SqliteRepositoryTests.cs`
 
-Coverage includes:
-
-- root/phone/email/tag aggregate round trip;
-- full rich aggregate round trip for phones, emails, address, organization, group, and tag;
-- complete-aggregate replacement removes stale child/link rows while keeping supplied rows;
-- shared group/tag reassignment to fresh dictionary identities after a per-contact rename;
-- favorite search;
-- literal `%`, `_`, and backslash search behavior;
-- tag/group case-insensitive filters;
-- family-name-first `StartsWith` behavior;
-- permanent delete with cascade cleanup;
-- `UpsertManyAsync` rollback when a later contact fails, proving an earlier successful prefix is not committed.
-
-The dictionary reassignment test starts with persisted old group/tag dictionary rows, replaces the contact links with newly identified names, and verifies the new shared identities round-trip without colliding with the old dictionary primary keys.
+Covers rich aggregate round trip/replacement, shared group/tag reassignment, favorites, literal wildcard search, tag/group/A-Z filters, cascade delete, and batch rollback.
 
 ### `SqliteMergeTests.cs`
 
-Coverage includes:
-
-- survivor aggregate update plus secondary deletion as one successful operation;
-- rollback of the attempted survivor update when the requested secondary contact no longer exists;
-- rejection when the reviewed primary contact disappeared before persistence, proving a stale merge cannot silently recreate/resurrect that primary;
-- preservation of the remaining secondary record when a missing-primary merge is rejected.
-
-Together these tests protect both stale-record directions around the destructive duplicate merge transaction.
+Covers successful survivor update/secondary delete, missing-secondary rollback, and missing-primary rejection/non-resurrection while preserving the remaining record.
 
 ### `BackupServiceTests.cs`
 
-Coverage includes:
+Covers verified restore, pre-restore snapshot retention, missing/self-source rejection, invalid/unrelated SQLite rejection, schema-family tampering, older schema migration, future schema rejection, and unique backup names.
 
-- restore to a verified snapshot;
-- retained verified pre-restore snapshot containing the prior active state;
-- missing backup rejection before active data changes;
-- active database rejected as its own restore source;
-- invalid non-SQLite backup rejection without replacement;
-- valid but unrelated SQLite database rejection;
-- tampered ContactCore schema-family identity rejection;
-- legacy schema backup migration before replacement;
-- future schema rejection without active-data replacement;
-- unique consecutive backup filenames.
-
-High-value remaining failure injection includes a forced **post-switch** verification failure to prove the rollback artifact path end-to-end, plus staging/temp cleanup failures at every individual stage.
+High-value future failure injection includes forced post-switch verification failure and staging/temp cleanup failures.
 
 ### `JsonAppPreferencesTests.cs`
 
-Coverage includes runtime key non-persistence, first-run/runtime-key behavior, malformed JSON safe defaults, and theme normalization/persistence behavior represented by the current suite.
-
-The key invariant is that normal `settings.json` must never serialize `DatabaseKey` or its secret value.
+Protect runtime-key non-persistence, first-run key handling, malformed JSON safe defaults, and theme/safety preferences.
 
 ### `AppPathsTests.cs`
 
-Covers configured environment/data-path behavior and path derivation/fallback semantics using temporary/controlled values.
+Protect configured/fallback native data-path behavior.
 
 ### `RedactingLogTests.cs`
 
-Covers likely email/long-number shape sanitization and maximum diagnostic-message length behavior.
+Protect likely email/long-number redaction and diagnostic-length bounds.
 
 ## Desktop tests
 
 Project: `tests/ContactCore.Desktop.Tests`
 
-`ContactDraftViewModelTests.cs` covers:
+`ContactDraftViewModelTests.cs` protects:
 
-- contact ID and creation timestamp preservation;
-- Favorite/Archived preservation;
-- explicit persisted versus unsaved draft state;
-- exact `yyyy-MM-dd` birthday requirement;
-- editing phone/email values while preserving contact-owned child IDs;
-- address/organization editing while preserving contact-owned child IDs;
-- unchanged group/tag assignments preserving shared dictionary identity;
-- true existing group/tag renames receiving fresh shared dictionary identities;
-- case-only/normalization-equivalent group/tag edits retaining the existing dictionary identity and canonical name;
-- case-insensitive duplicate group suppression while retaining the first applicable identity;
-- exact group/tag names containing commas and semicolons;
-- removal of a selected repeated row without removing unrelated repeated rows;
-- preservation of a legacy address that contains only a label;
-- suppression of blank newly added phone/email/address/organization/group/tag rows;
-- source aggregate non-mutation while editing the draft.
+- root ID/creation timestamp/flags;
+- persisted vs unsaved state;
+- exact birthday parsing;
+- phone/email/address/organization ID preservation;
+- unchanged group/tag shared identity;
+- true rename to new dictionary identity;
+- case-only canonical identity/name preservation;
+- delimiter-containing group/tag names;
+- row removal/blank suppression;
+- label-only legacy address preservation;
+- source aggregate non-mutation.
 
-These are intentionally non-visual view-model tests.
+These are deliberately non-visual tests.
 
-## Important unautomated desktop paths
+## Shared UI test posture
 
-The following remain valuable candidates for future view-model/Avalonia integration coverage:
+`ContactCore.UI` currently receives compile/analyzer/XAML coverage through the core solution and through Android/iOS/Browser transitive builds. The portable draft/workflow code mirrors the same Domain/Application contracts, but a separate `ContactCore.UI.Tests` project has not yet been added.
 
-- debounce/cancellation races under rapid search input;
-- All/Favorites/Archived command orchestration;
-- Settings save/theme callback behavior;
-- confirmation-required permanent deletion;
-- duplicate merge confirmation/cancellation in the desktop command layer;
-- restore confirmation + refresh behavior;
-- picker cancellation and temporary picker-file cleanup;
-- export status behavior and archived-contact inclusion;
-- keyboard/focus behavior inside a running Avalonia window;
-- repeated-row reorder behavior if reorder controls are added.
+High-value future additions:
 
-These are documented follow-up test opportunities, not evidence that the current implemented lower-layer consistency tests are incomplete or failing.
+- shared `ContactDraftViewModel` identity tests;
+- debounce/cancellation tests;
+- portable confirmation-state tests;
+- settings/theme callback tests;
+- picker-cancellation/status tests;
+- responsive Avalonia integration tests where stable.
+
+Do not describe those future tests as already present.
+
+## Browser persistence test posture
+
+`BrowserContactRepository` is currently build-gated but does not yet have an automated real-IndexedDB browser harness in this repository. Manual browser verification for release should use a disposable origin/profile and check:
+
+- first load with no data;
+- create/edit/reload persistence;
+- rich child-field preservation;
+- search/favorite/archive/A-Z behavior;
+- stale-safe duplicate merge;
+- import/export picker paths;
+- preferences across reload;
+- behavior when browser persistent storage is unavailable/blocked;
+- correct absence of native SQLite backup/restore UI.
+
+Future automated work should use an isolated browser environment rather than mocking away the storage boundary entirely.
+
+## Mobile verification posture
+
+Android/iOS CI currently proves project/workload compilation. Before user-facing mobile distribution, perform manual or automated device/simulator checks for:
+
+- startup/resume/background lifecycle;
+- SQLite data persistence;
+- touch layout and scrolling on small screens/tablets;
+- software/hardware keyboard input;
+- orientation changes;
+- file-picker import/export availability;
+- destructive confirmation usability;
+- theme/contrast/accessibility labels/focus where applicable;
+- app upgrade/data migration with fictional disposable profiles.
+
+Android/iOS store signing is release engineering, not a unit-test assertion.
 
 ## Temporary-data hygiene
 
-Infrastructure tests should:
+Infrastructure/native tests should:
 
 1. create unique paths under `Path.GetTempPath()`;
 2. use fictional data only;
-3. clear SQLite pools when necessary before cleanup;
-4. delete temporary directories in `TestCleanup` while tolerating reasonable OS file-lock timing differences.
+3. clear SQLite pools before cleanup when necessary;
+4. delete temporary paths while tolerating reasonable OS file-lock timing differences.
 
-Never point tests at the default ContactCore user data directory.
+Browser tests should use a dedicated test origin/profile/database name and clear only disposable test data.
 
-## Test naming
-
-Prefer behavior-oriented names such as:
-
-`Renaming_existing_group_and_tag_assigns_new_shared_dictionary_identities`
-
-or:
-
-`Merge_does_not_recreate_primary_when_primary_disappeared`
-
-A good name communicates the precondition/action/observable contract rather than a private implementation detail.
+Never point tests at real ContactCore user data.
 
 ## Determinism
 
 Tests should not depend on:
 
 - local time zone;
-- user profile contact data;
-- network access;
+- real contacts;
+- network services;
 - machine-specific paths;
 - execution order;
-- real contact-provider services;
-- changing random seeds without recording them.
+- changing random seeds without recording them;
+- real signing credentials;
+- a developer's normal browser profile.
 
-When randomness adds parser robustness, use a fixed seed in normal CI and reserve broader fuzz campaigns for dedicated tooling/jobs.
+Use fixed randomness for ordinary parser robustness; reserve broad fuzzing for dedicated jobs/tooling.
 
 ## Coverage policy
 
-CI collects XPlat Code Coverage, but this project intentionally avoids promising a fixed percentage in README/docs. A percentage alone can reward shallow tests and quickly becomes stale.
-
-Prioritize branches where a regression could cause data loss, partial writes, unsafe restore, malformed-input crashes, secret leakage, or destructive UI surprises.
+CI collects XPlat Code Coverage for current test projects, but the project intentionally avoids a fixed percentage promise. Prioritize branches where regression could cause data loss, partial writes, unsafe restore, stale destructive merge, secret leakage, malformed-input crashes, or misleading platform behavior.
 
 ## Manual verification matrix
 
-Automated tests do not replace release checks for:
+Automated coverage does not replace release checks for:
 
-- first launch on each supported OS;
-- create/edit every repeated field;
-- group/tag rename/reassignment behavior;
-- repeated-field add/remove behavior;
-- search/favorite/archive/A–Z navigation;
-- duplicate pair review and both survivor choices using fictional contacts;
-- permanent-delete confirmation;
-- keyboard shortcuts and visible focus;
-- theme switching;
-- CSV/vCard native picker flows;
-- verified backup and real restore using fictional data;
-- minimum-window/high-DPI/text scaling;
-- screen reader/assistive technology appropriate to any release claim;
-- each published release RID, including macOS x64/arm64 where artifacts are produced.
+### Desktop
 
-Document exactly what was manually verified. Do not replace evidence with a blanket phrase such as “tested on all platforms.”
+- first launch on representative Windows/Linux/macOS architectures;
+- rich edit/search/filter/duplicates;
+- native file pickers;
+- verified backup/restore using fictional data;
+- keyboard/focus/theme/high-DPI/accessibility behavior.
+
+### Browser
+
+- static host boot over HTTP(S);
+- IndexedDB persistence/reload;
+- import/export;
+- blocked/cleared storage behavior;
+- responsive layout and accessibility on representative browsers.
+
+### Android
+
+- representative phone/tablet/emulator lifecycle, touch, storage, orientation, file pickers, accessibility.
+
+### iOS/iPadOS
+
+- representative iPhone/iPad/simulator lifecycle, touch, storage, orientation, file pickers, accessibility and required Apple toolchain behavior.
+
+Document exactly what was tested; avoid a blanket “tested everywhere” claim.
 
 ## CI-only failure checklist
 
 Compare:
 
-- OS-specific path/file-lock behavior;
-- filesystem case sensitivity;
-- newline behavior;
-- Avalonia/native dependencies;
-- SQLite native library behavior;
+- target workload installation;
 - SDK resolution via `global.json`;
-- parallel execution/shared static state;
-- generated MVVM source behavior;
-- XAML parser/runtime binding behavior.
+- OS-specific path/file-lock/case sensitivity;
+- native SQLite libraries;
+- Avalonia platform packages;
+- Android SDK/JDK/toolchain;
+- Apple/Xcode/iOS workload/toolchain;
+- WebAssembly SDK and `[JSImport]` source generation;
+- XAML parser/bindings/resources;
+- generated MVVM source;
+- JavaScript host assets/runtime config.
 
-Do not weaken a cross-platform assertion until the product behavior itself has been understood.
+Treat a platform-only failure as a real compatibility signal until understood; do not delete the failing gate simply to obtain a green badge.
 
-## Regression-test workflow
+## Regression workflow
 
 For a bug fix:
 
-1. create or identify a test that represents the old bad behavior;
-2. keep fixtures minimal and fictional;
-3. implement the fix at the correct layer;
-4. run the focused test;
-5. run the full solution quality sequence;
-6. update user/developer documentation when behavior changed;
-7. keep the regression permanently unless there is a documented reason to replace it with stronger coverage.
+1. identify/create the smallest test or platform reproduction for the bad behavior;
+2. use fictional/disposable fixtures;
+3. implement at the correct layer;
+4. run the focused test/build;
+5. run the core quality sequence;
+6. run affected platform build(s);
+7. update docs when behavior/limitations changed;
+8. retain the regression unless replaced by stronger coverage.
