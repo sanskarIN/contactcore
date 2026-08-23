@@ -19,7 +19,8 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Release automation now publishes Windows x64/ARM64, Linux x64/ARM64, macOS Intel/Apple Silicon, and browser WebAssembly packages; Android/iOS Release builds are mandatory release gates.
 - Android/iOS store/device signing remains deliberately external to the public repository; no private keystore, certificate, provisioning profile, or signing secret is committed or fabricated.
 - Added `docs/platform-support.md` and synchronized README/setup/architecture/CI/release documentation with native SQLite vs browser IndexedDB behavior, workload commands, ChromeOS routes, and signing/validation boundaries.
-- Regenerated `docs/repository-reference.md` through the current **130 tracked files**, including later release-hardening and portable-UI-test additions.
+- Added `docs/release-smoke-test.md`, a repeatable exact-SHA manual verification record covering automated gates, fictional fixtures, release artifacts/checksums, desktop/browser/mobile smoke matrices, data-safety/accessibility/privacy checks, deviations, and release sign-off.
+- Regenerated `docs/repository-reference.md` through the current **131 tracked files**, including later release-hardening, portable-UI-test, and release-smoke-record additions.
 
 ### Release hardening after the 2.0.12 preparation checkpoint
 
@@ -32,14 +33,16 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 - Fixed international duplicate-phone comparison so formatting that differs only by a plausible one-to-three-digit country calling code can match conservatively while `PhoneKey` remains a lossless digits-only normalization primitive.
 - Applied the same phone-equivalence rule to duplicate scoring and contact merge de-duplication, with regression tests for accepted country-code variants and short/mismatched non-equivalences.
-- Added the centrally managed `coverlet.collector` reference to Application and Infrastructure tests so all test projects support the shared `--collect:"XPlat Code Coverage"` CI command.
+- Added the centrally managed `coverlet.collector` reference to Application and Infrastructure tests so all five current test projects support the shared `--collect:"XPlat Code Coverage"` CI command.
 - Added `BrowserJsonContext.cs` with source-generated `System.Text.Json` metadata and moved browser contact/preferences persistence to AOT/trimming-safe serializer overloads instead of suppressing `IL2026`.
 - Made `BrowserContactRepository` dispose its owned `SemaphoreSlim`, resolving the WebAssembly analyzer resource-lifetime failure.
 - Explicitly selects `/Applications/Xcode_26.0.app/Contents/Developer` in both normal iOS CI and the tag-release iOS gate so the .NET iOS workload is not broken by a newer rolling-runner default Xcode.
 - Added a dedicated `ContactCore.UI.Tests` project to both solution files with XPlat coverage enabled.
 - Added deterministic portable view-model search tests proving rapid input is debounced to the latest query and that a newer query cancels an already-running stale search before stale results can replace the visible list.
 - Added portable destructive-action/restore tests proving permanent deletion is confirmation-gated by default, cancellation preserves the contact, the explicit no-confirmation preference works, and restore cannot invoke the backup service until confirmation.
-- Regenerated the canonical repository inventory to **130 tracked files** and synchronized the testing guide and roadmap with the new portable UI regression coverage.
+- Added an internal-only post-switch restore verification probe and regression coverage proving that a final restore failure rolls the active database back to the verified pre-restore snapshot, retains the switched-in failed copy, and cleans staging temp files.
+- Added a repeatable release smoke-test record and integrated it into release documentation so manual evidence must identify the exact tested SHA/environment instead of becoming an untracked ad hoc checklist.
+- Regenerated the canonical repository inventory to **131 tracked files** and synchronized testing, storage/recovery, release, CI, roadmap, README, changelog, and handoff documentation with the current state.
 
 ## [2.0.12] - 2026-08-19
 
@@ -51,7 +54,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Full desktop editing for all repeated contact collections in the current model, including add/edit/remove controls and stable contact-owned child identities.
 - Independent group/tag rows so names containing commas or semicolons round-trip exactly.
 - Explicit persisted-versus-unsaved draft state.
-- SQLite contact persistence with ordered schema migrations, foreign keys, indexes, transactional aggregate updates, literal search wildcard handling, and case-insensitive group/tag identities.
+- SQLite contact persistence with ordered schema migrations, foreign keys, indexes, transactional aggregate updates, literal wildcard handling, and case-insensitive group/tag identities.
 - CSV and focused vCard 4.0 import/export codecs plus desktop picker integration.
 - Whole-batch import validation and one-transaction bulk persistence.
 - Duplicate scoring plus an interactive duplicate-review screen with confidence, reasons, side-by-side summaries, survivor choice, confirmation, and atomic merge/delete storage.
@@ -144,7 +147,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Atomic SQLite merge tests cover normal merge, missing-secondary rollback, and missing-primary non-resurrection while preserving the secondary record.
 - CSV/vCard tests cover round-trip behavior, malformed/randomized text boundaries, unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard names/notes, common TYPE mapping, and non-echoing birthday warnings.
 - SQLite tests cover aggregate round-trip, cascade deletion, bulk rollback, rich child persistence/query behavior, shared group/tag reassignment, and merge transactions.
-- Backup/restore tests cover verified restore, invalid input protection, schema migration/version boundaries, identity checks, and unique backup naming.
+- Backup/restore tests cover verified restore, invalid input protection, schema migration/version boundaries, identity checks, unique backup naming, and deterministic post-switch rollback with failed-copy retention/staging cleanup.
 - Preferences tests cover runtime key non-persistence, first-run key behavior, malformed JSON defaults, and theme normalization.
 - Desktop draft tests cover root identity/timestamps/flags, persisted state, exact birthday parsing, complete repeated-field editing, contact-owned ID preservation, shared group/tag rename identity rules, removal semantics, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
 - Portable UI tests cover search debounce/cancellation ordering and destructive-delete/restore confirmation state.
@@ -165,10 +168,11 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - The default ordinary SQLite native build is not encrypted at rest unless a compatible cipher provider is deliberately integrated.
 - Browser persistence is browser-profile/origin-managed and can be removed by site-data clearing, private-session teardown, policy, or storage eviction; it is not represented as a native SQLite backup model.
 - Browser repository persistence still needs an automated real-IndexedDB harness and cross-tab conflict handling before stronger multi-tab claims.
+- Explicit native cleanup-operation failure injection beyond the tested post-switch rollback branch remains future resilience work.
 - Android/iOS build support does not equal Play Store/App Store signing/certification.
 - Release artifacts are not documented as code-signed or notarized.
 - Manual accessibility, screen-reader, high-DPI, native-picker, phone/tablet lifecycle/orientation, and representative browser verification remains required before stronger conformance claims.
 
 ### Documentation checkpoint
 
-The current documentation pass is synchronized with the cross-platform v2.0.12 integration branch through the 2026-08-23 CI-repair and portable-UI-test continuation. See `docs/README.md` for navigation, `docs/platform-support.md` for the platform matrix, `docs/repository-reference.md` for the **130-file inventory**, `docs/testing.md` for the five-project behavioral test posture, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
+The current documentation pass is synchronized with the cross-platform v2.0.12 integration branch through the 2026-08-23 CI-repair, portable-UI-test, release-smoke-record, and post-switch rollback-test continuation. See `docs/README.md` for navigation, `docs/platform-support.md` for the platform matrix, `docs/repository-reference.md` for the **131-file inventory**, `docs/testing.md` for the five-project behavioral test posture, `docs/release-smoke-test.md` for repeatable manual verification, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
