@@ -1,6 +1,6 @@
 # Testing
 
-ContactCore uses MSTest for behavioral Domain/Application/Infrastructure/Desktop coverage and GitHub Actions build gates for the new Android, iOS/iPadOS, and WebAssembly heads. This separation is intentional: existing tests prove core rules/data safety, while platform jobs prove each application target restores/compiles with its required workload.
+ContactCore uses MSTest for behavioral Domain/Application/Infrastructure/portable-UI/Desktop coverage and GitHub Actions build gates for the Android, iOS/iPadOS, and WebAssembly heads. This separation is intentional: core tests prove rules, data safety, and view-model workflow behavior, while platform jobs prove each application target restores/compiles with its required workload.
 
 ## Test stack
 
@@ -10,11 +10,11 @@ Central versions live in `Directory.Packages.props`:
 - `MSTest`;
 - `coverlet.collector`.
 
-ContactCore is version **2.0.12** and treats build warnings as errors.
+ContactCore is version **2.0.12** and treats build warnings as errors. Every test project references `coverlet.collector`, so the shared CI coverage command is available consistently across the test suite.
 
 ## Solution choice
 
-Use `ContactCore.Core.slnx` for ordinary quality verification. It contains shared Domain/Application/Infrastructure/UI/native-composition/Desktop code plus all four current test projects without forcing Android/iOS/WebAssembly workloads onto every machine.
+Use `ContactCore.Core.slnx` for ordinary quality verification. It contains shared Domain/Application/Infrastructure/UI/native-composition/Desktop code plus all five current test projects without forcing Android/iOS/WebAssembly workloads onto every machine.
 
 `ContactCore.slnx` is the complete solution and additionally contains Android, iOS, and Browser application heads.
 
@@ -39,24 +39,26 @@ dotnet restore src/ContactCore.Browser/ContactCore.Browser.csproj
 dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release --no-restore
 ```
 
-The CI browser job is the compile gate for `net10.0-browser`, Avalonia.Browser, `[JSImport]` declarations, the shared UI, and browser repository code.
+The CI browser job is the compile gate for `net10.0-browser`, Avalonia.Browser, `[JSImport]` declarations, source-generated browser JSON metadata, the shared UI, and browser repository code.
 
 ### Android
 
 ```bash
 dotnet workload install android
-dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
-dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj -r android-arm64
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release -r android-arm64 --no-restore
 ```
 
 ### iOS/iPadOS
 
-On macOS:
+On the GitHub macOS runner the workflow first selects the Xcode 26.0 installation accepted by the current .NET iOS workload, then builds the explicit simulator RID:
 
 ```bash
+sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+xcodebuild -version
 dotnet workload install ios
-dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
-dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj -r iossimulator-arm64
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release -r iossimulator-arm64 --no-restore
 ```
 
 A successful build gate is not a substitute for representative device/simulator/browser testing or store signing/certification.
@@ -65,7 +67,7 @@ A successful build gate is not a substitute for representative device/simulator/
 
 Project: `tests/ContactCore.Domain.Tests`
 
-Coverage includes representative validation, non-echoing invalid values, Unicode/accent search normalization, display-name/deep-copy behavior, and phone-key normalization.
+Coverage includes representative validation, non-echoing invalid values, Unicode/accent search normalization, display-name/deep-copy behavior, digits-only phone-key normalization, and conservative country-code-aware phone equivalence boundaries.
 
 ## Application tests
 
@@ -86,7 +88,7 @@ Coverage includes:
 
 ### `DuplicateDetectorTests.cs`
 
-Coverage includes normalized duplicate signals, duplicate phone suppression, safe fresh IDs for contact-owned children copied from a secondary contact, and self-merge rejection.
+Coverage includes normalized duplicate signals, country-code-aware phone duplicate signals/suppression, safe fresh IDs for contact-owned children copied from a secondary contact, and self-merge rejection.
 
 ### `ImportExportTests.cs`
 
@@ -128,6 +130,38 @@ Protect configured/fallback native data-path behavior.
 
 Protect likely email/long-number redaction and diagnostic-length bounds.
 
+## Portable UI tests
+
+Project: `tests/ContactCore.UI.Tests`
+
+The portable UI tests intentionally exercise view models and application contracts without requiring a visual window or platform runtime.
+
+### `MainViewModelSearchTests.cs`
+
+Protects the asynchronous search boundary:
+
+- rapid search edits are debounced into the latest query rather than issuing every intermediate term;
+- an already-running stale search receives cancellation when a newer term arrives;
+- stale results cannot replace the current query's visible contact list.
+
+The test repository exposes an explicit slow-search synchronization point so the cancellation regression is deterministic instead of depending only on arbitrary sleeps.
+
+### `MainViewModelConfirmationTests.cs`
+
+Protects high-impact confirmation behavior:
+
+- permanent delete is deferred while confirmation is enabled;
+- cancelling a pending delete preserves the contact;
+- disabling the delete-confirmation preference permits the documented direct-delete path;
+- restore selection queues confirmation before `IBackupService.RestoreBackupAsync` can run;
+- confirming restore invokes exactly the reviewed backup path and returns the view model to its successful status.
+
+### `TestDoubles.cs`
+
+Provides isolated in-memory repository, backup, preference, and platform-service doubles. They use fictional data only and do not touch a real ContactCore database, browser origin, backup, or user profile.
+
+High-value portable-UI additions that remain future work include settings/theme callback tests, picker-cancellation/status tests, and stable responsive Avalonia integration tests.
+
 ## Desktop tests
 
 Project: `tests/ContactCore.Desktop.Tests`
@@ -148,24 +182,9 @@ Project: `tests/ContactCore.Desktop.Tests`
 
 These are deliberately non-visual tests.
 
-## Shared UI test posture
-
-`ContactCore.UI` currently receives compile/analyzer/XAML coverage through the core solution and through Android/iOS/Browser transitive builds. The portable draft/workflow code mirrors the same Domain/Application contracts, but a separate `ContactCore.UI.Tests` project has not yet been added.
-
-High-value future additions:
-
-- shared `ContactDraftViewModel` identity tests;
-- debounce/cancellation tests;
-- portable confirmation-state tests;
-- settings/theme callback tests;
-- picker-cancellation/status tests;
-- responsive Avalonia integration tests where stable.
-
-Do not describe those future tests as already present.
-
 ## Browser persistence test posture
 
-`BrowserContactRepository` is currently build-gated but does not yet have an automated real-IndexedDB browser harness in this repository. Manual browser verification for release should use a disposable origin/profile and check:
+`BrowserContactRepository` is build-gated and its JSON serialization path is compile-time source-generated, but the repository still does not contain an automated real-IndexedDB browser harness. Manual browser verification for release should use a disposable origin/profile and check:
 
 - first load with no data;
 - create/edit/reload persistence;
@@ -206,6 +225,8 @@ Infrastructure/native tests should:
 
 Browser tests should use a dedicated test origin/profile/database name and clear only disposable test data.
 
+Portable UI tests should use in-memory or explicitly fake services and never point at the native or browser production stores.
+
 Never point tests at real ContactCore user data.
 
 ## Determinism
@@ -221,11 +242,11 @@ Tests should not depend on:
 - real signing credentials;
 - a developer's normal browser profile.
 
-Use fixed randomness for ordinary parser robustness; reserve broad fuzzing for dedicated jobs/tooling.
+Use fixed randomness for ordinary parser robustness; reserve broad fuzzing for dedicated jobs/tooling. Asynchronous view-model tests should prefer explicit synchronization signals and bounded polling over large timing assumptions.
 
 ## Coverage policy
 
-CI collects XPlat Code Coverage for current test projects, but the project intentionally avoids a fixed percentage promise. Prioritize branches where regression could cause data loss, partial writes, unsafe restore, stale destructive merge, secret leakage, malformed-input crashes, or misleading platform behavior.
+CI collects XPlat Code Coverage for all five current test projects, but the project intentionally avoids a fixed percentage promise. Prioritize branches where regression could cause data loss, partial writes, unsafe restore, stale destructive merge, secret leakage, malformed-input crashes, stale asynchronous UI state, or misleading platform behavior.
 
 ## Manual verification matrix
 
@@ -269,6 +290,7 @@ Compare:
 - Android SDK/JDK/toolchain;
 - Apple/Xcode/iOS workload/toolchain;
 - WebAssembly SDK and `[JSImport]` source generation;
+- JSON source-generation/trimming diagnostics for Browser;
 - XAML parser/bindings/resources;
 - generated MVVM source;
 - JavaScript host assets/runtime config.
