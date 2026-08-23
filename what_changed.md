@@ -10,7 +10,7 @@ ContactCore **2.0.12** is being finalized through the repository's single author
 - Integration base: `3900063bcdc2f7f0834118abc2580e030f133d73`
 - Authoritative branch: `audit/contactcore-20260819`
 - Authoritative pull request: **PR #4**
-- Code checkpoint immediately before this handoff update: `da035101211b320f680a57b86fff76368eeb663e`
+- Code checkpoint immediately before this handoff update: `1f1ac795d7c0ebfcb3e2cdf1979215774c352e64`
 - Version: **2.0.12**
 - Intended tag after verified merge: **`v2.0.12`**
 - Stack: C# / .NET 10 / Avalonia 12.1.1 / SQLite on native targets / IndexedDB in Browser
@@ -19,6 +19,44 @@ ContactCore **2.0.12** is being finalized through the repository's single author
 - Project credit: **Made by the Sanskar**
 
 Older overlapping integration attempts remain superseded. PR #4 is the intended v2.0.12 merge path.
+
+## 2026-08-23 continuation — exact-head CI repair
+
+The August 23 continuation resumed from PR #4 instead of opening another overlapping implementation branch. The latest available PR CI evidence was read before changing code.
+
+The previous exact-head CI run had these concrete results:
+
+- CodeQL: **success**;
+- Android `android-arm64`: **success**;
+- core restore/format/build on Ubuntu, Windows, and macOS: **success**;
+- core tests on all three OSes: **failure** because `Merger_deduplicates_phone_numbers` expected one phone after merging `+91 98765 43210` with `9876543210`, but two remained;
+- Browser/WebAssembly build: **failure** because reflection-based `System.Text.Json` calls raised trimming warning/error `IL2026` and `BrowserContactRepository` owned a disposable `SemaphoreSlim` without implementing disposal (`CA1001`);
+- iOS simulator build: **failure** because the installed .NET iOS workload required Xcode 26.0 while the rolling runner had selected Xcode 26.6;
+- coverage collection reported that `XPlat Code Coverage` was unavailable in the Application and Infrastructure test assemblies because those two test projects did not reference `coverlet.collector`.
+
+The continuation fixed those failures in small commits rather than suppressing analyzers or weakening tests:
+
+1. `0d8256461` — `feat(domain): add country-code aware phone equivalence`
+2. `5e991371d` — `fix(application): deduplicate equivalent international phone numbers`
+3. `5d3767e39` — `test(domain): cover international phone equivalence boundaries`
+4. `fb8d0a62c` — `test(application): lock country-code duplicate behavior`
+5. `6f1749fe5` — `test(application): enable cross-platform coverage collection`
+6. `2a4ea6fe9` — `test(infrastructure): enable cross-platform coverage collection`
+7. `deca467b4` — `feat(browser): add trimming-safe JSON serialization metadata`
+8. `7855f27d5` — `fix(browser): make preferences serialization AOT safe`
+9. `a546e0943` — `fix(browser): make contact persistence AOT safe and disposable`
+10. `00a64368a` — `ci(ios): select compatible Xcode toolchain explicitly`
+11. `1f1ac795d` — `ci(release): pin compatible Xcode for iOS gate`
+
+Phone duplicate matching now keeps the lossless digits-only `PhoneKey` API while adding a separate conservative `PhoneEquivalent` comparison. Exact numbers still match immediately; a country-code suffix match is accepted only when the local portion contains at least seven digits and the longer value differs by no more than three digits. This fixes the observed international-format regression without changing stored phone values.
+
+Browser JSON persistence now uses source-generated `System.Text.Json` metadata with camel-case naming retained for compatibility with the existing browser store. Reflection-dependent serialization calls were removed from browser preferences and contact persistence, and `BrowserContactRepository` now implements `IDisposable` for its semaphore.
+
+All four test projects now reference the centrally pinned `coverlet.collector`, so the shared CI `--collect:"XPlat Code Coverage"` command has the required collector in every test assembly.
+
+The iOS CI and tag-release mobile gate now explicitly select `/Applications/Xcode_26.0.app/Contents/Developer` before installing/building the iOS workload. This keeps the workflow deterministic when the rolling macOS runner's default Xcode advances ahead of the .NET iOS workload's accepted toolchain.
+
+After these commits, a new exact-head CI + CodeQL run was queued. No success claim is made until the newest PR merge candidate completes all gates.
 
 ## Platforms and architecture
 
@@ -126,7 +164,8 @@ Implemented browser pieces include:
 - IndexedDB JavaScript module;
 - browser-local preferences;
 - static host assets;
-- `BrowserContactRepository`.
+- `BrowserContactRepository`;
+- source-generated `System.Text.Json` serialization metadata in `BrowserJsonContext.cs`.
 
 `BrowserContactRepository`:
 
@@ -134,12 +173,13 @@ Implemented browser pieces include:
 - rejects malformed serialized state and duplicate contact IDs;
 - preserves rich aggregate fields and IDs;
 - implements search/filter behavior behind the existing application contract;
-- serializes writes behind a `SemaphoreSlim`;
+- serializes writes behind a disposable `SemaphoreSlim`;
 - snapshots in-memory state before mutation;
 - persists a replacement state through IndexedDB;
 - restores pre-write state when persistence fails;
 - requires both reviewed records for duplicate merge;
-- deep-copies values across repository boundaries.
+- deep-copies values across repository boundaries;
+- uses source-generated JSON type metadata so trimming/AOT analysis does not depend on reflection-based serializer discovery.
 
 Browser capabilities explicitly report native database backup/encryption as unavailable. CSV/vCard export remains available for portable copies. Cross-tab conflict synchronization remains future work and is not overclaimed.
 
@@ -158,6 +198,7 @@ The cross-platform integration preserves and extends the hardened 2.0.12 behavio
 - hardened CSV/vCard parsing;
 - dedicated spreadsheet-safe CSV export mode while ordinary CSV remains lossless;
 - duplicate evidence/survivor selection;
+- country-code-aware phone equivalence for duplicate evidence and merge deduplication;
 - stale-safe duplicate merge;
 - verified SQLite-native backups;
 - restore staging, schema identity checks, pre-restore recovery snapshot and rollback path;
@@ -174,9 +215,11 @@ The final runner-driven hardening pass fixed defects rather than weakening the p
 - `AnalysisLevel` remains `latest-recommended`.
 - test-only naming/micro-optimization rules are scoped to `tests/**/*.cs`.
 - Avalonia binding-specific analyzer exceptions are narrowly scoped instead of disabled globally.
-- JSON preferences reuse a static `JsonSerializerOptions` instance.
+- native JSON preferences reuse a static `JsonSerializerOptions` instance.
+- browser serialization uses source-generated JSON metadata rather than suppressing trimming diagnostics.
 - date/string transformations that require stable interchange behavior use invariant handling.
 - MSTest v4 attribute/API changes were reconciled.
+- all test projects include `coverlet.collector` for the shared cross-platform coverage command.
 - infrastructure internals are exposed only to `ContactCore.Infrastructure.Tests` through `InternalsVisibleTo`; the production migration API was not widened merely for tests.
 - redundant imports and formatter failures identified by CI were removed.
 
@@ -215,7 +258,7 @@ dotnet build ContactCore.Core.slnx -c Release --no-restore
 dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage"
 ```
 
-Test results are retained per OS.
+Test results are retained per OS, and every test project references the centrally managed coverage collector.
 
 ### Browser
 
@@ -224,6 +267,8 @@ install wasm-tools
 restore ContactCore.Browser
 Release build ContactCore.Browser
 ```
+
+The browser target uses source-generated JSON metadata so WebAssembly trimming diagnostics remain actionable instead of being suppressed.
 
 ### Android
 
@@ -236,12 +281,13 @@ Release build ContactCore.Android -r android-arm64
 ### iOS/iPadOS
 
 ```text
+select /Applications/Xcode_26.0.app/Contents/Developer
 install ios workload
 restore ContactCore.iOS -r iossimulator-arm64
 Release build ContactCore.iOS -r iossimulator-arm64
 ```
 
-The explicit mobile RIDs prevent the previous host-RID leak where Android incorrectly inherited `linux-x64`.
+The explicit mobile RIDs prevent the previous host-RID leak where Android incorrectly inherited `linux-x64`. Explicit Xcode selection prevents the rolling macOS runner default from silently advancing beyond the version accepted by the installed .NET iOS workload.
 
 CI keeps read-only repository permission and uses same-PR concurrency cancellation so obsolete attempts cannot become the merge signal.
 
@@ -293,7 +339,7 @@ The WebAssembly publish output is packaged as a ZIP.
 
 ### Mobile release gate
 
-Android and iOS use the same explicit platform RIDs as CI. A tag cannot publish the final GitHub release unless the mobile Release-build gates succeed.
+Android and iOS use the same explicit platform RIDs as CI. The iOS matrix leg also selects the compatible Xcode 26.0 toolchain before workload installation and build. A tag cannot publish the final GitHub release unless the mobile Release-build gates succeed.
 
 ### Final release
 
@@ -308,17 +354,23 @@ No artifact is falsely described as signed, notarized, store-certified, or produ
 
 ## Repository inventory
 
-The earlier cross-platform handoff documented **124 tracked files**. The final hardening pass adds one intentional test-visibility file:
+The earlier cross-platform handoff documented **124 tracked files**. The previous final-hardening pass added one intentional test-visibility file:
 
 ```text
 src/ContactCore.Infrastructure/Properties/AssemblyInfo.cs
 ```
 
-It contains only `InternalsVisibleTo("ContactCore.Infrastructure.Tests")` so tests can verify internal migration state without widening the production API.
+The August 23 continuation adds one browser serialization source file:
 
-Current canonical inventory: **125 tracked files**.
+```text
+src/ContactCore.Browser/BrowserJsonContext.cs
+```
 
-Relative to the earlier 94-file checkpoint, the branch therefore contains **31 added tracked files** and no deletion introduced by this continuation.
+`AssemblyInfo.cs` contains only `InternalsVisibleTo("ContactCore.Infrastructure.Tests")` so tests can verify internal migration state without widening the production API. `BrowserJsonContext.cs` contains browser-only DTOs and source-generated JSON metadata used to keep IndexedDB persistence trim-safe.
+
+Current canonical inventory: **126 tracked files**.
+
+Relative to the earlier 94-file checkpoint, the branch therefore contains **32 added tracked files** and no deletion introduced by this continuation.
 
 ## Documentation state
 
@@ -368,7 +420,11 @@ The final hardening was driven by actual GitHub Actions output. Earlier runs exp
 - test access to internal migration helpers;
 - missing Avalonia compiled-XAML dialog constructor;
 - obsolete Avalonia `Watermark` properties;
-- obsolete artifact/release action runtime majors.
+- obsolete artifact/release action runtime majors;
+- international phone duplicate mismatch;
+- missing coverage collectors in two test projects;
+- WebAssembly trimming/AOT JSON errors and disposable-resource analyzer failure;
+- rolling-runner Xcode mismatch with the .NET iOS workload.
 
 The coding environment used for the GitHub edits does not provide a trusted local .NET workload/toolchain capable of substituting for the platform matrix, so local success is not invented. **GitHub Actions CI + CodeQL on the latest PR #4 merge candidate remain the authoritative gate.**
 
@@ -419,4 +475,4 @@ These items are intentionally future work rather than falsely completed 2.0.12 c
 
 ContactCore 2.0.12 now has a deliberate cross-platform architecture and release-quality source/build path for **Windows, Linux, macOS, Android, iPhone, iPad and modern WebAssembly-capable browsers**, with ChromeOS covered through supported browser/Android routes.
 
-Native targets use SQLite; Browser uses IndexedDB. Platform capability differences are explicit rather than hidden behind inaccurate claims. Production analyzers remain strict, mobile runtime targets are explicit, release actions are current, and the repository is ready for final exact-head CI/CodeQL verification before merge.
+Native targets use SQLite; Browser uses IndexedDB. Platform capability differences are explicit rather than hidden behind inaccurate claims. Production analyzers remain strict, mobile runtime targets are explicit, release actions are current, browser serialization is trim-safe by design, and the repository is ready for final exact-head CI/CodeQL verification before merge.
