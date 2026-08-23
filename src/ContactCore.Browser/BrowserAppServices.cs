@@ -25,15 +25,13 @@ public static class BrowserAppServices
 
 internal sealed class BrowserPreferences : IAppPreferences
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public BrowserPreferences()
     {
         var json = BrowserStorageInterop.LoadPreferences();
         if (string.IsNullOrWhiteSpace(json)) return;
         try
         {
-            var model = JsonSerializer.Deserialize<Model>(json, JsonOptions);
+            var model = JsonSerializer.Deserialize(json, BrowserJsonContext.Default.BrowserPreferencesModel);
             if (model is null) return;
             Theme = NormalizeTheme(model.Theme);
             ReducedMotion = model.ReducedMotion;
@@ -52,8 +50,8 @@ internal sealed class BrowserPreferences : IAppPreferences
 
     public void Save()
     {
-        var model = new Model(NormalizeTheme(Theme), ReducedMotion, ConfirmPermanentDelete);
-        BrowserStorageInterop.SavePreferences(JsonSerializer.Serialize(model, JsonOptions));
+        var model = new BrowserPreferencesModel(NormalizeTheme(Theme), ReducedMotion, ConfirmPermanentDelete);
+        BrowserStorageInterop.SavePreferences(JsonSerializer.Serialize(model, BrowserJsonContext.Default.BrowserPreferencesModel));
     }
 
     private static string NormalizeTheme(string? theme) => theme?.Trim().ToLowerInvariant() switch
@@ -62,8 +60,6 @@ internal sealed class BrowserPreferences : IAppPreferences
         "dark" => "Dark",
         _ => "System"
     };
-
-    private sealed record Model(string Theme, bool ReducedMotion, bool ConfirmPermanentDelete);
 }
 
 internal sealed class UnsupportedBrowserBackupService : IBackupService
