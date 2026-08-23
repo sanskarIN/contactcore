@@ -4,6 +4,8 @@ ContactCore uses semantic Git tags matching `v*.*.*` to trigger GitHub Actions p
 
 The current source version is **2.0.12** and the intended release tag is **`v2.0.12`**.
 
+For repeatable manual evidence, use [`release-smoke-test.md`](release-smoke-test.md). Copy it for each release candidate and bind the completed record to the exact tested SHA, artifacts, platform versions, and disposable test profile.
+
 ## Version source of truth
 
 Application version metadata is centralized in `Directory.Build.props`:
@@ -46,8 +48,10 @@ The final release job generates `SHA256SUMS.txt` for packaged release assets.
 
 | Platform | Project | Runner | Release gate |
 |---|---|---|---|
-| Android | `ContactCore.Android` / `net10.0-android` | `ubuntu-latest` | install Android workload + Release build |
-| iPhone/iPad | `ContactCore.iOS` / `net10.0-ios` | `macos-latest` | install iOS workload + Release build |
+| Android | `ContactCore.Android` / `net10.0-android`, RID `android-arm64` | `ubuntu-latest` | install Android workload + Release build |
+| iPhone/iPad | `ContactCore.iOS` / `net10.0-ios`, RID `iossimulator-arm64` | `macos-latest` | select compatible Xcode + install iOS workload + Release build |
+
+The current GitHub iOS gate explicitly selects `/Applications/Xcode_26.0.app/Contents/Developer` before workload installation. This avoids silently inheriting a rolling runner's newer default Xcode when the installed .NET iOS workload requires the 26.0 toolchain line.
 
 Mobile source/build compatibility is a release requirement, but this public workflow does not attach production Android/iOS store packages because store/device distribution requires private signing/provisioning credentials.
 
@@ -83,6 +87,7 @@ Before creating `v2.0.12`:
 14. Native backup creation/restore has been tested against a disposable profile.
 15. Browser import/export and IndexedDB persistence behavior has been tested in a disposable browser profile when preparing a user-facing browser release.
 16. Known platform/signing/accessibility limitations are present in release notes.
+17. A copy of `docs/release-smoke-test.md` has been completed for the exact candidate, or each intentionally untested section is explicitly marked as such.
 
 ## Local core quality pass
 
@@ -92,10 +97,10 @@ The workload-free quality sequence is:
 dotnet restore ContactCore.Core.slnx
 dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
 dotnet build ContactCore.Core.slnx -c Release --no-restore
-dotnet test ContactCore.Core.slnx -c Release --no-build
+dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage"
 ```
 
-Platform builds require their workload:
+Platform builds require their workload and explicit runtime identifier where CI uses one:
 
 ```bash
 dotnet workload install wasm-tools
@@ -104,14 +109,18 @@ dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release
 
 ```bash
 dotnet workload install android
-dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj -r android-arm64
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release -r android-arm64 --no-restore
 ```
 
-On macOS:
+On macOS with the compatible Xcode installation present:
 
 ```bash
+sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+xcodebuild -version
 dotnet workload install ios
-dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj -r iossimulator-arm64
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release -r iossimulator-arm64 --no-restore
 ```
 
 Local success is useful but does not replace the GitHub matrix on the exact final head.
@@ -163,8 +172,8 @@ The browser artifact is deployable static web content. It is not a hosted websit
 
 In parallel matrix entries:
 
-- Ubuntu installs Android workload and Release-builds `ContactCore.Android`;
-- macOS installs iOS workload and Release-builds `ContactCore.iOS`.
+- Ubuntu installs the Android workload and Release-builds `ContactCore.Android` for `android-arm64`;
+- macOS selects Xcode 26.0, installs the iOS workload, and Release-builds `ContactCore.iOS` for `iossimulator-arm64`.
 
 The final release depends on this job. Broken mobile source should therefore block the tag release even though mobile store packages are not attached automatically.
 
@@ -196,6 +205,8 @@ Build jobs do not need repository write permission.
 ## Artifact verification
 
 Checksums support byte-integrity comparison against the published checksum list; they do not provide the identity/authenticity guarantees of trusted platform code signing.
+
+Use `release-smoke-test.md` to record exact artifact names, checksum evidence, platform versions, and pass/fail notes instead of relying on an undocumented ad hoc smoke run.
 
 ### Desktop smoke checks
 
@@ -313,8 +324,9 @@ After publishing 2.0.12:
 - smoke-test representative desktop downloads;
 - host/test the browser artifact from a disposable origin/profile;
 - record Android/iOS build status and any device/store validation performed separately;
+- complete/archive a smoke-test record for the shipped SHA and artifacts;
 - document platform-specific issues instead of hiding them;
 - move roadmap/changelog/`what_changed.md` to the next milestone;
 - never request public upload of a real contact database when diagnosing bugs.
 
-See `ci-cd.md` and `platform-support.md` for workflow and platform details.
+See `ci-cd.md`, `platform-support.md`, and `release-smoke-test.md` for workflow, platform, and manual-verification details.
