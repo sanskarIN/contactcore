@@ -51,7 +51,7 @@ When a runtime key exists ContactCore:
 1. converts key bytes to hex;
 2. sends `PRAGMA key`;
 3. queries `PRAGMA cipher_version`;
-4. rejects/ closes the connection if compatible cipher support cannot be proven.
+4. rejects/closes the connection if compatible cipher support cannot be proven.
 
 This is an integration boundary, not a claim that ordinary SQLite becomes encrypted merely because an environment variable was set. `JsonAppPreferences` never serializes the runtime key.
 
@@ -115,15 +115,30 @@ Clear pools, remove relevant `-wal`/`-shm` sidecars, move staged DB over active 
 
 Open newly active DB and fully verify again.
 
+`BackupService` contains an **internal-only** post-switch verification probe used by `ContactCore.Infrastructure.Tests` to force this normally timing/filesystem-dependent failure boundary deterministically. Normal production construction leaves the probe `null`; it is not part of the public `IBackupService` contract or user-facing behavior.
+
 ### 7. Roll back a failed final verification
 
 If final verification fails:
 
 1. clear pools/sidecars;
-2. retain failed active copy under `backups/failed-restore-...db` when possible;
-3. copy verified pre-restore snapshot back when an original active DB existed;
-4. rethrow original failure;
+2. retain the failed active copy under `backups/failed-restore-...db` when possible;
+3. copy the verified pre-restore snapshot back when an original active DB existed;
+4. rethrow the original failure;
 5. clean staging temp in `finally`.
+
+## Restore rollback regression coverage
+
+`BackupServiceTests.Post_switch_verification_failure_restores_recovery_snapshot_and_retains_failed_copy` forces a failure immediately after the staged database has become active but before final verification can complete.
+
+The regression verifies that:
+
+- the original active database is restored from the verified pre-restore snapshot;
+- the switched-in failed restored copy is retained as `failed-restore-*.db`;
+- the retained failed copy contains the selected backup state, proving that the test actually crossed the switch boundary;
+- `.restore-*.tmp` staging files are removed by the `finally` path.
+
+This closes the roadmap item for deterministic post-switch verification rollback coverage. It does **not** claim every filesystem-cleanup error is injected; explicit failures of delete/move/copy cleanup operations remain future resilience work.
 
 ## Native recovery artifacts
 
@@ -146,7 +161,7 @@ The browser does **not** reference `ContactCore.Infrastructure` and does not own
 - enter repository initialization gate;
 - call JavaScript storage bridge;
 - read IndexedDB contact-state record;
-- deserialize documents into domain contacts;
+- deserialize documents into domain contacts using source-generated JSON metadata;
 - reject malformed JSON/duplicate contact IDs as invalid browser-store state;
 - mark repository initialized only after load completes.
 
@@ -158,11 +173,13 @@ Each write:
 2. enters `SemaphoreSlim` write gate;
 3. snapshots current in-memory dictionary;
 4. applies mutation;
-5. serializes ordered full contact documents;
+5. serializes ordered full contact documents with generated JSON metadata;
 6. calls JavaScript `saveContacts`;
 7. JavaScript performs IndexedDB readwrite transaction/`put`;
 8. if persistence fails, restore prior in-memory dictionary and rethrow;
 9. release gate.
+
+The repository owns and disposes the semaphore through `IDisposable`.
 
 This avoids leaving the current application instance in a half-mutated state when browser persistence throws.
 
@@ -210,7 +227,8 @@ A future full-fidelity browser backup feature should define a versioned browser 
 - no support for future native schema in older build;
 - no cross-tab browser synchronization/conflict resolution;
 - no guarantee browser policy cannot evict/clear site data;
-- no claim that CSV/vCard is a full-fidelity database backup.
+- no claim that CSV/vCard is a full-fidelity database backup;
+- no claim that every possible native filesystem cleanup failure has been fault-injected.
 
 ## Operational recommendations
 
@@ -243,5 +261,6 @@ Never upload real DB files, browser data dumps, backups, exports, keys, or scree
 - version/migrate browser serialized state deliberately if representation changes;
 - keep native keyed-SQLite fail-closed;
 - never expose native backup/encryption controls on browser as false claims;
-- add tests/build gates appropriate to changed target;
+- add deterministic regression coverage for destructive recovery boundaries when practical;
+- keep test-only failure probes internal rather than widening user-facing/public contracts;
 - update `data-model.md`, `architecture.md`, `security.md`, `testing.md`, `platform-support.md`, and `CHANGELOG.md` where relevant.
