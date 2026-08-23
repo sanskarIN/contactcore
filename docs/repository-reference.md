@@ -1,8 +1,8 @@
 # Repository Reference
 
-This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 130 tracked files** present after the 2026-08-23 release-hardening and portable-UI-test continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
+This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 131 tracked files** present after the 2026-08-23 release-hardening, portable-UI-test, and release-smoke-record continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
 
-The previous 124-file cross-platform reference predated a test-visibility assembly attribute, trimming-safe browser JSON metadata, and the dedicated portable UI test project. This reference supersedes that count. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
+The previous 124-file cross-platform reference predated a test-visibility assembly attribute, trimming-safe browser JSON metadata, the dedicated portable UI test project, and the repeatable manual release smoke-test record. This reference supersedes those earlier counts. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
 
 ## 1. Repository root — 19 files
 
@@ -89,10 +89,10 @@ C# CodeQL workflow using checkout v6, setup-dotnet v5, CodeQL v4, and the worklo
 ### `.github/workflows/release.yml`
 Tag-driven 2.0.12 release workflow. Enforces tag/source-version equality; publishes six desktop RIDs plus browser WebAssembly ZIP; build-gates Android/iOS with compatible Xcode selection for iOS; generates SHA-256 checksums; limits repository write permission to final release creation; does not claim store signing/notarization.
 
-## 3. Documentation — 22 files
+## 3. Documentation — 23 files
 
 ### `docs/README.md`
-Documentation hub/index and documentation-quality principles, including explicit native/browser and build/signing boundaries.
+Documentation hub/index and documentation-quality principles, including explicit native/browser and build/signing boundaries plus exact-candidate manual evidence requirements.
 
 ### `docs/accessibility.md`
 Keyboard/focus/theme/reduced-motion behavior, editor/duplicate-review accessibility risks, platform test scenarios, and non-certification boundary.
@@ -110,7 +110,7 @@ Accepted optional SQLCipher-compatible provider boundary with fail-closed reques
 Cross-platform project/dependency map; desktop/mobile/browser startup; native SQLite/browser IndexedDB flows; shared UI; persistence, identity, import, duplicate, backup, security, and evolution rules.
 
 ### `docs/ci-cd.md`
-Three-OS core CI, platform workload jobs, CodeQL, six-RID desktop release matrix, WebAssembly publish, mobile build gate, permissions, checksums, and troubleshooting.
+Three-OS core CI, platform workload jobs, CodeQL, six-RID desktop release matrix, WebAssembly publish, mobile build gate, coverage/AOT/Xcode gates, permissions, checksums, and troubleshooting.
 
 ### `docs/data-model.md`
 Domain-to-SQLite mapping, scalar/repeated fields, shared group/tag identities, timestamps, complete aggregate replacement, duplicate merge, indexes, normalization, schema identity, and migrations.
@@ -133,11 +133,14 @@ Current complexity/performance characteristics, non-claims, benchmark scenarios,
 ### `docs/platform-support.md`
 Canonical platform matrix for Windows/Linux/macOS architectures, Android, iPhone/iPad, Browser/WebAssembly, and ChromeOS routes. Documents persistence models, workload commands, CI coverage, store-signing boundaries, and meaning of cross-platform support.
 
+### `docs/release-smoke-test.md`
+Repeatable manual release-candidate verification record. Binds evidence to an exact SHA and includes fictional-fixture rules, automated-gate recording, desktop/browser/mobile matrices, data-safety scenarios, accessibility/privacy review, deviations, and release sign-off.
+
 ### `docs/release.md`
-2.0.12 tag/version preflight, six desktop packages, browser package, mobile build gate, signing/provisioning boundaries, verification/smoke tests, failures/rollback, and post-release process.
+2.0.12 tag/version preflight, six desktop packages, browser package, mobile build gate, explicit mobile RIDs/Xcode selection, signing/provisioning boundaries, verification/smoke tests, failures/rollback, and post-release process. References the repeatable smoke-test record.
 
 ### `docs/repository-reference.md`
-This canonical 130-file inventory.
+This canonical 131-file inventory.
 
 ### `docs/security.md`
 Engineering threat model and controls for native SQL, aggregate data-loss boundaries, draft/duplicate/backup safeguards, encryption requests, parsers, diagnostics, dependencies, and release risk.
@@ -434,7 +437,7 @@ Non-visual desktop editor regressions for root/timestamp/flags/persistence state
 |---|---:|
 | Root | 19 |
 | `.github` | 8 |
-| `docs` | 22 |
+| `docs` | 23 |
 | Domain source | 4 |
 | Application source | 5 |
 | Infrastructure source | 9 |
@@ -449,6 +452,6 @@ Non-visual desktop editor regressions for root/timestamp/flags/persistence state
 | Infrastructure tests | 7 |
 | Portable UI tests | 4 |
 | Desktop tests | 2 |
-| **Total** | **130** |
+| **Total** | **131** |
 
-This total intentionally counts tracked files only, not directories. It supersedes the previous 124-file cross-platform reference and includes the six later tracked additions: infrastructure test visibility, browser source-generated JSON metadata, and the four-file portable UI test project. Regenerate this inventory whenever the tracked tree changes.
+This total intentionally counts tracked files only, not directories. It supersedes the previous 124/130-file cross-platform references and includes the seven later tracked additions: infrastructure test visibility, browser source-generated JSON metadata, the four-file portable UI test project, and the release smoke-test record. Regenerate this inventory whenever the tracked tree changes.
