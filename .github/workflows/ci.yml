@@ -89,6 +89,10 @@ jobs:
           global-json-file: global.json
           cache: true
           cache-dependency-path: Directory.Packages.props
+      - name: Select .NET iOS-compatible Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+          xcodebuild -version
       - name: Install iOS workload
         run: dotnet workload install ios --skip-manifest-update
       - name: Restore iOS simulator target
