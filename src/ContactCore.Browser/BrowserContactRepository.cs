@@ -4,13 +4,8 @@ using ContactCore.Domain;
 
 namespace ContactCore.Browser;
 
-public sealed class BrowserContactRepository : IContactRepository
+public sealed class BrowserContactRepository : IContactRepository, IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = false
-    };
-
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Dictionary<Guid, Contact> _contacts = [];
     private bool _initialized;
@@ -26,10 +21,10 @@ public sealed class BrowserContactRepository : IContactRepository
             var json = await BrowserStorageInterop.LoadContactsAsync().ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(json))
             {
-                List<ContactDocument>? documents;
+                BrowserContactDocument[]? documents;
                 try
                 {
-                    documents = JsonSerializer.Deserialize<List<ContactDocument>>(json, JsonOptions);
+                    documents = JsonSerializer.Deserialize(json, BrowserJsonContext.Default.BrowserContactDocumentArray);
                 }
                 catch (JsonException ex)
                 {
@@ -159,6 +154,12 @@ public sealed class BrowserContactRepository : IContactRepository
         }
     }
 
+    public void Dispose()
+    {
+        _gate.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     private async Task WriteAsync(Action mutation, CancellationToken cancellationToken)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -172,9 +173,9 @@ public sealed class BrowserContactRepository : IContactRepository
                 mutation();
                 var documents = _contacts.Values
                     .OrderBy(contact => contact.Id)
-                    .Select(ContactDocument.FromDomain)
+                    .Select(BrowserContactDocument.FromDomain)
                     .ToArray();
-                var json = JsonSerializer.Serialize(documents, JsonOptions);
+                var json = JsonSerializer.Serialize(documents, BrowserJsonContext.Default.BrowserContactDocumentArray);
                 await BrowserStorageInterop.SaveContactsAsync(json).ConfigureAwait(false);
             }
             catch
@@ -206,69 +207,5 @@ public sealed class BrowserContactRepository : IContactRepository
         }
 
         return phone.Length > 0 && contact.Phones.Any(value => TextNormalizer.PhoneKey(value.Number).Contains(phone, StringComparison.Ordinal));
-    }
-
-    private sealed class ContactDocument
-    {
-        public Guid Id { get; set; }
-        public string GivenName { get; set; } = "";
-        public string FamilyName { get; set; } = "";
-        public string Nickname { get; set; } = "";
-        public DateOnly? Birthday { get; set; }
-        public string Notes { get; set; } = "";
-        public bool IsFavorite { get; set; }
-        public bool IsArchived { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset UpdatedAt { get; set; }
-        public List<ContactPhone> Phones { get; set; } = [];
-        public List<ContactEmail> Emails { get; set; } = [];
-        public List<ContactAddress> Addresses { get; set; } = [];
-        public List<ContactOrganization> Organizations { get; set; } = [];
-        public List<ContactGroup> Groups { get; set; } = [];
-        public List<ContactTag> Tags { get; set; } = [];
-
-        public Contact ToDomain()
-        {
-            var contact = new Contact
-            {
-                Id = Id,
-                GivenName = GivenName,
-                FamilyName = FamilyName,
-                Nickname = Nickname,
-                Birthday = Birthday,
-                Notes = Notes,
-                IsFavorite = IsFavorite,
-                IsArchived = IsArchived,
-                CreatedAt = CreatedAt,
-                UpdatedAt = UpdatedAt
-            };
-            contact.Phones.AddRange(Phones);
-            contact.Emails.AddRange(Emails);
-            contact.Addresses.AddRange(Addresses);
-            contact.Organizations.AddRange(Organizations);
-            contact.Groups.AddRange(Groups);
-            contact.Tags.AddRange(Tags);
-            return contact;
-        }
-
-        public static ContactDocument FromDomain(Contact contact) => new()
-        {
-            Id = contact.Id,
-            GivenName = contact.GivenName,
-            FamilyName = contact.FamilyName,
-            Nickname = contact.Nickname,
-            Birthday = contact.Birthday,
-            Notes = contact.Notes,
-            IsFavorite = contact.IsFavorite,
-            IsArchived = contact.IsArchived,
-            CreatedAt = contact.CreatedAt,
-            UpdatedAt = contact.UpdatedAt,
-            Phones = [.. contact.Phones],
-            Emails = [.. contact.Emails],
-            Addresses = [.. contact.Addresses],
-            Organizations = [.. contact.Organizations],
-            Groups = [.. contact.Groups],
-            Tags = [.. contact.Tags]
-        };
     }
 }
