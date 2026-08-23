@@ -3,8 +3,29 @@ using Microsoft.Data.Sqlite;
 
 namespace ContactCore.Infrastructure;
 
-public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factory) : IBackupService
+public sealed class BackupService : IBackupService
 {
+    private readonly AppPaths _paths;
+    private readonly SqliteConnectionFactory _factory;
+    private readonly Func<CancellationToken, Task>? _postSwitchVerificationProbe;
+
+    public BackupService(AppPaths paths, SqliteConnectionFactory factory)
+        : this(paths, factory, postSwitchVerificationProbe: null)
+    {
+    }
+
+    internal BackupService(
+        AppPaths paths,
+        SqliteConnectionFactory factory,
+        Func<CancellationToken, Task>? postSwitchVerificationProbe)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(factory);
+        _paths = paths;
+        _factory = factory;
+        _postSwitchVerificationProbe = postSwitchVerificationProbe;
+    }
+
     public async Task<string> CreateBackupAsync(string destinationDirectory, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationDirectory);
@@ -14,8 +35,8 @@ public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factor
             destinationDirectory,
             $"contactcore-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}.db");
 
-        await using var source = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var target = await factory
+        await using var source = await _factory.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var target = await _factory
             .OpenPathAsync(destination, readOnly: false, pooling: false, cancellationToken)
             .ConfigureAwait(false);
 
@@ -33,26 +54,26 @@ public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factor
         if (!File.Exists(backupPath))
             throw new FileNotFoundException("Backup file does not exist.", backupPath);
 
-        if (string.Equals(backupPath, factory.DatabasePath, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(backupPath, _factory.DatabasePath, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The backup source cannot be the active ContactCore database.", nameof(backupFile));
 
         // Read-only structural verification rejects corrupt/non-ContactCore/future-schema files before
         // any copy of the active database is touched.
-        await using (var probe = await factory
+        await using (var probe = await _factory
             .OpenPathAsync(backupPath, readOnly: true, pooling: false, cancellationToken)
             .ConfigureAwait(false))
         {
             await VerifyContactCoreDatabaseAsync(probe, requireCurrentIdentity: false, cancellationToken).ConfigureAwait(false);
         }
 
-        Directory.CreateDirectory(paths.DataDirectory);
-        Directory.CreateDirectory(paths.BackupDirectory);
+        Directory.CreateDirectory(_paths.DataDirectory);
+        Directory.CreateDirectory(_paths.BackupDirectory);
 
         var token = $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}";
-        var recoveryPath = Path.Combine(paths.BackupDirectory, $"pre-restore-{token}.db");
-        var stagingPath = paths.DatabasePath + $".restore-{Guid.NewGuid():N}.tmp";
-        var failedRestorePath = Path.Combine(paths.BackupDirectory, $"failed-restore-{token}.db");
-        var hadActiveDatabase = File.Exists(paths.DatabasePath);
+        var recoveryPath = Path.Combine(_paths.BackupDirectory, $"pre-restore-{token}.db");
+        var stagingPath = _paths.DatabasePath + $".restore-{Guid.NewGuid():N}.tmp";
+        var failedRestorePath = Path.Combine(_paths.BackupDirectory, $"failed-restore-{token}.db");
+        var hadActiveDatabase = File.Exists(_paths.DatabasePath);
 
         try
         {
@@ -64,7 +85,7 @@ public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factor
 
             // Migrate and fully verify the staging copy before it is allowed to replace the active file.
             // This means an incompatible migration cannot strand the user on a broken restored database.
-            var stagingFactory = factory.ForPath(stagingPath);
+            var stagingFactory = _factory.ForPath(stagingPath);
             await new DatabaseMigrator(stagingFactory).ApplyAsync(cancellationToken).ConfigureAwait(false);
             await using (var staged = await stagingFactory.OpenAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -72,24 +93,29 @@ public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factor
             }
 
             SqliteConnection.ClearAllPools();
-            DeleteSidecars(paths.DatabasePath);
-            File.Move(stagingPath, paths.DatabasePath, overwrite: true);
+            DeleteSidecars(_paths.DatabasePath);
+            File.Move(stagingPath, _paths.DatabasePath, overwrite: true);
 
             try
             {
-                await using var restored = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
+                // Internal deterministic probe used by infrastructure tests to exercise the otherwise
+                // timing/filesystem-dependent post-switch rollback path. Production construction leaves it null.
+                if (_postSwitchVerificationProbe is not null)
+                    await _postSwitchVerificationProbe(cancellationToken).ConfigureAwait(false);
+
+                await using var restored = await _factory.OpenAsync(cancellationToken).ConfigureAwait(false);
                 await VerifyContactCoreDatabaseAsync(restored, requireCurrentIdentity: true, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
                 SqliteConnection.ClearAllPools();
-                DeleteSidecars(paths.DatabasePath);
+                DeleteSidecars(_paths.DatabasePath);
 
-                if (File.Exists(paths.DatabasePath))
-                    File.Move(paths.DatabasePath, failedRestorePath, overwrite: true);
+                if (File.Exists(_paths.DatabasePath))
+                    File.Move(_paths.DatabasePath, failedRestorePath, overwrite: true);
 
                 if (hadActiveDatabase && File.Exists(recoveryPath))
-                    File.Copy(recoveryPath, paths.DatabasePath, overwrite: true);
+                    File.Copy(recoveryPath, _paths.DatabasePath, overwrite: true);
 
                 throw;
             }
@@ -102,8 +128,8 @@ public sealed class BackupService(AppPaths paths, SqliteConnectionFactory factor
 
     private async Task SnapshotActiveDatabaseAsync(string destination, CancellationToken cancellationToken)
     {
-        await using var source = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var target = await factory
+        await using var source = await _factory.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var target = await _factory
             .OpenPathAsync(destination, readOnly: false, pooling: false, cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
