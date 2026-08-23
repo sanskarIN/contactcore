@@ -20,6 +20,20 @@ public sealed class DuplicateDetectorTests
     }
 
     [TestMethod]
+    public void Shared_phone_with_country_code_difference_is_detected()
+    {
+        var a = new Contact { GivenName = "A" };
+        a.Phones.Add(new(Guid.NewGuid(), "Mobile", "+91 98765 43210"));
+        var b = new Contact { GivenName = "B" };
+        b.Phones.Add(new(Guid.NewGuid(), "Other", "9876543210"));
+
+        var result = new DuplicateDetector().Compare(a, b);
+
+        Assert.IsTrue(result.Score >= .4);
+        CollectionAssert.Contains(result.Reasons.ToList(), "Shared phone number");
+    }
+
+    [TestMethod]
     public void Merger_deduplicates_phone_numbers()
     {
         var a = new Contact { GivenName = "A" };
