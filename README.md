@@ -18,7 +18,7 @@
 
 ## Platform support
 
-ContactCore now has deliberate application targets for desktop, mobile, and browser environments rather than treating “cross-platform” as a desktop-only label.
+ContactCore has deliberate application targets for desktop, mobile, and browser environments rather than treating “cross-platform” as a desktop-only label.
 
 | Platform | Target | Persistence | Release/build posture |
 |---|---|---|---|
@@ -28,8 +28,8 @@ ContactCore now has deliberate application targets for desktop, mobile, and brow
 | Linux ARM64 | `linux-arm64` | SQLite | automated tar.gz release |
 | macOS Intel | `osx-x64` | SQLite | automated tar.gz release |
 | macOS Apple Silicon | `osx-arm64` | SQLite | automated tar.gz release |
-| Android | `net10.0-android` | SQLite | dedicated CI build target; production signing remains external |
-| iPhone / iPad | `net10.0-ios` | SQLite | dedicated macOS CI build target; Apple signing/provisioning remains external |
+| Android | `net10.0-android`, CI RID `android-arm64` | SQLite | dedicated CI build target; production signing remains external |
+| iPhone / iPad | `net10.0-ios`, CI RID `iossimulator-arm64` | SQLite | dedicated macOS CI build target; Apple signing/provisioning remains external |
 | Browser / WebAssembly | `net10.0-browser` | IndexedDB + local browser preferences | automated browser ZIP release |
 | ChromeOS | browser target; Android route on compatible devices | IndexedDB or SQLite according to route | no separate native ChromeOS package |
 
@@ -55,15 +55,16 @@ That means platform differences are explicit instead of hidden:
 - Preserve root contact ID, creation timestamp, complete aggregate state, contact-owned child IDs, and unchanged group/tag shared identity through normal edits.
 - Treat a true per-contact group/tag rename as safe reassignment rather than reusing one global dictionary ID with another name.
 - Distinguish unsaved drafts from persisted contacts so discard does not become a permanent delete.
-- Local search across names/phones/emails, favorites/archive filters, A-Z navigation, and race-safe debounced search.
+- Local search across names/phones/emails, favorites/archive filters, A-Z navigation, and race-safe debounced/cancellable search.
 - CSV and focused vCard 4.0 import/export with bounded text input, parser warnings, batch validation, and storage-consistent persistence.
-- Duplicate scoring/review with evidence, preview, explicit survivor choice, destructive confirmation, and stale-safe merge behavior.
+- Duplicate scoring/review with evidence, preview, explicit survivor choice, destructive confirmation, stale-safe merge behavior, and conservative country-code-aware phone equivalence.
 - Native SQLite schema migrations, foreign keys, indexes, aggregate transactions, literal wildcard escaping, and future-schema rejection.
 - Native verified SQLite backups and staged restore with pre-restore snapshot/rollback safeguards.
 - Optional fail-closed native SQLCipher-compatible integration point; runtime database key is not serialized into normal preferences.
 - System/Light/Dark themes, reduced-motion preference, delete confirmation, keyboard shortcuts on keyboard-capable hosts, and responsive single-view UI for mobile/browser.
-- Browser IndexedDB persistence with serialized writes and in-memory rollback when persistence fails.
+- Browser IndexedDB persistence with serialized writes, in-memory rollback on persistence failure, and source-generated trimming-safe JSON metadata.
 - Cross-platform CI: three-OS core build/test plus separate WebAssembly, Android, and iOS Release builds.
+- Five behavioral test projects covering Domain, Application, Infrastructure, portable UI workflows, and Desktop drafts, with XPlat coverage collection.
 - CodeQL analysis on the workload-free core solution.
 - Version-checked release automation, six desktop architecture archives, browser WebAssembly package, mobile build gate, and SHA-256 checksum publication.
 
@@ -90,6 +91,7 @@ Browser builds do not pretend a native SQLite database exists in a web sandbox. 
 ContactCore.Application
   → IContactRepository
   → BrowserContactRepository
+  → source-generated System.Text.Json metadata
   → .NET/JavaScript interop
   → IndexedDB
 ```
@@ -108,7 +110,7 @@ Native local-first does not automatically mean encrypted-at-rest: default `Micro
 
 Current downloadable desktop/browser artifacts are not represented as signed installers, notarized applications, package-manager packages, or store-certified binaries. Android/iOS production distribution requires maintainer-controlled signing/provisioning credentials that are intentionally not committed.
 
-Manual device/browser/accessibility validation remains required before making stronger conformance claims.
+Manual device/browser/accessibility validation remains required before making stronger conformance claims. Browser persistence still needs a real-IndexedDB automated harness and explicit cross-tab conflict handling before multi-tab editing can be described as hardened.
 
 ## Solution structure
 
@@ -122,13 +124,19 @@ ContactCore.Desktop
 ContactCore.Android
 ContactCore.iOS
 ContactCore.Browser
+
+ContactCore.Domain.Tests
+ContactCore.Application.Tests
+ContactCore.Infrastructure.Tests
+ContactCore.UI.Tests
+ContactCore.Desktop.Tests
 ```
 
 `ContactCore.UI` is the portable Avalonia single-view layer. `ContactCore.Native` composes the existing SQLite services for native mobile heads. `ContactCore.Browser` supplies a browser repository/storage adapter instead of referencing native Infrastructure.
 
 Two solution files exist intentionally:
 
-- `ContactCore.slnx` — complete solution with every application head;
+- `ContactCore.slnx` — complete solution with every application head and all five behavioral test projects;
 - `ContactCore.Core.slnx` — workload-free core/Desktop/test solution used by ordinary three-OS CI and CodeQL.
 
 Read [`docs/architecture.md`](docs/architecture.md) for the dependency map and data flows.
@@ -141,10 +149,11 @@ Read [`docs/architecture.md`](docs/architecture.md) for the dependency map and d
 - Avalonia Desktop / Android / iOS / Browser packages 12.1.1
 - CommunityToolkit.Mvvm 8.4.2
 - Microsoft.Data.Sqlite 10.0.11 on native storage path
-- MSTest 4.3.3 across the existing four behavioral test projects
-- coverlet collector for CI coverage artifacts
+- MSTest 4.3.3 across five behavioral test projects
+- coverlet collector 10.0.1 for CI coverage artifacts
 - GitHub Actions, CodeQL, Dependabot
 - IndexedDB + .NET JavaScript interop for browser persistence
+- `System.Text.Json` source generation for trimming-safe browser contact/preferences serialization
 
 Package versions are centralized in `Directory.Packages.props`; compiler/analyzer/version rules are in `Directory.Build.props`.
 
@@ -181,23 +190,25 @@ Serve published files through HTTP(S); direct `file://` loading is not the inten
 
 ```bash
 dotnet workload install android
-dotnet restore src/ContactCore.Android/ContactCore.Android.csproj
-dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release --no-restore
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj -r android-arm64
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release -r android-arm64 --no-restore
 ```
 
 Production Android distribution needs private signing configuration outside source control.
 
 ## Build iOS/iPadOS
 
-On macOS with the required Apple toolchain:
+On macOS with the current .NET iOS workload-compatible Xcode 26.0 toolchain:
 
 ```bash
+sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+xcodebuild -version
 dotnet workload install ios
-dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj
-dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release --no-restore
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj -r iossimulator-arm64
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release -r iossimulator-arm64 --no-restore
 ```
 
-Device/App Store distribution additionally needs Apple signing/provisioning credentials.
+The GitHub CI/release gates use the simulator RID and explicit Xcode selection to make toolchain behavior deterministic. Local developers can select the corresponding compatible Xcode installation present on their Mac. Device/App Store distribution additionally needs Apple signing/provisioning credentials.
 
 Full environment/workload notes: [`docs/setup.md`](docs/setup.md).
 
