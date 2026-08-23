@@ -39,8 +39,11 @@ public sealed class DuplicateDetector
         var leftEmails = left.Emails.Select(x => TextNormalizer.SearchKey(x.Address)).Where(x => x.Length > 0).ToHashSet();
         if (right.Emails.Any(x => leftEmails.Contains(TextNormalizer.SearchKey(x.Address)))) { score += 0.40; reasons.Add("Shared email address"); }
 
-        var leftPhones = left.Phones.Select(x => TextNormalizer.PhoneKey(x.Number)).Where(x => x.Length >= 5).ToHashSet();
-        if (right.Phones.Any(x => leftPhones.Contains(TextNormalizer.PhoneKey(x.Number)))) { score += 0.40; reasons.Add("Shared phone number"); }
+        if (right.Phones.Any(rightPhone => left.Phones.Any(leftPhone => TextNormalizer.PhoneEquivalent(leftPhone.Number, rightPhone.Number))))
+        {
+            score += 0.40;
+            reasons.Add("Shared phone number");
+        }
 
         if (left.Birthday is not null && left.Birthday == right.Birthday) { score += 0.10; reasons.Add("Same birthday"); }
         return new(left, right, Math.Min(1, score), reasons);
@@ -66,7 +69,7 @@ public sealed class ContactMerger
             merged.Notes += Environment.NewLine + Environment.NewLine + secondary.Notes;
         merged.IsFavorite |= secondary.IsFavorite;
 
-        foreach (var phone in secondary.Phones.Where(x => !merged.Phones.Any(y => TextNormalizer.PhoneKey(y.Number) == TextNormalizer.PhoneKey(x.Number))))
+        foreach (var phone in secondary.Phones.Where(x => !merged.Phones.Any(y => TextNormalizer.PhoneEquivalent(y.Number, x.Number))))
             merged.Phones.Add(phone with { Id = Guid.NewGuid() });
         foreach (var email in secondary.Emails.Where(x => !merged.Emails.Any(y => TextNormalizer.SearchKey(y.Address) == TextNormalizer.SearchKey(x.Address))))
             merged.Emails.Add(email with { Id = Guid.NewGuid() });
