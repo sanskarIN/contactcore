@@ -6,7 +6,7 @@ The current source/application version is **2.0.12**, centralized in `Directory.
 
 ## Why CI is split
 
-The complete `ContactCore.slnx` contains Android, iOS, Browser, Desktop, shared layers, and tests. Android/iOS/WebAssembly projects need .NET workloads that are not installed on every GitHub-hosted runner, and iOS compilation belongs on macOS.
+The complete `ContactCore.slnx` contains Android, iOS, Browser, Desktop, shared layers, and five behavioral test projects. Android/iOS/WebAssembly projects need .NET workloads that are not installed on every GitHub-hosted runner, and iOS compilation belongs on macOS.
 
 For that reason:
 
@@ -36,8 +36,10 @@ Matrix:
 4. restores `ContactCore.Core.slnx`;
 5. runs `dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore`;
 6. builds Release with `--no-restore`;
-7. runs tests with XPlat Code Coverage and `--no-build`;
+7. runs all five test projects with XPlat Code Coverage and `--no-build`;
 8. uploads `TestResults` when present, including after failures.
+
+Every test project references the centrally pinned `coverlet.collector`, so the shared coverage command is expected to resolve consistently across Domain, Application, Infrastructure, portable UI, and Desktop tests.
 
 Core test artifacts are named by runner OS and retained for 14 days.
 
@@ -54,7 +56,7 @@ setup .NET from global.json
 → Release build ContactCore.Browser
 ```
 
-This is the compile gate for `net10.0-browser`, Avalonia.Browser, .NET/JavaScript interop, shared UI references, and browser repository code.
+This is the compile gate for `net10.0-browser`, Avalonia.Browser, .NET/JavaScript interop, source-generated `System.Text.Json` metadata, shared UI references, and browser repository code. Trimming/AOT diagnostics are treated as real build signals rather than broadly suppressed.
 
 ### `android-build`
 
@@ -65,26 +67,28 @@ The job:
 ```text
 setup .NET from global.json
 → dotnet workload install android --skip-manifest-update
-→ restore ContactCore.Android
-→ Release build ContactCore.Android
+→ restore ContactCore.Android -r android-arm64
+→ Release build ContactCore.Android -r android-arm64
 ```
 
-It verifies the Android application head and transitive shared/native SQLite composition. It does not inject a private Android signing key.
+It verifies the Android application head and transitive shared/native SQLite composition. The explicit RID avoids host-RID leakage. The gate does not inject a private Android signing key.
 
 ### `ios-build`
 
 Runner: `macos-latest`.
 
-The job:
+The current .NET iOS workload accepts the Xcode 26.0 toolchain, while the rolling GitHub macOS image can default to a newer Xcode. CI therefore makes the toolchain choice explicit before installing/building the workload:
 
 ```text
 setup .NET from global.json
+→ sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+→ xcodebuild -version
 → dotnet workload install ios --skip-manifest-update
-→ restore ContactCore.iOS
-→ Release build ContactCore.iOS
+→ restore ContactCore.iOS -r iossimulator-arm64
+→ Release build ContactCore.iOS -r iossimulator-arm64
 ```
 
-macOS is used because iOS compilation requires the Apple development toolchain. The build gate does not invent Apple signing/provisioning credentials.
+macOS is used because iOS compilation requires the Apple development toolchain. The explicit simulator RID verifies source/build compatibility without inventing Apple signing/provisioning credentials.
 
 ### CI concurrency
 
@@ -208,8 +212,10 @@ The browser ZIP is a static-hosting artifact. It must be deployed to a suitable 
 
 `mobile-build-gate` has two matrix entries:
 
-- Android on Ubuntu, `android` workload, `ContactCore.Android` Release build;
-- iOS on macOS, `ios` workload, `ContactCore.iOS` Release build.
+- Android on Ubuntu, `android` workload, `android-arm64`, `ContactCore.Android` Release build;
+- iOS on macOS, `ios` workload, `iossimulator-arm64`, `ContactCore.iOS` Release build.
+
+The iOS matrix entry selects `/Applications/Xcode_26.0.app/Contents/Developer` before workload installation, mirroring normal CI so a release tag does not rediscover a rolling-runner Xcode mismatch.
 
 The final GitHub Release depends on this gate, so a tag should not publish desktop/browser assets while the mobile source heads are broken.
 
@@ -299,10 +305,10 @@ For changes touching production code/workflows, require the **exact final head**
 - core restore success on Ubuntu/Windows/macOS;
 - core format success;
 - core Release build success;
-- all current core tests passing;
-- Browser Release build success after `wasm-tools` installation;
-- Android Release build success after Android workload installation;
-- iOS Release build success on macOS after iOS workload installation;
+- all five current behavioral test projects passing with the shared coverage collector available;
+- Browser Release build success after `wasm-tools` installation, including trimming/AOT diagnostics;
+- Android `android-arm64` Release build success after Android workload installation;
+- iOS `iossimulator-arm64` Release build success on macOS after selecting the compatible Xcode and installing the iOS workload;
 - CodeQL with no unresolved newly introduced actionable finding;
 - documentation aligned with the code;
 - no real contact data, databases, exports, credentials, signing material, or private endpoints committed.
@@ -323,21 +329,25 @@ dotnet format ContactCore.Core.slnx
 
 Inspect resulting changes before committing them.
 
+### Coverage collector
+
+If CI reports `Unable to find a datacollector with friendly name 'XPlat Code Coverage'`, verify every test project includes a `coverlet.collector` package reference using the central version rather than removing `--collect` from CI.
+
 ### Android workload/build
 
-Confirm the stable .NET 10 SDK resolves, `dotnet workload list` includes Android after installation, and the Android SDK/toolchain is available. Do not “fix” a compile error by silently deleting the Android CI gate.
+Confirm the stable .NET 10 SDK resolves, `dotnet workload list` includes Android after installation, the explicit `android-arm64` RID is retained, and the Android SDK/toolchain is available. Do not “fix” a compile error by silently deleting the Android CI gate.
 
 ### iOS workload/build
 
-Use the macOS job logs. Check .NET iOS workload/toolchain compatibility and Apple tooling. Distinguish compilation/toolchain failures from signing/provisioning failures; the current gate is not intended to perform store signing.
+Use the macOS job logs. First inspect `xcodebuild -version` and confirm `xcode-select -p` resolves the expected Xcode 26.0 developer directory. Then check .NET iOS workload/toolchain compatibility. Distinguish compilation/toolchain failures from signing/provisioning failures; the current gate is not intended to perform store signing.
 
 ### Browser workload/build
 
-Check `wasm-tools`, WebAssembly SDK errors, `[JSImport]` source generation, JavaScript host assets, and Avalonia Browser references. A browser compile failure is a first-class platform regression.
+Check `wasm-tools`, WebAssembly SDK errors, `[JSImport]` source generation, source-generated JSON metadata, trimming/AOT diagnostics, JavaScript host assets, and Avalonia Browser references. A browser compile failure is a first-class platform regression.
 
 ### Test failure
 
-Use uploaded OS-specific `TestResults` where present. Reproduce with Release configuration and the relevant host OS when possible.
+Use uploaded OS-specific `TestResults` where present. Reproduce with Release configuration and the relevant host OS when possible. Portable UI asynchronous tests use explicit synchronization/bounded waits so cancellation regressions should be diagnosed as workflow behavior rather than ignored as timing noise.
 
 ### CodeQL
 
@@ -373,4 +383,5 @@ When changing GitHub Actions:
 - publish checksums for downloadable archives;
 - keep generated artifacts free of user data;
 - treat Android/iOS/Browser gates as first-class rather than optional decoration;
+- retain explicit mobile RIDs and the compatible iOS Xcode selection unless the workload/toolchain baseline is deliberately updated;
 - update `platform-support.md`, `release.md`, `README.md`, `CHANGELOG.md`, and `what_changed.md` when platform behavior changes.
