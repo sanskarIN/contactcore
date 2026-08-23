@@ -66,6 +66,40 @@ public sealed class BackupServiceTests
     }
 
     [TestMethod]
+    public async Task Post_switch_verification_failure_restores_recovery_snapshot_and_retains_failed_copy()
+    {
+        await _repository.UpsertAsync(new Contact { GivenName = "Backup state" });
+        var backupPath = await _backup.CreateBackupAsync(_paths.BackupDirectory);
+        await _repository.UpsertAsync(new Contact { GivenName = "Current before restore" });
+
+        var faultingBackup = new BackupService(
+            _paths,
+            _factory,
+            _ => Task.FromException(new InvalidDataException("Injected post-switch verification failure.")));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => faultingBackup.RestoreBackupAsync(backupPath));
+
+        var activeNames = (await _repository.SearchAsync(new ContactQuery())).Select(x => x.GivenName).ToArray();
+        CollectionAssert.AreEquivalent(
+            new[] { "Backup state", "Current before restore" },
+            activeNames,
+            "The active database should be rolled back to the verified pre-restore snapshot.");
+
+        var failedRestoreFiles = Directory.GetFiles(_paths.BackupDirectory, "failed-restore-*.db");
+        Assert.AreEqual(1, failedRestoreFiles.Length, "The switched-in copy should be retained for diagnosis/recovery.");
+        var failedFactory = new SqliteConnectionFactory(failedRestoreFiles[0]);
+        var failedRepository = new SqliteContactRepository(failedFactory, new DatabaseMigrator(failedFactory));
+        await failedRepository.InitializeAsync();
+        var failedNames = (await failedRepository.SearchAsync(new ContactQuery())).Select(x => x.GivenName).ToArray();
+        CollectionAssert.AreEqual(new[] { "Backup state" }, failedNames);
+
+        Assert.AreEqual(
+            0,
+            Directory.GetFiles(_paths.DataDirectory, "contactcore.db.restore-*.tmp").Length,
+            "Restore staging files should be removed even when post-switch verification fails.");
+    }
+
+    [TestMethod]
     public async Task Missing_backup_is_rejected_before_active_database_changes()
     {
         await _repository.UpsertAsync(new Contact { GivenName = "Keep active" });
