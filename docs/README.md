@@ -21,6 +21,7 @@ This directory is the engineering and product documentation hub for ContactCore.
 - [Performance](performance.md) — current performance characteristics, known scaling limits, and benchmark targets.
 - [Troubleshooting](troubleshooting.md) — common setup, workload, database, encryption, import, browser-storage, and recovery failures.
 - [Release](release.md) — versioning/tagging, desktop/browser publishing, mobile build/signing boundaries, and release verification.
+- [Release smoke-test record](release-smoke-test.md) — repeatable exact-SHA manual verification template for desktop, browser, mobile, data safety, accessibility, privacy, and release sign-off.
 - [Maintainer guide](maintainer-guide.md) — repository ownership tasks, migrations, release hygiene, dependency/workload updates, and documentation maintenance.
 - [Architecture decision records](adr/) — durable decisions and tradeoffs.
 
@@ -33,6 +34,7 @@ This directory is the engineering and product documentation hub for ContactCore.
 5. **Keep file-level traceability.** When files are added, renamed, or removed, update `repository-reference.md` and this index where relevant.
 6. **Separate native and browser persistence claims.** Native targets use SQLite; WebAssembly uses browser-managed IndexedDB and must not be described as having native SQLite backup/restore.
 7. **Separate build support from distribution signing.** Android/iOS build targets do not imply committed store signing identities or completed store certification.
+8. **Tie manual evidence to an exact candidate.** A smoke-test record must identify the tested SHA/artifacts/environment and must not be reused after the candidate changes.
 
 ## Repository-level documents
 
