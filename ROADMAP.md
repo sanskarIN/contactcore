@@ -109,9 +109,9 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Dedicated CI compile gates for Android, iOS, and WebAssembly heads.
 - [x] Search debounce/cancellation view-model tests.
 - [x] Destructive-action and restore confirmation view-model tests.
+- [x] Forced post-switch native restore verification failure/rollback test, including failed-copy retention and staging cleanup.
 - [ ] Browser repository automated tests with an isolated browser/IndexedDB harness.
-- [ ] Forced post-switch native restore verification failure/rollback test.
-- [ ] Restore staging/temp cleanup failure-path tests beyond current successful/invalid-source flows.
+- [ ] Restore staging/temp cleanup failure-path tests beyond the covered post-switch rollback path, including cleanup-operation failure injection.
 - [ ] Native/Avalonia integration tests where stable and valuable.
 - [ ] Accessibility smoke automation where supported, backed by manual audits.
 
