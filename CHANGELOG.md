@@ -19,7 +19,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Release automation now publishes Windows x64/ARM64, Linux x64/ARM64, macOS Intel/Apple Silicon, and browser WebAssembly packages; Android/iOS Release builds are mandatory release gates.
 - Android/iOS store/device signing remains deliberately external to the public repository; no private keystore, certificate, provisioning profile, or signing secret is committed or fabricated.
 - Added `docs/platform-support.md` and synchronized README/setup/architecture/CI/release documentation with native SQLite vs browser IndexedDB behavior, workload commands, ChromeOS routes, and signing/validation boundaries.
-- Regenerated `docs/repository-reference.md` from the previous 94-file checkpoint to the current **124 tracked files** (30 cross-platform files added, none deleted in this continuation).
+- Regenerated `docs/repository-reference.md` through the current **130 tracked files**, including later release-hardening and portable-UI-test additions.
 
 ### Release hardening after the 2.0.12 preparation checkpoint
 
@@ -28,12 +28,25 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - PR #12 was closed without merge after its confirmed dependency fix was transferred to the authoritative v2.0.12 PR #4; the stronger PR #4 implementation remains the only intended integration path.
 - Exact-head CI and CodeQL remain the merge gate; no green result is claimed until those workflows complete successfully on the final PR #4 head.
 
+### 2026-08-23 exact-head CI repair and resilience expansion
+
+- Fixed international duplicate-phone comparison so formatting that differs only by a plausible one-to-three-digit country calling code can match conservatively while `PhoneKey` remains a lossless digits-only normalization primitive.
+- Applied the same phone-equivalence rule to duplicate scoring and contact merge de-duplication, with regression tests for accepted country-code variants and short/mismatched non-equivalences.
+- Added the centrally managed `coverlet.collector` reference to Application and Infrastructure tests so all test projects support the shared `--collect:"XPlat Code Coverage"` CI command.
+- Added `BrowserJsonContext.cs` with source-generated `System.Text.Json` metadata and moved browser contact/preferences persistence to AOT/trimming-safe serializer overloads instead of suppressing `IL2026`.
+- Made `BrowserContactRepository` dispose its owned `SemaphoreSlim`, resolving the WebAssembly analyzer resource-lifetime failure.
+- Explicitly selects `/Applications/Xcode_26.0.app/Contents/Developer` in both normal iOS CI and the tag-release iOS gate so the .NET iOS workload is not broken by a newer rolling-runner default Xcode.
+- Added a dedicated `ContactCore.UI.Tests` project to both solution files with XPlat coverage enabled.
+- Added deterministic portable view-model search tests proving rapid input is debounced to the latest query and that a newer query cancels an already-running stale search before stale results can replace the visible list.
+- Added portable destructive-action/restore tests proving permanent deletion is confirmation-gated by default, cancellation preserves the contact, the explicit no-confirmation preference works, and restore cannot invoke the backup service until confirmation.
+- Regenerated the canonical repository inventory to **130 tracked files** and synchronized the testing guide and roadmap with the new portable UI regression coverage.
+
 ## [2.0.12] - 2026-08-19
 
 ### Added
 
 - Cross-platform Avalonia desktop shell for Windows, macOS, and Linux.
-- Layered Domain/Application/Infrastructure/Desktop solution plus one test project per production layer.
+- Layered Domain/Application/Infrastructure/Desktop solution plus behavioral test projects for Domain, Application, Infrastructure, portable UI, and Desktop workflows.
 - Rich contact model for names, birthday, notes, favorite/archive state, multiple phones/emails/addresses/organizations, groups, and tags.
 - Full desktop editing for all repeated contact collections in the current model, including add/edit/remove controls and stable contact-owned child identities.
 - Independent group/tag rows so names containing commas or semicolons round-trip exactly.
@@ -50,7 +63,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Version-checked release preflight: release tags must match the project version resolved from `Directory.Build.props`.
 - Platform-specific packaged release archives (`.zip` on Windows, `.tar.gz` on Linux/macOS) and generated `SHA256SUMS.txt` checksums.
 - Documentation hub plus user/setup/architecture/data model/desktop UI/import-export/storage/security/accessibility/performance/development/testing/CI/release/troubleshooting/maintainer/ADR/repository-reference documentation.
-- Regression tests across all four layers, including rich-editor identity/data behavior, shared group/tag reassignment, atomic duplicate merge races, parser hardening, paths/preferences/redaction, repository rich-field/query behavior, and backup/restore safety.
+- Regression tests across the core/data/UI layers, including rich-editor identity/data behavior, shared group/tag reassignment, atomic duplicate merge races, parser hardening, paths/preferences/redaction, repository rich-field/query behavior, backup/restore safety, portable search cancellation, and confirmation-gated destructive actions.
 
 ### Versioning
 
@@ -67,7 +80,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - `SqliteContactRepository.MergeAsync` requires both reviewed records to still exist, writes the complete survivor aggregate, and deletes the secondary contact in one transaction; a missing primary or secondary cancels/rolls back the operation.
 - Contact-service normalization covers addresses, organizations, groups, and tags in addition to scalar/phone/email fields.
 - User search text is trimmed and SQLite `LIKE` wildcard characters `%`, `_`, and backslash are escaped as literals.
-- Duplicate matching/merge logic has null/self-merge safeguards, threshold clamping, normalized comparison, structural de-duplication for richer child records, and fresh IDs for copied secondary contact-owned child rows.
+- Duplicate matching/merge logic has null/self-merge safeguards, threshold clamping, normalized comparison, conservative country-code-aware phone equivalence, structural de-duplication for richer child records, and fresh IDs for copied secondary contact-owned child rows.
 - The editor preserves original contact ID, creation timestamp, and IDs of contact-owned repeated rows that remain.
 - Unchanged group/tag assignments retain their shared dictionary identities; a true per-contact group/tag rename becomes reassignment to a new dictionary identity, while case-only/normalization-equivalent edits keep the original canonical identity/name.
 - Blank newly added rich rows are ignored; legacy label-only addresses remain preservable.
@@ -80,6 +93,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Backup/recovery filenames include timestamp plus random identity to avoid collisions.
 - Desktop import is bounded at 5,000,000 characters and supports storage-provider portability for backup picker inputs.
 - Desktop error/status presentation sanitizes likely PII patterns and caps diagnostic output.
+- Browser serialization uses generated JSON metadata rather than reflection-dependent runtime discovery in trimmed WebAssembly builds.
 - README and deep documentation describe the implemented full editor and interactive duplicate merge rather than the retired compact-editor limitation.
 - Temporary documentation addenda created during the audit were folded into the canonical guides/reference and removed.
 
@@ -105,6 +119,9 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Fixed per-contact group/tag rename handling so an edited shared dictionary row no longer reuses its old ID with a different name, avoiding SQLite primary-key conflicts and unintended global-rename semantics.
 - Fixed blank new address rows so they do not become empty persisted address records while still preserving legacy label-only addresses.
 - Fixed stale-primary duplicate merge behavior so a removed chosen survivor cannot be silently recreated from reviewed UI state.
+- Fixed duplicate phone suppression when otherwise identical local numbers differ only by a plausible country-code prefix.
+- Fixed Browser/WebAssembly trimming failures caused by reflection-based JSON serializer discovery.
+- Fixed iOS CI/release failures caused by the runner selecting an Xcode version newer than the installed .NET iOS workload accepts.
 
 ### Security and data safety
 
@@ -113,7 +130,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - Optional database encryption remains fail closed: when a database key is requested, `cipher_version` must prove a SQLCipher-compatible provider is active.
 - Database keys are runtime-only and not stored in normal preferences.
 - Permanent deletion defaults to confirmation enabled; when required confirmation is unavailable, deletion is blocked.
-- Restore always requires desktop confirmation.
+- Restore always requires desktop/portable confirmation before the backup service is invoked.
 - Duplicate merge always requires confirmation independent of permanent-delete preference.
 - Duplicate merge is transactional across survivor update and secondary deletion and rejects stale review state when either record vanished.
 - Batch import is validated before one-transaction persistence.
@@ -123,15 +140,17 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ### Testing
 
-- Duplicate scoring/merge tests cover child-ID safety and self-merge rejection.
+- Duplicate scoring/merge tests cover child-ID safety, self-merge rejection, and international country-code-equivalent phone handling.
 - Atomic SQLite merge tests cover normal merge, missing-secondary rollback, and missing-primary non-resurrection while preserving the secondary record.
 - CSV/vCard tests cover round-trip behavior, malformed/randomized text boundaries, unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard names/notes, common TYPE mapping, and non-echoing birthday warnings.
 - SQLite tests cover aggregate round-trip, cascade deletion, bulk rollback, rich child persistence/query behavior, shared group/tag reassignment, and merge transactions.
 - Backup/restore tests cover verified restore, invalid input protection, schema migration/version boundaries, identity checks, and unique backup naming.
 - Preferences tests cover runtime key non-persistence, first-run key behavior, malformed JSON defaults, and theme normalization.
 - Desktop draft tests cover root identity/timestamps/flags, persisted state, exact birthday parsing, complete repeated-field editing, contact-owned ID preservation, shared group/tag rename identity rules, removal semantics, delimiter-containing group/tag names, label-only address preservation, blank-row suppression, and source-aggregate non-mutation.
+- Portable UI tests cover search debounce/cancellation ordering and destructive-delete/restore confirmation state.
 - Contact-service tests cover scalar/phone/email and address/organization/group/tag normalization plus whole-batch import validation/indexing.
 - Path/redaction tests cover environment-path handling and sanitization boundaries.
+- Every current test project references the centrally pinned coverage collector for the shared three-OS XPlat coverage command.
 
 ### Known limitations
 
@@ -145,10 +164,11 @@ All notable changes to ContactCore are documented here. The project follows Sema
 - vCard support remains a focused subset rather than a complete implementation of every property/encoding/parameter.
 - The default ordinary SQLite native build is not encrypted at rest unless a compatible cipher provider is deliberately integrated.
 - Browser persistence is browser-profile/origin-managed and can be removed by site-data clearing, private-session teardown, policy, or storage eviction; it is not represented as a native SQLite backup model.
+- Browser repository persistence still needs an automated real-IndexedDB harness and cross-tab conflict handling before stronger multi-tab claims.
 - Android/iOS build support does not equal Play Store/App Store signing/certification.
 - Release artifacts are not documented as code-signed or notarized.
 - Manual accessibility, screen-reader, high-DPI, native-picker, phone/tablet lifecycle/orientation, and representative browser verification remains required before stronger conformance claims.
 
 ### Documentation checkpoint
 
-The current documentation pass is synchronized with the cross-platform v2.0.12 integration branch. See `docs/README.md` for navigation, `docs/platform-support.md` for the platform matrix, `docs/repository-reference.md` for the 124-file inventory, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
+The current documentation pass is synchronized with the cross-platform v2.0.12 integration branch through the 2026-08-23 CI-repair and portable-UI-test continuation. See `docs/README.md` for navigation, `docs/platform-support.md` for the platform matrix, `docs/repository-reference.md` for the **130-file inventory**, `docs/testing.md` for the five-project behavioral test posture, and `what_changed.md` for the continuation/audit checkpoint and exact verification state.
