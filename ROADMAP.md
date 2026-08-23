@@ -69,7 +69,7 @@ Current release-preparation version: **2.0.12**.
 - [x] Exhaustive tracked-file repository reference.
 - [x] Root README/changelog/roadmap synchronized for the 2.0.12 checkpoint.
 - [x] Dedicated cross-platform support guide documenting target/persistence/signing boundaries.
-- [x] Repository reference regenerated for the 124-file cross-platform tree.
+- [x] Repository reference regenerated for the 130-file release-hardening tree.
 
 ## 0.4 — Rich UX completion
 
@@ -107,11 +107,11 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Redaction truncation/PII-shape tests.
 - [x] ContactService save/import normalization and indexed import-validation tests, including rich address/organization/group/tag normalization.
 - [x] Dedicated CI compile gates for Android, iOS, and WebAssembly heads.
+- [x] Search debounce/cancellation view-model tests.
+- [x] Destructive-action and restore confirmation view-model tests.
 - [ ] Browser repository automated tests with an isolated browser/IndexedDB harness.
 - [ ] Forced post-switch native restore verification failure/rollback test.
 - [ ] Restore staging/temp cleanup failure-path tests beyond current successful/invalid-source flows.
-- [ ] Search debounce/cancellation view-model tests.
-- [ ] Destructive-action and restore confirmation view-model tests.
 - [ ] Native/Avalonia integration tests where stable and valuable.
 - [ ] Accessibility smoke automation where supported, backed by manual audits.
 
@@ -146,6 +146,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Add Windows ARM64 and Linux ARM64 desktop release RIDs.
 - [x] Add browser/WebAssembly published ZIP artifact.
 - [x] Require Android/iOS Release build success before final tag release.
+- [x] Pin the iOS CI/release gate to the Xcode toolchain accepted by the current .NET iOS workload instead of the rolling runner default.
 - [ ] Capture real product screenshots using fictional data after verified release builds.
 - [ ] Manual keyboard/screen-reader/high-DPI/theme audit on supported desktop platforms.
 - [ ] Manual touch/orientation/file-picker/lifecycle/accessibility audit on representative Android/iOS devices.
@@ -174,6 +175,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Add platform-specific CI workload/build jobs.
 - [x] Add six desktop architecture release targets and browser package.
 - [x] Document ChromeOS browser/Android routes without claiming a separate native ChromeOS project.
+- [x] Add dedicated portable UI view-model regression tests to the workload-free and full solutions.
 - [ ] Cross-tab browser optimistic concurrency/conflict handling if multi-tab editing becomes a supported workflow.
 - [ ] Platform-specific integration/device test automation beyond current compile gates.
 - [ ] Store-distribution signing/packaging automation after secure credential policy is established.
