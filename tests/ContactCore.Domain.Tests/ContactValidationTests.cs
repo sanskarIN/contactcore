@@ -101,4 +101,13 @@ public sealed class ContactValidationTests
     [DataRow("+91 (999) 123-4567", "919991234567")]
     [DataRow(" 0044.20.1234 5678 ", "00442012345678")]
     public void Phone_key_keeps_digits_only(string input, string expected) => Assert.AreEqual(expected, TextNormalizer.PhoneKey(input));
+
+    [TestMethod]
+    [DataRow("+91 98765 43210", "9876543210", true)]
+    [DataRow("+1 (415) 555-0100", "4155550100", true)]
+    [DataRow("+44 20 1234 5678", "+44 20 1234 5678", true)]
+    [DataRow("12345", "9912345", false)]
+    [DataRow("+91 98765 43210", "876543210", false)]
+    public void Phone_equivalence_handles_country_codes_without_overmatching(string left, string right, bool expected) =>
+        Assert.AreEqual(expected, TextNormalizer.PhoneEquivalent(left, right));
 }
