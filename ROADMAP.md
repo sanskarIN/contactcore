@@ -69,7 +69,7 @@ Current release-preparation version: **2.0.12**.
 - [x] Exhaustive tracked-file repository reference.
 - [x] Root README/changelog/roadmap synchronized for the 2.0.12 checkpoint.
 - [x] Dedicated cross-platform support guide documenting target/persistence/signing boundaries.
-- [x] Repository reference regenerated for the 130-file release-hardening tree.
+- [x] Repository reference regenerated for the 131-file release-hardening tree.
 
 ## 0.4 — Rich UX completion
 
@@ -147,6 +147,7 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [x] Add browser/WebAssembly published ZIP artifact.
 - [x] Require Android/iOS Release build success before final tag release.
 - [x] Pin the iOS CI/release gate to the Xcode toolchain accepted by the current .NET iOS workload instead of the rolling runner default.
+- [x] Publish a repeatable manual release smoke-test record/template.
 - [ ] Capture real product screenshots using fictional data after verified release builds.
 - [ ] Manual keyboard/screen-reader/high-DPI/theme audit on supported desktop platforms.
 - [ ] Manual touch/orientation/file-picker/lifecycle/accessibility audit on representative Android/iOS devices.
@@ -156,7 +157,6 @@ The prior compact-editor preservation phase has been superseded by a complete ed
 - [ ] Android production keystore/signing pipeline when credentials/policy are securely available.
 - [ ] iOS/iPadOS signing/provisioning/App Store pipeline when credentials/policy are securely available.
 - [ ] Decide installer/package-manager/store formats beyond current desktop/browser archives and mobile build targets.
-- [ ] Publish a repeatable manual release smoke-test record/template.
 
 ## 0.9 — Cross-platform application architecture
 
