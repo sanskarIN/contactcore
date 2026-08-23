@@ -114,9 +114,18 @@ Covers successful survivor update/secondary delete, missing-secondary rollback, 
 
 ### `BackupServiceTests.cs`
 
-Covers verified restore, pre-restore snapshot retention, missing/self-source rejection, invalid/unrelated SQLite rejection, schema-family tampering, older schema migration, future schema rejection, and unique backup names.
+Covers verified restore, pre-restore snapshot retention, missing/self-source rejection, invalid/unrelated SQLite rejection, schema-family tampering, older schema migration, future schema rejection, unique backup names, and deterministic post-switch rollback behavior.
 
-High-value future failure injection includes forced post-switch verification failure and staging/temp cleanup failures.
+The post-switch rollback test uses the production-internal/test-visible `BackupService` probe to inject a failure after the staged database has replaced the active file but before final verification succeeds. It proves that:
+
+- the verified pre-restore snapshot is copied back to the active path;
+- the switched-in failed copy is retained under `failed-restore-*.db`;
+- the retained failed copy contains the selected restore state;
+- staging `.restore-*.tmp` files are cleaned by the `finally` path.
+
+The probe is internal and normal production construction leaves it disabled. This creates deterministic evidence for a destructive recovery branch without widening `IBackupService` or making the public API test-shaped.
+
+High-value future failure injection still includes explicit cleanup-operation failures such as inability to delete/move/copy staging/recovery files, rather than only failures inside the final verification zone.
 
 ### `JsonAppPreferencesTests.cs`
 
@@ -214,6 +223,8 @@ Android/iOS CI currently proves project/workload compilation. Before user-facing
 
 Android/iOS store signing is release engineering, not a unit-test assertion.
 
+Use `release-smoke-test.md` to record the exact candidate SHA, platform/device/browser details, skipped checks, and evidence from manual release verification.
+
 ## Temporary-data hygiene
 
 Infrastructure/native tests should:
@@ -242,7 +253,7 @@ Tests should not depend on:
 - real signing credentials;
 - a developer's normal browser profile.
 
-Use fixed randomness for ordinary parser robustness; reserve broad fuzzing for dedicated jobs/tooling. Asynchronous view-model tests should prefer explicit synchronization signals and bounded polling over large timing assumptions.
+Use fixed randomness for ordinary parser robustness; reserve broad fuzzing for dedicated jobs/tooling. Asynchronous view-model tests should prefer explicit synchronization signals and bounded polling over large timing assumptions. Destructive recovery failure paths should prefer narrow internal fault injection over timing-dependent races when a test seam can remain outside public contracts.
 
 ## Coverage policy
 
