@@ -6,6 +6,7 @@
     <ApplicationId>com.sanskarin.contactcore</ApplicationId>
     <ApplicationDisplayVersion>2.0.12</ApplicationDisplayVersion>
     <ApplicationVersion>2012</ApplicationVersion>
+    <TrimMode Condition="'$(RuntimeIdentifier)' == 'iossimulator-arm64' or '$(RuntimeIdentifier)' == 'iossimulator-x64'">copy</TrimMode>
   </PropertyGroup>
 
   <ItemGroup>
