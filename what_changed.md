@@ -1,4 +1,41 @@
-# ContactCore — v2.0.12 Final Cross-Platform Handoff
+# ContactCore — v2.0.12 Final Handoff and v2.0.13 Preparation
+
+## 2026-08-24 next-version preparation
+
+A separate patch-maintenance line has now been prepared without changing the authoritative v2.0.12 release candidate.
+
+- Next version: **2.0.13**
+- Tracking issue: **#15 — v2.0.13 maintenance: dependency and CI action refresh**
+- Preparation branch: `release/contactcore-2.0.13`
+- Branch base: exact v2.0.12 source head `4005b19fddeda7989cc52522aadd0bc91fece8e3`
+- The branch must be reconciled with the eventual 2.0.12 merge commit before its pull request is opened/merged.
+- Large feature-roadmap work remains outside this patch line.
+
+### 2.0.13 preparation commits
+
+1. `7db5b4941` — `build(version): start ContactCore 2.0.13 maintenance line`
+2. `a9264bb21` — `build(deps): update Microsoft.NET.Test.Sdk to 18.9.0`
+3. `7a3395d06` — `ci(deps): update checkout action to v7`
+4. `b7bf1a21a` — `ci(deps): update setup-dotnet action to v6`
+5. `07d0b9fa4` — `ci(codeql): update checkout action to v7`
+6. `adeb3e708` — `ci(codeql): update setup-dotnet action to v6`
+7. `0a9d9cba5` — `ci(release): update checkout action to v7`
+8. `660759040` — `ci(release): update setup-dotnet action to v6`
+9. `d50ebf3b2` — `docs(readme): prepare 2.0.13 maintenance line`
+10. `07a3390f5` — `docs(changelog): record 2.0.13 maintenance preparation`
+11. `44cdbe306` — `docs(roadmap): add 2.0.13 maintenance checkpoint`
+
+The 2.0.13 maintenance line therefore currently contains only version metadata, one test-SDK update, maintained GitHub Actions generations, and documentation. It deliberately does not include global taxonomy UI, general undo, browser multi-tab conflict handling, production SQLCipher integration, signing/notarization, or store-distribution work.
+
+### Required 2.0.13 sequence
+
+1. Finish the exact-head v2.0.12 iOS simulator gate and merge PR #4 only if all required checks are green.
+2. Reconcile `release/contactcore-2.0.13` with the resulting `main` merge commit.
+3. Close superseded dependency/hardening PRs only after their effective changes are present on the appropriate branch/main line.
+4. Open a focused 2.0.13 PR against `main`.
+5. Require the complete Ubuntu/Windows/macOS/Browser/Android/iOS/CodeQL exact-head gate again.
+6. Fix any actual compatibility regression introduced by Test SDK 18.9.0, checkout v7, or setup-dotnet v6 rather than weakening checks.
+7. Synchronize final release documentation and merge only after the complete exact-head gate is green.
 
 ## Release checkpoint
 
@@ -10,7 +47,7 @@ ContactCore **2.0.12** is being finalized through the repository's single author
 - Integration base: `3900063bcdc2f7f0834118abc2580e030f133d73`
 - Authoritative branch: `audit/contactcore-20260819`
 - Authoritative pull request: **PR #4**
-- Final continuation checkpoint before exact-head verification: `7b87188a1b3ba02b94000cc3c789fce4e8a3067d`
+- Exact current source/docs head: `4005b19fddeda7989cc52522aadd0bc91fece8e3`
 - Version: **2.0.12**
 - Intended tag after verified merge: **`v2.0.12`**
 - Stack: C# / .NET 10 / Avalonia 12.1.1 / SQLite on native targets / IndexedDB in Browser
@@ -46,6 +83,9 @@ This continuation was driven by the latest real PR #4 runner evidence. Product s
 14. `ea1d33e03` — `docs(platforms): clarify iOS simulator versus distribution support`
 15. `b0d6cbd38` — `docs: sync documentation index with 132-file final gate`
 16. `7b87188a1` — `docs(roadmap): close final 2.0.12 release-gate hardening items`
+17. `dfb78b173` — `docs: finalize August 24 release verification handoff`
+18. `d473861e3` — `docs: align final continuation checkpoint`
+19. `4005b19fd` — `docs(readme): note final exact-head verification checkpoint`
 
 A later optional attempt to rewrite `docs/testing.md` encountered a stale-content SHA conflict. It was deliberately not forced; no user/source data was at risk and the existing testing guide remains tracked. The canonical CI/release/platform/maintainer/handoff documents already describe the final verification boundary.
 
@@ -108,7 +148,7 @@ Production Apple distribution remains a future protected pipeline requiring real
 
 ## Verification evidence
 
-For code checkpoint `d32df6effb93d3312c7306cfebd5a966744ad3f5`, GitHub Actions confirmed before subsequent documentation commits superseded that run:
+For exact v2.0.12 head `4005b19fddeda7989cc52522aadd0bc91fece8e3`:
 
 - Ubuntu core restore/format/Release build/tests: **success**;
 - Windows core restore/format/Release build/tests: **success**;
@@ -116,9 +156,9 @@ For code checkpoint `d32df6effb93d3312c7306cfebd5a966744ad3f5`, GitHub Actions c
 - Browser/WebAssembly Release build: **success**;
 - Android `android-arm64` Release build: **success**;
 - CodeQL: **success**;
-- iOS simulator: still executing when documentation synchronization intentionally changed the PR head.
+- iOS simulator: the first exact-head job was **cancelled**, not failed; a targeted rerun of only the iOS job was queued on the same source head during this next-version preparation.
 
-Because PR workflow concurrency cancels obsolete attempts, **none of the above is the final merge approval**. The merge signal must come from CI + CodeQL for the exact final PR #4 synthetic merge candidate after this handoff checkpoint.
+PR #4 must remain unmerged until that exact-head iOS rerun completes successfully. No older green or cancelled workflow is treated as final approval.
 
 ## Current architecture and platforms
 
@@ -228,7 +268,7 @@ An older green/cancelled/superseded run is not sufficient.
 ## Release process after merge
 
 1. Confirm the verified PR head is merged to `main`.
-2. Apply/verify `main` branch protection/ruleset requiring the stable checks.
+2. Apply/verify `main` branch protection/ruleset requiring the stable checks. As of the 2026-08-24 live GitHub check, `main` reports `protected: false`; issue #14 remains open because the connected repository actions do not expose a branch-protection/ruleset write operation.
 3. Complete `docs/release-smoke-test.md` against the actual candidate/artifacts or explicitly mark sections not executed.
 4. Create `v2.0.12` only from the intended verified merged commit.
 5. Confirm release workflow output:
@@ -283,4 +323,4 @@ These items are deliberately not mislabeled as complete.
 
 ## Current posture
 
-The remaining immediate task is **verification, not speculative feature expansion**: run CI + CodeQL on the exact final PR #4 head, fix any real remaining failure, then merge through the documented path. Production signing and manual representative-device/browser checks remain explicit external requirements rather than fabricated completion claims.
+For 2.0.12, the only missing automated release gate is the targeted exact-head iOS simulator rerun. For 2.0.13, the maintenance branch is already prepared but intentionally remains separate from `main` until 2.0.12 is merged and the branch is reconciled with that merge commit.
