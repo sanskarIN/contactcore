@@ -49,9 +49,11 @@ The final release job generates `SHA256SUMS.txt` for packaged release assets.
 | Platform | Project | Runner | Release gate |
 |---|---|---|---|
 | Android | `ContactCore.Android` / `net10.0-android`, RID `android-arm64` | `ubuntu-latest` | install Android workload + Release build |
-| iPhone/iPad | `ContactCore.iOS` / `net10.0-ios`, RID `iossimulator-arm64` | `macos-latest` | select compatible Xcode + install iOS workload + Release build |
+| iPhone/iPad | `ContactCore.iOS` / `net10.0-ios`, RID `iossimulator-arm64` | `macos-latest` | select compatible Xcode + install iOS workload + unsigned simulator Release build |
 
 The current GitHub iOS gate explicitly selects `/Applications/Xcode_26.0.app/Contents/Developer` before workload installation. This avoids silently inheriting a rolling runner's newer default Xcode when the installed .NET iOS workload requires the 26.0 toolchain line.
+
+The iOS project applies `TrimMode=copy` only for simulator runtime identifiers. Application-owned AOT/trim hazards are still removed in source through generated JSON metadata and typed compiled Avalonia bindings. The simulator gate therefore validates source/runtime integration without pretending to be the final signed/device/App Store trimming pipeline. Production device trimming, signing, provisioning, and store validation require a dedicated maintainer-controlled distribution pipeline.
 
 Mobile source/build compatibility is a release requirement, but this public workflow does not attach production Android/iOS store packages because store/device distribution requires private signing/provisioning credentials.
 
@@ -123,6 +125,8 @@ dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj -r iossimulator-arm64
 dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release -r iossimulator-arm64 --no-restore
 ```
 
+The simulator-specific trim policy is defined in `ContactCore.iOS.csproj`; do not translate this local source-build command into a claim that a device/App Store binary has been signed or fully distribution-verified.
+
 Local success is useful but does not replace the GitHub matrix on the exact final head.
 
 ## Tagging 2.0.12
@@ -173,7 +177,7 @@ The browser artifact is deployable static web content. It is not a hosted websit
 In parallel matrix entries:
 
 - Ubuntu installs the Android workload and Release-builds `ContactCore.Android` for `android-arm64`;
-- macOS selects Xcode 26.0, installs the iOS workload, and Release-builds `ContactCore.iOS` for `iossimulator-arm64`.
+- macOS selects Xcode 26.0, installs the iOS workload, and Release-builds `ContactCore.iOS` for `iossimulator-arm64` using the simulator-only trim policy in the project.
 
 The final release depends on this job. Broken mobile source should therefore block the tag release even though mobile store packages are not attached automatically.
 
