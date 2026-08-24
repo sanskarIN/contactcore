@@ -2,6 +2,35 @@
 
 This roadmap distinguishes **implemented/verified source capabilities** from **future work** and from tasks that cannot be truthfully completed without external credentials or manual representative-environment testing.
 
+## Prepared maintenance line — 2.0.13
+
+The separate `release/contactcore-2.0.13` branch is prepared from the final 2.0.12 source head. It is intentionally a narrow patch-maintenance line rather than a container for unrelated roadmap features.
+
+### Completed preparation
+
+- [x] Advance centralized source/package version metadata to 2.0.13.
+- [x] Update `Microsoft.NET.Test.Sdk` from 18.8.1 to 18.9.0.
+- [x] Update `actions/checkout` from v6 to v7 in CI, CodeQL, and release workflows.
+- [x] Update `actions/setup-dotnet` from v5 to v6 in CI, CodeQL, and release workflows.
+- [x] Retain CodeQL v4, upload-artifact v7, download-artifact v8, softprops/action-gh-release v3, and Microsoft.Data.Sqlite 10.0.11.
+- [x] Create issue #15 as the 2.0.13 maintenance tracker.
+- [x] Keep the maintenance branch isolated until the authoritative 2.0.12 integration lands on `main`.
+
+### Remaining 2.0.13 gate
+
+- [ ] Complete and merge the authoritative 2.0.12 PR first.
+- [ ] Reconcile the maintenance branch with the resulting 2.0.12 merge commit so `main` is an ancestor of the 2.0.13 candidate.
+- [ ] Open the focused 2.0.13 pull request only after that reconciliation.
+- [ ] Require exact-head Ubuntu/Windows/macOS core restore/format/Release build/tests.
+- [ ] Require exact-head Browser/WebAssembly Release build.
+- [ ] Require exact-head Android `android-arm64` Release build.
+- [ ] Require exact-head iOS `iossimulator-arm64` Release build using the documented simulator/Xcode boundary.
+- [ ] Require exact-head CodeQL success.
+- [ ] Synchronize release/CI/reference/handoff docs with the final verified 2.0.13 candidate.
+- [ ] Merge only after the complete exact-head gate is green.
+
+Large UX features, browser multi-tab synchronization, production encrypted-at-rest provider work, signing/notarization, and store publication remain outside this patch line unless a concrete regression requires a narrowly scoped fix.
+
 ## Current release line — 2.0.12
 
 ### Completed product/data foundations
