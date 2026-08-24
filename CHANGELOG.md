@@ -4,6 +4,16 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ## [Unreleased]
 
+### 2.0.13 maintenance preparation
+
+- Started the **2.0.13** patch-maintenance source line in `Directory.Build.props` after the 2.0.12 source baseline.
+- Updated `Microsoft.NET.Test.Sdk` from 18.8.1 to 18.9.0 while retaining the existing MSTest and XPlat coverage stack.
+- Updated `actions/checkout` from v6 to v7 across CI, CodeQL, and release workflows.
+- Updated `actions/setup-dotnet` from v5 to v6 across CI, CodeQL, and release workflows.
+- Retained `github/codeql-action@v4`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, `softprops/action-gh-release@v3`, and `Microsoft.Data.Sqlite` 10.0.11.
+- Kept 2.0.13 narrowly scoped as a maintenance release: larger product/UX, browser multi-tab, encryption-provider, signing, and distribution roadmap items remain separately reviewable future work.
+- Created issue #15 as the maintenance tracker and `release/contactcore-2.0.13` as the isolated preparation branch. The 2.0.13 PR must wait for the authoritative 2.0.12 integration to land on `main` and must pass the complete exact-head cross-platform CI + CodeQL gate before merge.
+
 ### 2026-08-24 final release-gate hardening
 
 - Tightened country-code phone equivalence so suffix matching requires at least a ten-digit local representation; this prevents a different nine-digit suffix from becoming a destructive false-positive duplicate while retaining exact normalized equality and conservative country-code matching.
