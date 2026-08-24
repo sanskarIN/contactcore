@@ -56,7 +56,7 @@ setup .NET from global.json
 → Release build ContactCore.Browser
 ```
 
-This is the compile gate for `net10.0-browser`, Avalonia.Browser, .NET/JavaScript interop, source-generated `System.Text.Json` metadata, shared UI references, and browser repository code. Trimming/AOT diagnostics are treated as real build signals rather than broadly suppressed.
+This is the compile gate for `net10.0-browser`, Avalonia.Browser, .NET/JavaScript interop, source-generated `System.Text.Json` metadata, typed compiled shared-UI bindings, and browser repository code. Trimming/AOT diagnostics are treated as real build signals rather than broadly suppressed.
 
 ### `android-build`
 
@@ -88,7 +88,9 @@ setup .NET from global.json
 → Release build ContactCore.iOS -r iossimulator-arm64
 ```
 
-macOS is used because iOS compilation requires the Apple development toolchain. The explicit simulator RID verifies source/build compatibility without inventing Apple signing/provisioning credentials.
+macOS is used because iOS compilation requires the Apple development toolchain. The explicit simulator RID verifies source/runtime integration without inventing Apple signing/provisioning credentials.
+
+`ContactCore.iOS.csproj` applies `TrimMode=copy` only to iOS simulator runtime identifiers. Application-owned trim hazards are still removed at source: native preferences use source-generated JSON metadata and the shared `MainView` uses typed compiled bindings. The simulator build therefore does not fail solely because third-party Avalonia/SQLite assemblies emit linker warnings that are relevant to a separately signed/device distribution pipeline. This scoped simulator policy is not a claim that a production device/App Store artifact has been trimmed, signed, provisioned, notarized, or certified; those tasks require real maintainer-controlled credentials and a dedicated distribution pipeline.
 
 ### CI concurrency
 
@@ -215,7 +217,7 @@ The browser ZIP is a static-hosting artifact. It must be deployed to a suitable 
 - Android on Ubuntu, `android` workload, `android-arm64`, `ContactCore.Android` Release build;
 - iOS on macOS, `ios` workload, `iossimulator-arm64`, `ContactCore.iOS` Release build.
 
-The iOS matrix entry selects `/Applications/Xcode_26.0.app/Contents/Developer` before workload installation, mirroring normal CI so a release tag does not rediscover a rolling-runner Xcode mismatch.
+The iOS matrix entry selects `/Applications/Xcode_26.0.app/Contents/Developer` before workload installation, mirroring normal CI so a release tag does not rediscover a rolling-runner Xcode mismatch. The iOS project applies the same simulator-only `TrimMode=copy` policy described above; production device trimming/signing remains outside this unsigned source build gate.
 
 The final GitHub Release depends on this gate, so a tag should not publish desktop/browser assets while the mobile source heads are broken.
 
@@ -306,9 +308,9 @@ For changes touching production code/workflows, require the **exact final head**
 - core format success;
 - core Release build success;
 - all five current behavioral test projects passing with the shared coverage collector available;
-- Browser Release build success after `wasm-tools` installation, including trimming/AOT diagnostics;
+- Browser Release build success after `wasm-tools` installation, including application-owned trimming/AOT diagnostics;
 - Android `android-arm64` Release build success after Android workload installation;
-- iOS `iossimulator-arm64` Release build success on macOS after selecting the compatible Xcode and installing the iOS workload;
+- iOS `iossimulator-arm64` Release build success on macOS after selecting the compatible Xcode and installing the iOS workload, using the repository's simulator-only trim policy;
 - CodeQL with no unresolved newly introduced actionable finding;
 - documentation aligned with the code;
 - no real contact data, databases, exports, credentials, signing material, or private endpoints committed.
@@ -339,11 +341,11 @@ Confirm the stable .NET 10 SDK resolves, `dotnet workload list` includes Android
 
 ### iOS workload/build
 
-Use the macOS job logs. First inspect `xcodebuild -version` and confirm `xcode-select -p` resolves the expected Xcode 26.0 developer directory. Then check .NET iOS workload/toolchain compatibility. Distinguish compilation/toolchain failures from signing/provisioning failures; the current gate is not intended to perform store signing.
+Use the macOS job logs. First inspect `xcodebuild -version` and confirm `xcode-select -p` resolves the expected Xcode 26.0 developer directory. Then check .NET iOS workload/toolchain compatibility. The simulator gate intentionally uses `TrimMode=copy`; application-owned trim hazards must still be fixed through source-generated serialization/compiled bindings rather than broad warning suppression. Distinguish simulator compilation/runtime-integration failures from production device trimming and signing/provisioning failures; the current gate is not intended to perform store signing.
 
 ### Browser workload/build
 
-Check `wasm-tools`, WebAssembly SDK errors, `[JSImport]` source generation, source-generated JSON metadata, trimming/AOT diagnostics, JavaScript host assets, and Avalonia Browser references. A browser compile failure is a first-class platform regression.
+Check `wasm-tools`, WebAssembly SDK errors, `[JSImport]` source generation, source-generated JSON metadata, compiled XAML bindings, trimming/AOT diagnostics, JavaScript host assets, and Avalonia Browser references. A browser compile failure is a first-class platform regression.
 
 ### Test failure
 
