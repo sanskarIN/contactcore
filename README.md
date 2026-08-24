@@ -273,8 +273,6 @@ The latest PR merge candidate must pass:
 
 CI validates GitHub's synthetic PR merge. Do not merge based on an older green run after the PR head changes.
 
-See [`docs/ci-cd.md`](docs/ci-cd.md).
-
 ## Releases
 
 The current source version is **2.0.12**. The intended public tag after verified merge is:
@@ -355,6 +353,12 @@ Current non-blocking future work includes:
 - additional installer/package-manager formats.
 
 See [`ROADMAP.md`](ROADMAP.md). These are intentionally not represented as completed capabilities.
+
+## Final 2.0.12 integration checkpoint
+
+The authoritative integration path is PR #4 from `audit/contactcore-20260819` into `main`. The tracked source/document tree is frozen for exact-head verification after the August 24 hardening pass. Only CI + CodeQL for the **current** synthetic merge candidate may be used as the merge signal; older successful or cancelled runs are diagnostic evidence only.
+
+After that gate is green, the remaining release steps are repository governance, manual smoke evidence on representative disposable environments, merge/tag verification, and credential-dependent signing/store work where applicable.
 
 ## Contributing and support
 
