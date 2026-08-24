@@ -1,6 +1,6 @@
 # ContactCore
 
-**ContactCore** is a production-oriented, local-first contact manager built with C#/.NET 10 and Avalonia. The current **2.0.12** source line supports desktop, Android, iPhone/iPad, and Browser/WebAssembly application heads while keeping native contact data local by default.
+**ContactCore** is a production-oriented, local-first contact manager built with C#/.NET 10 and Avalonia. The current **2.0.13 maintenance source line** supports desktop, Android, iPhone/iPad, and Browser/WebAssembly application heads while keeping native contact data local by default.
 
 > Made by the Sanskar
 
@@ -273,24 +273,26 @@ The latest PR merge candidate must pass:
 
 CI validates GitHub's synthetic PR merge. Do not merge based on an older green run after the PR head changes.
 
+The 2.0.13 maintenance line updates GitHub workflow dependencies to `actions/checkout@v7` and `actions/setup-dotnet@v6` while retaining CodeQL v4, upload-artifact v7, download-artifact v8, and `softprops/action-gh-release@v3`.
+
 ## Releases
 
-The current source version is **2.0.12**. The intended public tag after verified merge is:
+The current maintenance source version is **2.0.13**. The previous 2.0.12 integration/release checkpoint must be completed from its verified `main` commit before publishing the next patch. The intended next maintenance tag, after 2.0.13 exact-head verification, is:
 
 ```text
-v2.0.12
+v2.0.13
 ```
 
-The release workflow version-checks the tag and produces:
+The release workflow version-checks the tag and will produce:
 
 ```text
-contactcore-v2.0.12-win-x64.zip
-contactcore-v2.0.12-win-arm64.zip
-contactcore-v2.0.12-linux-x64.tar.gz
-contactcore-v2.0.12-linux-arm64.tar.gz
-contactcore-v2.0.12-osx-x64.tar.gz
-contactcore-v2.0.12-osx-arm64.tar.gz
-contactcore-v2.0.12-browser-wasm.zip
+contactcore-v2.0.13-win-x64.zip
+contactcore-v2.0.13-win-arm64.zip
+contactcore-v2.0.13-linux-x64.tar.gz
+contactcore-v2.0.13-linux-arm64.tar.gz
+contactcore-v2.0.13-osx-x64.tar.gz
+contactcore-v2.0.13-osx-arm64.tar.gz
+contactcore-v2.0.13-browser-wasm.zip
 SHA256SUMS.txt
 ```
 
@@ -307,6 +309,8 @@ Five current behavioral test projects cover:
 - Infrastructure paths/preferences/redaction/SQLite/backup/restore;
 - Portable UI debounce/cancellation and destructive-action/restore confirmation;
 - Desktop draft identity/rich-field behavior.
+
+The 2.0.13 maintenance line uses `Microsoft.NET.Test.Sdk` 18.9.0 with the existing MSTest/coverage stack.
 
 See [`docs/testing.md`](docs/testing.md).
 
@@ -354,11 +358,11 @@ Current non-blocking future work includes:
 
 See [`ROADMAP.md`](ROADMAP.md). These are intentionally not represented as completed capabilities.
 
-## Final 2.0.12 integration checkpoint
+## 2.0.12 baseline and 2.0.13 maintenance preparation
 
-The authoritative integration path is PR #4 from `audit/contactcore-20260819` into `main`. The tracked source/document tree is frozen for exact-head verification after the August 24 hardening pass. Only CI + CodeQL for the **current** synthetic merge candidate may be used as the merge signal; older successful or cancelled runs are diagnostic evidence only.
+The 2.0.12 authoritative integration path remains PR #4 from `audit/contactcore-20260819` into `main`, and its exact-head release gate must be completed before the next patch is published. The separate `release/contactcore-2.0.13` branch starts from that source baseline and contains only maintenance-version/dependency/workflow preparation until the 2.0.12 merge checkpoint is established.
 
-After that gate is green, the remaining release steps are repository governance, manual smoke evidence on representative disposable environments, merge/tag verification, and credential-dependent signing/store work where applicable.
+For 2.0.13, the same full exact-head CI + CodeQL matrix remains mandatory. Larger product roadmap work is intentionally kept out of this patch line unless a concrete regression requires it.
 
 ## Contributing and support
 
