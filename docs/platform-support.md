@@ -1,138 +1,47 @@
 # Platform Support
 
-ContactCore 2.0.12 is structured as a shared C#/.NET application with platform-specific Avalonia heads. The contact domain, validation, import/export, duplicate detection/merge rules, and most presentation workflows are shared. Persistence is selected by platform so the application remains local-first without pretending that native SQLite is available inside a browser sandbox.
+ContactCore 2.0.12 separates **source/build support**, **automated verification**, and **production distribution/signing**. A platform appearing in the source tree does not automatically mean a signed store package has been produced or manually certified on representative hardware.
 
-## Support matrix
+## Current matrix
 
-| Platform | Project / target | Local persistence | Build verification | Distribution status |
+| Platform | Target / runtime | Persistence | Automated verification | Distribution posture |
 |---|---|---|---|---|
-| Windows x64 | `ContactCore.Desktop`, `win-x64` | SQLite | three-OS core CI + release publish | automated ZIP |
-| Windows ARM64 | `ContactCore.Desktop`, `win-arm64` | SQLite | release publish | automated ZIP |
-| Linux x64 | `ContactCore.Desktop`, `linux-x64` | SQLite | three-OS core CI + release publish | automated tar.gz |
-| Linux ARM64 | `ContactCore.Desktop`, `linux-arm64` | SQLite | release publish | automated tar.gz |
-| macOS Intel | `ContactCore.Desktop`, `osx-x64` | SQLite | three-OS core CI + release publish | automated tar.gz |
-| macOS Apple Silicon | `ContactCore.Desktop`, `osx-arm64` | SQLite | three-OS core CI + release publish | automated tar.gz |
-| Android | `ContactCore.Android`, `net10.0-android` | SQLite | dedicated Android workload CI | source/build target; store signing is not automated |
-| iPhone | `ContactCore.iOS`, `net10.0-ios` | SQLite | dedicated iOS workload CI on macOS | source/build target; Apple signing/provisioning is not automated |
-| iPad | `ContactCore.iOS`, `net10.0-ios` | SQLite | dedicated iOS workload CI on macOS | source/build target; Apple signing/provisioning is not automated |
-| Web browser | `ContactCore.Browser`, `net10.0-browser` | IndexedDB; preferences use local browser storage | dedicated WebAssembly workload CI | automated browser ZIP |
-| ChromeOS | browser target; Android app where the device supports Android apps | browser IndexedDB or Android SQLite | covered by browser/Android build gates | no separate native ChromeOS package |
+| Windows x64 | `win-x64` | SQLite | core Windows CI | ZIP release archive; signing/installer future work |
+| Windows ARM64 | `win-arm64` | SQLite | release publish matrix | ZIP release archive; signing/installer future work |
+| Linux x64 | `linux-x64` | SQLite | core Ubuntu CI | tar.gz release archive |
+| Linux ARM64 | `linux-arm64` | SQLite | release publish matrix | tar.gz release archive |
+| macOS Intel | `osx-x64` | SQLite | core macOS CI / release publish | tar.gz release archive; Developer ID/notarization future work |
+| macOS Apple Silicon | `osx-arm64` | SQLite | core macOS CI / release publish | tar.gz release archive; Developer ID/notarization future work |
+| Android | `net10.0-android`, CI RID `android-arm64` | SQLite | dedicated Android workload + Release build | production keystore/Play Store publishing future work |
+| iPhone/iPad | `net10.0-ios`, CI RID `iossimulator-arm64` | SQLite | dedicated macOS/Xcode unsigned simulator Release build | device signing/provisioning/App Store publishing future work |
+| Browser/WebAssembly | `net10.0-browser` | IndexedDB | dedicated `wasm-tools` Release build | static WebAssembly ZIP; hosting is separate |
+| ChromeOS | Browser route; Android where supported by device | IndexedDB or SQLite by route | covered through Browser/Android heads | no invented separate native ChromeOS binary |
 
-A platform being listed here means the repository contains a deliberate application target and a corresponding build path. It does **not** mean every device model, Linux distribution, browser engine, accessibility combination, app-store submission, signing identity, or packaging format has been manually certified.
+## What “cross-platform support” means here
 
-## Shared application architecture
+For ContactCore, a supported source target means:
 
-The portable UI is in `src/ContactCore.UI`. It contains:
+- a maintained project/head exists in the repository;
+- it composes the shared Domain/Application behavior intentionally;
+- it has a defined persistence model;
+- it has documented build prerequisites and commands;
+- it participates in the repository's current verification strategy;
+- limitations are stated instead of being hidden.
 
-- the Avalonia `App` capable of classic desktop and single-view application lifetimes;
-- the responsive `MainView` used by phone/tablet/browser heads;
-- the complete rich contact draft/editor model;
-- search, favorites, archive, A-Z filtering, duplicate review/merge, settings, import/export, and destructive-action confirmation workflows;
-- platform-capability flags so native-only functionality is not exposed as if it worked in WebAssembly.
+It does **not** automatically mean:
 
-`src/ContactCore.Native` composes the existing hardened SQLite infrastructure for native targets. Android and iOS reference that composition layer. The existing `ContactCore.Desktop` application remains the mature desktop shell and continues to use the same Domain/Application/Infrastructure layers.
+- every hardware model/OS patch has been manually tested;
+- every accessibility combination has been certified;
+- a signed installer/store package exists;
+- an app-store review has passed;
+- browser data has native-backup durability;
+- source build success equals production distribution approval.
 
-## Native persistence: desktop, Android, iOS/iPadOS
+## Desktop: Windows, Linux, macOS
 
-Native targets retain the SQLite storage path:
+The mature `ContactCore.Desktop` Avalonia shell remains the primary desktop head. It uses native SQLite Infrastructure and includes desktop-native file pickers/dialogs for import/export/backup workflows.
 
-```text
-ContactCore.Application
-        |
-        v
-IContactRepository
-        |
-        v
-SqliteContactRepository
-        |
-        v
-Microsoft.Data.Sqlite
-```
-
-The same repository therefore preserves the existing transaction, migration, search, duplicate-merge, and backup/recovery semantics on supported native targets.
-
-Native application data is resolved through `AppPaths`. `CONTACTCORE_DATA_PATH` remains an optional development/advanced override where the runtime environment permits environment variables. `CONTACTCORE_DATABASE_KEY` remains runtime-only and still fails closed unless a compatible SQLite encryption provider is actually available.
-
-## Browser persistence
-
-A WebAssembly application cannot be treated as an ordinary native process with unrestricted filesystem/database access. ContactCore therefore uses a dedicated `BrowserContactRepository` that implements the same `IContactRepository` contract and persists the full contact aggregate through a JavaScript bridge into IndexedDB.
-
-The browser repository:
-
-- loads the local contact snapshot during repository initialization;
-- keeps all rich contact fields and stable IDs;
-- implements search/favorite/archive/tag/group/A-Z filtering;
-- performs stale-safe duplicate merge checks;
-- serializes writes behind a repository gate;
-- restores the previous in-memory state when browser persistence fails;
-- keeps data inside the browser profile/site storage unless the user explicitly exports it.
-
-Browser preferences use local browser storage with a session fallback for environments that block it.
-
-### Browser backup boundary
-
-SQLite-native database backup/restore is intentionally disabled in the browser target because there is no native ContactCore SQLite database there. CSV and vCard export remain available for portable browser copies. Those interchange formats have the same documented fidelity limits as desktop exports and are not represented as full-fidelity SQLite backups.
-
-Clearing site data, using private browsing, browser-storage eviction, changing browser profiles, or an administrator policy can remove browser-local data. Users who need a portable copy should export it explicitly.
-
-## Android
-
-Project: `src/ContactCore.Android/ContactCore.Android.csproj`
-
-Target framework: `net10.0-android`.
-
-The Android head contains an `AvaloniaAndroidApplication<App>` host and `AvaloniaMainActivity`. It uses the shared single-view UI and native SQLite service composition.
-
-Developer workload:
-
-```bash
-dotnet workload install android
-dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release
-```
-
-CI installs the Android workload and performs a Release build. Store-ready distribution still requires a private signing key and the maintainer's release credentials. Signing secrets must never be committed to this repository.
-
-## iOS and iPadOS
-
-Project: `src/ContactCore.iOS/ContactCore.iOS.csproj`
-
-Target framework: `net10.0-ios`.
-
-The iOS head contains an `AvaloniaAppDelegate<App>`, UIKit entry point, and `Info.plist` declaring both iPhone and iPad device families. It uses the shared single-view UI and native SQLite service composition.
-
-Developer workload:
-
-```bash
-dotnet workload install ios
-dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release
-```
-
-A macOS development machine with the required Apple toolchain is needed for normal iOS device/simulator development. Distribution to devices or the App Store additionally requires valid Apple signing/provisioning credentials; those credentials are deliberately not stored in the public repository.
-
-## Browser / WebAssembly
-
-Project: `src/ContactCore.Browser/ContactCore.Browser.csproj`
-
-Target framework: `net10.0-browser`.
-
-Developer workload:
-
-```bash
-dotnet workload install wasm-tools
-dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release
-```
-
-Publishing:
-
-```bash
-dotnet publish src/ContactCore.Browser/ContactCore.Browser.csproj -c Release -o artifacts/browser
-```
-
-The published static files must be served over an HTTP(S) server; opening generated files directly with a `file://` URL is not a supported hosting model.
-
-## Desktop architectures
-
-The tag-driven release workflow publishes six native desktop runtime identifiers:
+Release automation currently targets:
 
 ```text
 win-x64
@@ -143,32 +52,315 @@ osx-x64
 osx-arm64
 ```
 
-Windows artifacts are ZIP files; Linux and macOS artifacts are tar.gz files. The final release job also creates `SHA256SUMS.txt` for packaged release assets.
+Windows output is packaged as ZIP; Linux/macOS output is packaged as tar.gz to retain Unix executable metadata inside the archive.
 
-These archives are not claimed to be signed installers, notarized macOS applications, package-manager packages, or store-certified binaries.
+These archives are not currently claimed as Authenticode-signed, packaged installers, macOS Developer-ID signed/notarized apps, or Linux distribution packages.
 
-## CI design
+## Android
 
-Cross-platform verification is split deliberately:
+Project:
 
-1. `ContactCore.Core.slnx` is workload-free and is restored/formatted/built/tested on Ubuntu, Windows, and macOS.
-2. The browser job installs `wasm-tools` and builds `ContactCore.Browser`.
-3. The Android job installs the Android workload and builds `ContactCore.Android`.
-4. The iOS job runs on macOS, installs the iOS workload, and builds `ContactCore.iOS`.
-5. CodeQL analyzes the workload-free core solution so security analysis is not coupled to mobile workload availability.
+```text
+src/ContactCore.Android/ContactCore.Android.csproj
+```
 
-The full `ContactCore.slnx` remains the complete repository solution and includes every production head.
+Target:
 
-## What “cross-platform” does not promise
+```text
+net10.0-android
+```
 
-Cross-platform source support is different from app-store certification and device-by-device validation. The following remain separate release-engineering or validation work:
+CI/runtime identifier:
 
-- Android production signing / Play Store submission;
-- Apple signing, provisioning, notarization where applicable, and App Store submission;
-- installer/package-manager formats beyond the current archives;
-- manual accessibility and native UI audits on representative phones/tablets/desktops;
-- browser compatibility testing across every browser/version;
-- native Linux distribution certification across every distro/windowing stack;
-- optional SQLCipher/secure-secret-store integration for production encryption-at-rest claims.
+```text
+android-arm64
+```
 
-Documentation must preserve these boundaries rather than turning a compile target into a stronger certification claim.
+Android uses:
+
+- portable `ContactCore.UI`;
+- `ContactCore.Native` composition;
+- native SQLite persistence;
+- Android Avalonia application/activity hosts.
+
+CI installs the Android workload, restores for `android-arm64`, and performs a Release build. This is a source/build gate, not a Play Store production signing pipeline.
+
+Before public store distribution, representative Android device/emulator checks should cover touch layout, text input, local persistence, file-picker behavior, orientation/configuration changes, lifecycle/background/restore behavior, theme/accessibility, and real signing/package installation.
+
+## iPhone and iPad
+
+Project:
+
+```text
+src/ContactCore.iOS/ContactCore.iOS.csproj
+```
+
+Target:
+
+```text
+net10.0-ios
+```
+
+CI runtime identifier:
+
+```text
+iossimulator-arm64
+```
+
+iOS/iPadOS uses:
+
+- portable `ContactCore.UI`;
+- `ContactCore.Native` composition;
+- native SQLite persistence;
+- `AvaloniaAppDelegate<App>` plus UIKit entry point;
+- iPhone/iPad device-family/orientation metadata.
+
+### Xcode/toolchain selection
+
+The .NET iOS workload used by the 2.0.12 branch is verified against the Xcode 26.0 line. The GitHub-hosted macOS image can move its default Xcode forward independently, so CI/release gates explicitly select:
+
+```text
+/Applications/Xcode_26.0.app/Contents/Developer
+```
+
+before installing/building the iOS workload.
+
+### Simulator trim boundary
+
+`ContactCore.iOS.csproj` applies `TrimMode=copy` only for `iossimulator-arm64` and `iossimulator-x64`.
+
+This is intentional. Application-owned trim/AOT hazards are removed in source through:
+
+- source-generated `System.Text.Json` metadata for native preferences;
+- typed compiled Avalonia bindings in the portable production `MainView`.
+
+The public CI simulator gate then validates source/runtime integration without treating linker diagnostics emitted by third-party Avalonia/SQLite assemblies as proof that the unsigned simulator build is a production distribution pipeline.
+
+The simulator gate must **not** be described as evidence that a final iPhone/iPad artifact has been device-trimmed, signed, provisioned, App Store validated, or certified. Those claims require a dedicated protected Apple distribution pipeline with real maintainer-controlled credentials and representative device testing.
+
+## Browser/WebAssembly
+
+Project:
+
+```text
+src/ContactCore.Browser/ContactCore.Browser.csproj
+```
+
+Target:
+
+```text
+net10.0-browser
+```
+
+Browser is deliberately not composed through native SQLite Infrastructure. It uses:
+
+- Avalonia.Browser;
+- portable shared UI;
+- `BrowserContactRepository` behind `IContactRepository`;
+- IndexedDB for contact-state persistence;
+- localStorage-backed preferences with controlled fallback behavior;
+- .NET/JavaScript interop through `[JSImport]`;
+- source-generated JSON metadata;
+- typed compiled shared-UI bindings.
+
+Browser CI installs `wasm-tools` and performs a Release build. Trimming/AOT diagnostics remain meaningful in this target and are not disabled just because the iOS simulator has a different scoped trim policy.
+
+The Browser ZIP is static web content. A maintainer must deploy it to an appropriate HTTP(S) origin/server before users can run it.
+
+## Browser persistence boundary
+
+Browser storage is origin/profile managed. It can be removed by:
+
+- clearing site data;
+- private-session teardown;
+- browser/storage policy;
+- storage eviction;
+- profile reset/removal.
+
+ContactCore therefore does not advertise IndexedDB as equivalent to verified native SQLite backup. CSV/vCard export remains the current explicit portable-copy path on Browser.
+
+Browser capabilities intentionally report native database backup/encryption as unavailable.
+
+A real-browser automated IndexedDB harness and cross-tab conflict handling remain future work.
+
+## ChromeOS
+
+There is no fabricated `net10.0-chromeos` target. ChromeOS support uses routes the platform actually provides:
+
+1. modern Browser/WebAssembly route where compatible;
+2. Android application route on ChromeOS devices that support Android applications.
+
+The persistence model follows the chosen route: IndexedDB for Browser, SQLite for Android.
+
+## Shared UI
+
+`ContactCore.UI` supplies the responsive portable experience used by Android/iOS/Browser heads. It contains:
+
+- contact list/search/filter workflows;
+- full rich editor;
+- duplicate review and both survivor directions;
+- import/export hooks;
+- capability-aware backup/settings behavior;
+- destructive-action confirmation overlay;
+- typed compiled production bindings for AOT/trim-safe markup.
+
+The mature desktop shell remains separate because it has deeper desktop-native picker/dialog/window behavior.
+
+## Native persistence/security
+
+Windows/Linux/macOS Desktop plus Android/iOS native composition use SQLite.
+
+Native behavior includes:
+
+- schema-family identity;
+- ordered migrations;
+- foreign keys/indexes;
+- transactional aggregate writes;
+- literal wildcard search handling;
+- verified backup/restore;
+- runtime-only database-key request;
+- fail-closed cipher verification when encryption is requested.
+
+The normal public native SQLite dependency should not be described as encrypted at rest unless a production-supported cipher provider has actually been selected, packaged, licensed, and tested.
+
+## Build commands
+
+### Core/Desktop quality
+
+```bash
+dotnet restore ContactCore.Core.slnx
+dotnet format ContactCore.Core.slnx --verify-no-changes --no-restore
+dotnet build ContactCore.Core.slnx -c Release --no-restore
+dotnet test ContactCore.Core.slnx -c Release --no-build --collect:"XPlat Code Coverage"
+```
+
+### Browser
+
+```bash
+dotnet workload install wasm-tools
+dotnet restore src/ContactCore.Browser/ContactCore.Browser.csproj
+dotnet build src/ContactCore.Browser/ContactCore.Browser.csproj -c Release --no-restore
+```
+
+### Android
+
+```bash
+dotnet workload install android
+dotnet restore src/ContactCore.Android/ContactCore.Android.csproj -r android-arm64
+dotnet build src/ContactCore.Android/ContactCore.Android.csproj -c Release -r android-arm64 --no-restore
+```
+
+### iOS simulator
+
+```bash
+sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+xcodebuild -version
+dotnet workload install ios
+dotnet restore src/ContactCore.iOS/ContactCore.iOS.csproj -r iossimulator-arm64
+dotnet build src/ContactCore.iOS/ContactCore.iOS.csproj -c Release -r iossimulator-arm64 --no-restore
+```
+
+The project supplies the simulator-only trim policy; these commands do not create a signed App Store binary.
+
+## Automated verification matrix
+
+PR CI requires the current synthetic merge candidate to pass:
+
+- Ubuntu core restore/format/build/tests;
+- Windows core restore/format/build/tests;
+- macOS core restore/format/build/tests;
+- Browser Release build;
+- Android `android-arm64` Release build;
+- iOS `iossimulator-arm64` Release build using compatible Xcode/simulator trim policy;
+- CodeQL.
+
+A successful run for an older commit is not approval of a newer PR head.
+
+## Manual verification still required
+
+Before stronger user-facing platform claims, use fictional/disposable data to check representative targets.
+
+### Desktop
+
+- startup/install/executable behavior;
+- keyboard/focus/high-DPI/theme;
+- native file pickers;
+- import/export/backup/restore;
+- accessibility/screen reader where available.
+
+### Android
+
+- phone/tablet touch layout;
+- software/hardware keyboard input;
+- file picker/storage permissions;
+- orientation/lifecycle/background-resume;
+- accessibility/theme;
+- signed package installation when distribution exists.
+
+### iPhone/iPad
+
+- phone/tablet layout;
+- touch/input/file-picker behavior;
+- rotation/lifecycle/background-resume;
+- VoiceOver/accessibility/theme;
+- actual device signing/provisioning/install;
+- distribution/device trimming verification in the real signed pipeline.
+
+### Browser
+
+- WebAssembly boot from deployed HTTP(S) origin;
+- IndexedDB persistence across reloads;
+- import/export picker behavior;
+- storage-blocked/private-profile failure behavior;
+- multiple representative browser engines;
+- accessibility and cross-tab behavior as claims expand.
+
+## Signing and store boundary
+
+The repository does not contain or fabricate:
+
+- Android production keystores/passwords;
+- Apple signing certificates/private keys;
+- provisioning profiles;
+- App Store Connect credentials;
+- Developer ID/notarization secrets;
+- Windows signing keys.
+
+When a production signing pipeline is introduced, use protected secrets, least privilege, trusted release contexts, and explicit verification instructions. Never expose signing secrets to untrusted pull-request code.
+
+## Packaging
+
+Current automated packages are:
+
+```text
+contactcore-v2.0.12-win-x64.zip
+contactcore-v2.0.12-win-arm64.zip
+contactcore-v2.0.12-linux-x64.tar.gz
+contactcore-v2.0.12-linux-arm64.tar.gz
+contactcore-v2.0.12-osx-x64.tar.gz
+contactcore-v2.0.12-osx-arm64.tar.gz
+contactcore-v2.0.12-browser-wasm.zip
+SHA256SUMS.txt
+```
+
+Android/iOS are build gates rather than automatically attached store packages.
+
+## Release evidence
+
+Use [`release-smoke-test.md`](release-smoke-test.md) for repeatable exact-SHA manual evidence. The record includes platform/environment details, fictional fixture rules, artifacts/checksums, desktop/browser/mobile smoke matrices, data safety, accessibility/privacy checks, deviations, and final release decision.
+
+Do not reuse a manual record after the candidate SHA changes.
+
+## Current limitations
+
+- repeated rich fields do not yet have drag/drop reordering;
+- global group/tag taxonomy management is not yet implemented;
+- there is no general undo stack;
+- Browser still needs a real IndexedDB automation harness and cross-tab conflict strategy;
+- deeper native restore cleanup/failure injection remains useful;
+- scale benchmarks/candidate optimization remain future work;
+- production SQLCipher/secure secret-store integration is not yet shipped;
+- signed/notarized/store distribution is not automated;
+- representative manual device/browser/accessibility validation remains required.
+
+See `README.md`, `ci-cd.md`, `release.md`, `setup.md`, and `what_changed.md` for related source, verification, distribution, and handoff details.
