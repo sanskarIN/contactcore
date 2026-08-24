@@ -1,41 +1,67 @@
 # ContactCore Documentation
 
-This directory is the engineering and product documentation hub for ContactCore. The documents are written against the repository implementation on the active hardening branch and are intended for users, contributors, reviewers, release maintainers, and security auditors.
+This directory contains the deep technical, user, maintainer, platform, testing, and release documentation for ContactCore **2.0.12**.
+
+The project is a local-first contact manager with native SQLite persistence on Desktop/Android/iOS and IndexedDB persistence on Browser/WebAssembly. Source/build support is intentionally separated from production signing, store publishing, and manual certification claims.
 
 ## Start here
 
-- [Platform support](platform-support.md) — Windows, Linux, macOS, Android, iOS/iPadOS, WebAssembly, ChromeOS routes, persistence differences, workloads, CI, and distribution boundaries.
-- [Setup](setup.md) — prerequisites, clone/build/run instructions, platform workloads, data paths, and environment configuration.
-- [User guide](user-guide.md) — everyday workflows: contacts, search, favorites, archive/delete, import/export, backup/restore, settings, and keyboard behavior.
-- [Architecture](architecture.md) — layer boundaries, platform heads, native/browser persistence split, dependency direction, request/data flows, and design constraints.
-- [Data model](data-model.md) — aggregate fields, SQLite schema, relationships, indexes, timestamps, and schema identity.
-- [Storage, backup, and recovery](storage-backup-recovery.md) — native local files, atomicity, backup verification, staged restore, rollback behavior, browser-storage boundary, and recovery artifacts.
-- [Import and export](import-export.md) — CSV/vCard formats, supported fields, validation, warnings, transactional import, and privacy considerations.
-- [Desktop UI](desktop-ui.md) — mature desktop Avalonia shell, view models, dialogs, settings, accessibility, and desktop actions.
-- [Repository reference](repository-reference.md) — tracked-file reference and responsibilities.
-- [Development](development.md) — coding rules and contribution workflow.
-- [Testing](testing.md) — test projects, current coverage areas, platform build gates, CI commands, and test-design expectations.
-- [CI/CD](ci-cd.md) — three-OS core CI, Android/iOS/WebAssembly builds, CodeQL, release workflow, artifacts, and branch/check behavior.
-- [Security](security.md) — threat model, SQLite/SQLCipher boundary, browser-storage boundary, secret handling, input/data risks, and disclosure guidance.
-- [Accessibility](accessibility.md) — keyboard, focus, labels, motion, themes, responsive UI, and manual verification expectations.
-- [Performance](performance.md) — current performance characteristics, known scaling limits, and benchmark targets.
-- [Troubleshooting](troubleshooting.md) — common setup, workload, database, encryption, import, browser-storage, and recovery failures.
-- [Release](release.md) — versioning/tagging, desktop/browser publishing, mobile build/signing boundaries, and release verification.
-- [Release smoke-test record](release-smoke-test.md) — repeatable exact-SHA manual verification template for desktop, browser, mobile, data safety, accessibility, privacy, and release sign-off.
-- [Maintainer guide](maintainer-guide.md) — repository ownership tasks, migrations, release hygiene, dependency/workload updates, and documentation maintenance.
-- [Architecture decision records](adr/) — durable decisions and tradeoffs.
+- [`../README.md`](../README.md) — project overview, platform matrix, build commands, privacy/release posture.
+- [`platform-support.md`](platform-support.md) — canonical definition of Windows/Linux/macOS/Android/iPhone/iPad/Browser/ChromeOS support and distribution boundaries.
+- [`setup.md`](setup.md) — source setup, workloads, paths, and first build.
+- [`user-guide.md`](user-guide.md) — end-user workflows.
+- [`architecture.md`](architecture.md) — modules, platform composition, persistence/data flows, design rules.
+- [`repository-reference.md`](repository-reference.md) — canonical file-by-file inventory (**132 tracked files**).
+- [`../what_changed.md`](../what_changed.md) — continuation/audit/release-gate handoff ledger.
 
-## Documentation principles
+## Engineering and data
 
-1. **Code is authoritative.** Documentation must be corrected when implementation changes.
-2. **Do not overclaim verification.** A target can exist and compile without every release platform/device/browser combination having been manually verified or store-certified.
-3. **Privacy by default.** Examples must use fictional contacts and must not contain real databases, exports, keys, addresses, or personal data.
-4. **Document failure paths.** Backup/restore, browser persistence, imports, migrations, encryption, and destructive actions must describe what happens when an operation fails.
-5. **Keep file-level traceability.** When files are added, renamed, or removed, update `repository-reference.md` and this index where relevant.
-6. **Separate native and browser persistence claims.** Native targets use SQLite; WebAssembly uses browser-managed IndexedDB and must not be described as having native SQLite backup/restore.
-7. **Separate build support from distribution signing.** Android/iOS build targets do not imply committed store signing identities or completed store certification.
-8. **Tie manual evidence to an exact candidate.** A smoke-test record must identify the tested SHA/artifacts/environment and must not be reused after the candidate changes.
+- [`development.md`](development.md) — contributor engineering workflow and invariants.
+- [`data-model.md`](data-model.md) — contact aggregate, relational mapping, identities, indexes, migrations.
+- [`desktop-ui.md`](desktop-ui.md) — mature desktop shell/editing/dialog behavior.
+- [`import-export.md`](import-export.md) — CSV/vCard contracts, fidelity and parser safety.
+- [`storage-backup-recovery.md`](storage-backup-recovery.md) — native SQLite storage, verified backup, staged restore and rollback.
+- [`security.md`](security.md) — engineering threat model and controls.
+- [`performance.md`](performance.md) — current complexity, non-claims and benchmark priorities.
+- [`accessibility.md`](accessibility.md) — keyboard/focus/theme/reduced-motion/manual accessibility checks.
+- [`troubleshooting.md`](troubleshooting.md) — safety-first diagnosis.
 
-## Repository-level documents
+## Quality and release
 
-The repository root also contains `README.md`, `CHANGELOG.md`, `ROADMAP.md`, `SECURITY.md`, `PRIVACY.md`, `SUPPORT.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, and `what_changed.md`. Those documents cover project presentation, release history, roadmap, policies, contribution rules, legal terms, and the current work handoff.
+- [`testing.md`](testing.md) — Domain/Application/Infrastructure/portable-UI/Desktop behavioral suites and manual test boundaries.
+- [`ci-cd.md`](ci-cd.md) — three-OS core CI, Browser/Android/iOS build gates, CodeQL, release automation and exact-head rules.
+- [`release.md`](release.md) — version/tag preflight, packages, mobile source gates, signing boundaries and release process.
+- [`release-smoke-test.md`](release-smoke-test.md) — repeatable exact-SHA manual release evidence record.
+- [`maintainer-guide.md`](maintainer-guide.md) — maintainer invariants for data, UI/AOT, dependencies, CI and release governance.
+
+## Architecture decisions
+
+- [`adr/0001-modular-monolith.md`](adr/0001-modular-monolith.md) — modular-monolith layering.
+- [`adr/0002-sqlite-persistence.md`](adr/0002-sqlite-persistence.md) — native SQLite persistence.
+- [`adr/0003-encryption-provider.md`](adr/0003-encryption-provider.md) — optional SQLCipher-compatible provider boundary.
+
+## Platform/AOT note
+
+Browser/WebAssembly keeps trimming/AOT diagnostics meaningful and uses source-generated JSON metadata plus typed compiled shared-UI bindings.
+
+The public iOS gate builds the explicit `iossimulator-arm64` RID after selecting the compatible Xcode 26.0 toolchain. The iOS project uses a simulator-only `TrimMode=copy` policy after application-owned trim hazards were removed. This simulator source/runtime gate is not a substitute for future signed-device/App Store trimming, provisioning, distribution, or representative hardware verification.
+
+Android likewise has a source/build gate but no fabricated production keystore/store-publishing claim.
+
+## Documentation rules
+
+When implementation changes, update the relevant canonical documentation in the same change. In particular:
+
+- platform behavior → `platform-support.md`, setup/architecture/CI/release as relevant;
+- persistence/schema/backup behavior → data model/storage/security/testing;
+- import/export behavior → `import-export.md` and tests;
+- UI/accessibility behavior → desktop/user/accessibility/testing docs;
+- workflow/release behavior → `ci-cd.md`, `release.md`, changelog/handoff;
+- tracked file tree → `repository-reference.md` inventory;
+- release candidate evidence → a fresh copy of `release-smoke-test.md` bound to the exact SHA.
+
+Do not mark a manual device/browser/accessibility test complete unless it was actually executed. Do not claim signing/notarization/store certification without real protected credentials and a verified distribution pipeline.
+
+## Privacy rule for examples/evidence
+
+Use fictional/disposable contacts and profiles. Do not publish real contact databases, backups, exports, credentials, signing material, private endpoints, or screenshots containing personal information in documentation, issues, PRs, or release evidence.
