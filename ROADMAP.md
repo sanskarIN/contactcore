@@ -1,193 +1,215 @@
-# Roadmap
+# ContactCore Roadmap
 
-This roadmap distinguishes **implemented** behavior from future intent. A checked item means the capability exists in the repository at the current checkpoint; it does not automatically mean every device/browser/distribution channel has been manually verified or store-certified.
+This roadmap distinguishes **implemented/verified source capabilities** from **future work** and from tasks that cannot be truthfully completed without external credentials or manual representative-environment testing.
 
-Current release-preparation version: **2.0.12**.
+## Current release line — 2.0.12
 
-## 0.1 — Foundation and MVP
+### Completed product/data foundations
 
-- [x] Layered Domain/Application/Infrastructure/Desktop solution.
-- [x] Avalonia desktop shell.
-- [x] SQLite persistence and ordered migrations.
-- [x] Contact create/edit/delete fundamentals.
-- [x] Favorites and archive model/UI filters.
-- [x] Search across names/phones/emails and A–Z navigation.
-- [x] Rich domain/storage model for multiple phones/emails/addresses/organizations/groups/tags.
-- [x] CSV and focused vCard 4.0 codecs.
-- [x] Duplicate scoring and application-layer merge engine.
-- [x] Verified SQLite-native backup creation.
-- [x] Unit/integration test projects plus cross-platform CI definitions.
-- [x] CodeQL and Dependabot repository automation.
+- [x] Layered Domain/Application/Infrastructure architecture.
+- [x] Mature Avalonia Desktop shell for Windows/Linux/macOS.
+- [x] Rich contact aggregate: names, nickname, birthday, notes, favorite/archive, phones, emails, addresses, organizations, groups, tags.
+- [x] Stable root/contact-owned identities through ordinary edits.
+- [x] Safe shared group/tag per-contact reassignment semantics.
+- [x] Exact delimiter-containing group/tag names through independent editor rows.
+- [x] Native SQLite migrations, foreign keys, indexes, aggregate persistence, transactional bulk import.
+- [x] Literal wildcard escaping for native SQLite search.
+- [x] Debounced/cancellation-safe portable search.
+- [x] Duplicate evidence/review, explicit survivor direction, confirmation and stale-safe atomic merge.
+- [x] Conservative country-code-aware phone equivalence shared by duplicate scoring and merge de-duplication.
+- [x] CSV/focused-vCard import/export with hardened parsing and explicit spreadsheet-safety boundary.
+- [x] Native verified SQLite backup plus staged/verified restore and rollback path.
+- [x] Runtime-only database-key request and fail-closed requested cipher verification.
+- [x] Local preferences with safe defaults and source-generated JSON metadata for native/mobile AOT safety.
+- [x] Privacy-conscious diagnostic redaction/bounds.
 
-## 0.2 — Data safety and desktop workflow hardening
+### Completed cross-platform source/build architecture
 
-- [x] Transactional bulk import (`UpsertManyAsync`) with rollback on failure.
-- [x] Whole-batch normalization/validation before import persistence.
-- [x] Literal SQL `LIKE` wildcard escaping for user search text.
-- [x] Future-schema rejection.
-- [x] ContactCore schema-family identity marker.
-- [x] Read-only restore-source verification before active data changes.
+- [x] `ContactCore.UI` portable Avalonia presentation layer.
+- [x] Typed compiled production bindings for the shared portable `MainView`.
+- [x] `ContactCore.Native` native SQLite composition.
+- [x] Android `net10.0-android` application head.
+- [x] iOS/iPadOS `net10.0-ios` application head.
+- [x] Browser/WebAssembly `net10.0-browser` application head.
+- [x] Browser `IContactRepository` implementation backed by IndexedDB.
+- [x] Browser source-generated JSON metadata and disposable persistence gate.
+- [x] Browser failure rollback to the previous in-memory snapshot.
+- [x] Browser capability boundary: no false native SQLite backup/encryption claim.
+- [x] ChromeOS support documented through real Browser/Android routes rather than a fabricated native target.
+
+### Completed automated quality/release hardening
+
+- [x] Workload-free `ContactCore.Core.slnx` for normal three-OS CI and CodeQL.
+- [x] Complete `ContactCore.slnx` containing all platform heads/tests.
+- [x] Five behavioral test projects: Domain, Application, Infrastructure, portable UI, Desktop.
+- [x] XPlat coverage collector available to all five test projects.
+- [x] Portable search debounce/cancellation regression tests.
+- [x] Portable delete/restore confirmation regression tests.
+- [x] Native post-switch restore rollback regression coverage.
+- [x] Ubuntu/Windows/macOS core restore/format/Release build/test matrix.
+- [x] Browser/WebAssembly Release build gate with application-owned AOT/trim hazards removed.
+- [x] Android `android-arm64` Release build gate.
+- [x] iOS `iossimulator-arm64` Release build gate with explicit Xcode 26.0 selection.
+- [x] Simulator-only iOS trim boundary documented after application-owned JSON/XAML trim hazards were removed.
+- [x] CodeQL C# analysis on the workload-free core solution.
+- [x] Version/tag equality preflight for releases.
+- [x] Six desktop release RIDs plus Browser WebAssembly ZIP.
+- [x] Android/iOS source build gates before final GitHub Release creation.
+- [x] SHA-256 checksum generation for downloadable archives.
+- [x] Least-privilege release permissions.
+- [x] Repeatable exact-SHA release smoke-test record template.
+- [x] Canonical repository reference regenerated to 132 tracked files after final AOT hardening additions.
+
+## Immediate release completion boundary
+
+These are process requirements, not missing application code:
+
+- [ ] Obtain **green CI + CodeQL on the exact final PR #4 synthetic merge candidate** after the final documentation commit.
+- [ ] Merge PR #4 into `main` only after that exact-head gate is green.
+- [ ] Apply/verify `main` branch protection/ruleset requiring the stable CI/CodeQL checks.
+- [ ] Execute and archive the manual `docs/release-smoke-test.md` record against the actual candidate/artifacts, explicitly marking anything not executed.
+- [ ] Create `v2.0.12` only from the intended verified merged commit.
+- [ ] Verify release workflow output: six desktop archives, Browser ZIP, mobile source-build gates, and `SHA256SUMS.txt`.
+
+Do not convert an older/cancelled workflow into release evidence after the final head changes.
+
+## Product/UX future work
+
+### Repeated-field ordering
+
+- [ ] Add accessible reorder controls for phone/email/address/organization rows.
+- [ ] Define whether persisted order is user-significant for all repeated-field categories.
+- [ ] Add keyboard/touch-friendly reorder behavior and regression tests.
+
+### Global group/tag taxonomy management
+
+- [ ] Add a dedicated groups/tags management surface.
+- [ ] Define global rename semantics explicitly.
+- [ ] Define delete/orphan cleanup semantics explicitly.
+- [ ] Add relationship-count/safety confirmation before global destructive operations.
+- [ ] Add migration/persistence/UI tests for taxonomy operations.
+
+### Undo/recovery UX
+
+- [ ] Design a general undo strategy for high-impact contact edits/deletes/merges.
+- [ ] Avoid presenting undo as durable recovery unless its persistence semantics justify that claim.
+- [ ] Integrate with existing confirmation/backup safeguards rather than weakening them.
+
+## Browser future work
+
+### Real IndexedDB automation
+
+- [ ] Build a real-browser harness that boots the WebAssembly app or repository interop against actual IndexedDB.
+- [ ] Verify reload persistence, malformed state, transaction failure, storage blocked/denied behavior, and origin/profile assumptions.
+- [ ] Keep test fixtures synthetic and disposable.
+
+### Cross-tab/conflict behavior
+
+- [ ] Define expected behavior when multiple tabs modify the same stored snapshot.
+- [ ] Add versioning/conflict detection or another explicit strategy before claiming robust multi-tab editing.
+- [ ] Add automated tests for the chosen model.
+
+## Native backup/restore future resilience
+
+- [x] Stage/verify before active replacement.
 - [x] Verified pre-restore recovery snapshot.
-- [x] Staged restore migration and verification before switch.
-- [x] Final active-database verification and rollback path.
-- [x] Unique backup/recovery artifact names.
-- [x] Runtime database key excluded from persisted preferences.
-- [x] Runtime database key loaded on first launch even when settings do not yet exist.
-- [x] Preferences temp-file replacement and safe defaults for corrupted JSON.
-- [x] Permanent-delete confirmation preference, enabled by default.
-- [x] Restore confirmation.
-- [x] Native file-picker import/export UI.
-- [x] Native/stream-backed backup picker handling.
-- [x] 5,000,000-character import bound.
-- [x] Data Tools view for import/export/backup/restore.
-- [x] Dedicated Settings/About/privacy surface.
-- [x] System/Light/Dark theme switching.
-- [x] Reduced-motion preference persistence.
-- [x] Desktop keyboard shortcuts and explicit visible focus styles.
-- [x] `Ctrl+S` restricted to the active contact editor.
-- [x] Desktop draft regression test project.
-- [x] Full rich-field editor for multiple phones/emails/addresses/organizations/groups/tags.
-- [x] Stable contact-owned phone/email/address/organization IDs through edit/save.
-- [x] Unchanged group/tag assignments preserve shared dictionary identity.
-- [x] True per-contact group/tag rename uses safe new-identity reassignment instead of reusing a shared ID with a different name.
-- [x] Explicit unsaved/persisted draft state and safe unsaved discard.
-- [x] Atomic duplicate survivor-update + secondary-delete native persistence.
-- [x] Duplicate merge rejects stale operations when either reviewed contact disappeared.
-- [x] Interactive duplicate review with evidence, preview, survivor choice, and confirmation.
+- [x] Post-switch verification and rollback path.
+- [x] Regression coverage for forced post-switch verification failure.
+- [ ] Add deeper failure injection around staging copy, temp cleanup, sidecar cleanup, backup-copy failures, and rollback-copy failures.
+- [ ] Define user-visible recovery guidance for the remaining rare multi-failure branches.
 
-## 0.3 — Documentation completeness
+## Performance/scale roadmap
 
-- [x] Documentation hub/index.
-- [x] Deep user/setup/architecture/data-model guides.
-- [x] Deep desktop UI guide aligned with the full editor/duplicate workflow.
-- [x] Import/export format and security limitations.
-- [x] Storage/backup/recovery guide with failure paths.
-- [x] Expanded threat model/security guide.
-- [x] Expanded testing/accessibility/performance/CI/release/troubleshooting guides.
-- [x] Maintainer engineering guide.
-- [x] ADRs for modular monolith, SQLite, and encryption-provider boundary.
-- [x] Exhaustive tracked-file repository reference.
-- [x] Root README/changelog/roadmap synchronized for the 2.0.12 checkpoint.
-- [x] Dedicated cross-platform support guide documenting target/persistence/signing boundaries.
-- [x] Repository reference regenerated for the 131-file release-hardening tree.
+- [ ] Add reproducible benchmarks for 100 contacts.
+- [ ] Add reproducible benchmarks for 1,000 contacts.
+- [ ] Add reproducible benchmarks for 10,000 contacts.
+- [ ] Measure SQL statement amplification during aggregate saves/imports.
+- [ ] Benchmark Browser full-snapshot IndexedDB writes.
+- [ ] Evaluate list projection/pagination before large-list claims.
+- [ ] Evaluate duplicate candidate generation beyond pairwise in-memory scans.
+- [ ] Evaluate FTS5 only with an ADR covering migration/index synchronization/recovery.
+- [ ] Evaluate streaming CSV/vCard while preserving whole-batch validation/atomicity guarantees.
 
-## 0.4 — Rich UX completion
+## Encryption/secrets roadmap
 
-The prior compact-editor preservation phase has been superseded by a complete editor for the repeated collections represented by the current domain model.
+The public repository currently has a fail-closed **provider boundary**, not a claim that the ordinary SQLite build is encrypted at rest.
 
-- [x] Full multi-value phone/email add/edit/remove editor.
-- [x] Address add/edit/remove editor.
-- [x] Organization add/edit/remove editor.
-- [x] Per-contact group/tag add/edit/remove assignment.
-- [x] Exact delimiter-containing group/tag names without text-splitting loss.
-- [x] Shared group/tag rename-as-reassignment semantics with case-only canonical identity preservation.
-- [x] Add/edit/remove and blank-row regression tests for current rich controls.
-- [x] Explicit unsaved/new-contact state.
-- [x] Interactive duplicate candidate list.
-- [x] Side-by-side duplicate comparison/merge preview.
-- [x] User-confirmed merge workflow wired through `ContactService`/`ContactMerger`.
-- [x] Explicit user choice of which duplicate record survives.
-- [x] Storage-safe duplicate merge/delete with stale reviewed-record checks.
-- [ ] Drag/drop or other reorder controls for repeated rich fields.
-- [ ] Dedicated global group/tag taxonomy-management screen with explicit global rename/delete/orphan-cleanup semantics.
-- [ ] Undo/recovery UX for high-impact contact modifications where practical.
+- [ ] Select a production-supported SQLCipher-compatible provider if encrypted-at-rest native distribution is chosen.
+- [ ] Review provider license/native packaging for Windows/Linux/macOS/Android/iOS.
+- [ ] Add encrypted database create/open/migration tests.
+- [ ] Add encrypted backup/restore tests.
+- [ ] Add native OS credential/secret-store abstraction.
+- [ ] Expose user-visible verified encryption state only when runtime verification can prove it.
 
-## 0.5 — Test and resilience expansion
+## Accessibility/manual quality roadmap
 
-- [x] Test literal search characters `%`, `_`, and backslash.
-- [x] Tag/group/StartsWith repository filter tests.
-- [x] Full address/organization/group/tag repository round-trip/replacement tests.
-- [x] Shared group/tag per-contact rename/reassignment tests at Desktop and SQLite layers.
-- [x] Restore rejection test for valid non-ContactCore SQLite file.
-- [x] Missing-backup and same-active-path restore tests.
-- [x] Atomic duplicate-merge success, missing-secondary rollback, and missing-primary non-resurrection tests.
-- [x] Import parser tests for unsupported/duplicate CSV headers, formula-prefix warnings, escaped vCard fields, TYPE mapping, and non-echoing birthday warnings.
-- [x] Desktop rich-field tests for contact-owned IDs, shared dictionary identities, exact group/tag names, blank rows, removal semantics, and label-only legacy address preservation.
-- [x] App-path environment/fallback tests.
-- [x] Redaction truncation/PII-shape tests.
-- [x] ContactService save/import normalization and indexed import-validation tests, including rich address/organization/group/tag normalization.
-- [x] Dedicated CI compile gates for Android, iOS, and WebAssembly heads.
-- [x] Search debounce/cancellation view-model tests.
-- [x] Destructive-action and restore confirmation view-model tests.
-- [x] Forced post-switch native restore verification failure/rollback test, including failed-copy retention and staging cleanup.
-- [ ] Browser repository automated tests with an isolated browser/IndexedDB harness.
-- [ ] Restore staging/temp cleanup failure-path tests beyond the covered post-switch rollback path, including cleanup-operation failure injection.
-- [ ] Native/Avalonia integration tests where stable and valuable.
-- [ ] Accessibility smoke automation where supported, backed by manual audits.
+Automated source/view-model tests are not a substitute for representative platform accessibility testing.
 
-## 0.6 — Performance and scale
+- [ ] Desktop keyboard/focus audit on representative Windows/Linux/macOS builds.
+- [ ] Desktop screen-reader checks where applicable.
+- [ ] High-DPI/scaling/theme audit.
+- [ ] Android TalkBack/touch/input/orientation/lifecycle audit.
+- [ ] iPhone/iPad VoiceOver/touch/input/orientation/lifecycle audit.
+- [ ] Browser keyboard/screen-reader/zoom/storage-profile audit on representative engines.
+- [ ] Add stable automation for accessibility/lifecycle behavior where the platform tooling supports trustworthy checks.
 
-- [ ] Reproducible generated-data benchmarks at 100/1,000/10,000 contacts.
-- [ ] Measure native root + child SQL statement amplification.
-- [ ] Benchmark browser IndexedDB snapshot serialization/write behavior at representative address-book sizes.
-- [ ] Evaluate lightweight list projections and fetch-full-on-selection.
-- [ ] Evaluate pagination/incremental loading.
-- [ ] Evaluate FTS5 only with an ADR and migration/index-sync plan.
-- [ ] Optimize duplicate candidate generation before quadratic scan at high counts.
-- [ ] Evaluate streaming CSV/vCard encode/decode while preserving import atomicity/storage consistency.
+## Packaging/signing/distribution roadmap
 
-## 0.7 — Encryption and secret-storage maturity
+These tasks require real maintainer-controlled credentials/policies and must not be fabricated in public source.
 
-- [ ] Select/document an officially supported SQLCipher-compatible provider if the project chooses to ship native encryption directly.
-- [ ] Validate provider licensing and native packaging for every applicable release target.
-- [ ] Add encrypted native database/backup/restore integration tests per supported platform.
-- [ ] Add an OS credential/secret-store abstraction for native runtime database-key retrieval.
-- [ ] Add user-visible verified native encryption state only after provider detection can prove it.
-- [ ] Define a separate browser security/encryption-at-rest policy if browser-side cryptographic storage is ever proposed; do not reuse SQLite claims for IndexedDB.
+### Windows
 
-## 0.8 — Release hardening
+- [ ] Choose installer/package format if desired.
+- [ ] Add protected Authenticode signing pipeline.
+- [ ] Add installer signing/verification documentation.
+- [ ] Consider package-manager distribution after signed artifacts exist.
 
-- [x] Centralize application/release version metadata for 2.0.12.
-- [x] Require release tag/project-version equality before publish.
-- [x] Align release workflow SDK resolution with `global.json`.
-- [x] Package Windows output as ZIP and Unix outputs as permission-preserving tar.gz archives.
-- [x] Publish SHA-256 checksum manifest for release archives.
-- [x] Restrict release workflow write permission to the final GitHub Release job.
-- [x] Add Windows ARM64 and Linux ARM64 desktop release RIDs.
-- [x] Add browser/WebAssembly published ZIP artifact.
-- [x] Require Android/iOS Release build success before final tag release.
-- [x] Pin the iOS CI/release gate to the Xcode toolchain accepted by the current .NET iOS workload instead of the rolling runner default.
-- [x] Publish a repeatable manual release smoke-test record/template.
-- [ ] Capture real product screenshots using fictional data after verified release builds.
-- [ ] Manual keyboard/screen-reader/high-DPI/theme audit on supported desktop platforms.
-- [ ] Manual touch/orientation/file-picker/lifecycle/accessibility audit on representative Android/iOS devices.
-- [ ] Representative browser-engine/profile persistence/accessibility smoke testing.
-- [ ] Windows signing pipeline when credentials/policy are available.
-- [ ] macOS Developer ID signing and notarization when credentials/policy are available.
-- [ ] Android production keystore/signing pipeline when credentials/policy are securely available.
-- [ ] iOS/iPadOS signing/provisioning/App Store pipeline when credentials/policy are securely available.
-- [ ] Decide installer/package-manager/store formats beyond current desktop/browser archives and mobile build targets.
+### macOS
 
-## 0.9 — Cross-platform application architecture
+- [ ] Add Developer ID signing.
+- [ ] Add notarization/stapling.
+- [ ] Verify Intel/Apple Silicon signed artifacts on representative systems.
+- [ ] Consider DMG/pkg/Homebrew distribution after policy is defined.
 
-- [x] Extract portable Avalonia `ContactCore.UI` project for single-view platforms.
-- [x] Support both classic desktop and `ISingleViewApplicationLifetime` in the portable app host.
-- [x] Provide responsive shared contact list/editor/duplicate/data/settings UI.
-- [x] Extract native SQLite service composition into `ContactCore.Native`.
-- [x] Add Android project/head using shared UI + native SQLite.
-- [x] Add iOS/iPadOS project/head using shared UI + native SQLite.
-- [x] Add Browser/WebAssembly project/head.
-- [x] Implement `BrowserContactRepository` behind `IContactRepository`.
-- [x] Persist browser contact state in IndexedDB via .NET/JavaScript interop.
-- [x] Persist browser preferences locally with safe fallback.
-- [x] Make native backup/encryption capability explicit so browser UI does not overclaim native database features.
-- [x] Add workload-free `ContactCore.Core.slnx` plus complete `ContactCore.slnx`.
-- [x] Add platform-specific CI workload/build jobs.
-- [x] Add six desktop architecture release targets and browser package.
-- [x] Document ChromeOS browser/Android routes without claiming a separate native ChromeOS project.
-- [x] Add dedicated portable UI view-model regression tests to the workload-free and full solutions.
-- [ ] Cross-tab browser optimistic concurrency/conflict handling if multi-tab editing becomes a supported workflow.
-- [ ] Platform-specific integration/device test automation beyond current compile gates.
-- [ ] Store-distribution signing/packaging automation after secure credential policy is established.
+### Linux
 
-## Future product exploration
+- [ ] Evaluate AppImage/Flatpak/Snap/deb/rpm based on actual distribution goals.
+- [ ] Add appropriate package signing where applicable.
 
-Only after data preservation, test, scale, release, and cross-platform validation fundamentals remain strong:
+### Android
 
-- [ ] Optional contact photos with local storage/privacy rules.
-- [ ] More complete vCard interoperability.
-- [ ] User-configurable custom fields.
-- [ ] Optional local reminders/birthday views.
-- [ ] Explicitly opt-in synchronization architecture only if it preserves the offline-first product identity.
+- [ ] Configure a real protected production keystore/signing policy.
+- [ ] Produce/verify production AAB/APK as appropriate.
+- [ ] Complete Play Store listing/privacy/data-safety requirements.
+- [ ] Perform representative signed-package installation/device tests.
 
-Any future cloud/sync feature requires a new privacy/security architecture review and must not silently replace the local-first default.
+### iPhone/iPad
+
+- [ ] Configure real Apple signing certificates/provisioning/App Store credentials.
+- [ ] Add a protected signed **device** build pipeline with the intended production trim/link policy.
+- [ ] Verify application-owned and third-party linker behavior in that actual distribution configuration.
+- [ ] Complete TestFlight/App Store validation and representative physical-device checks.
+
+## Documentation roadmap
+
+- [x] Platform support guide.
+- [x] Setup/development guides.
+- [x] Architecture/data model guides.
+- [x] Desktop/user/import-export/storage/security/accessibility/performance/testing/troubleshooting guides.
+- [x] CI/CD and release guides.
+- [x] Release smoke-test record template.
+- [x] Maintainer guide.
+- [x] ADRs for architecture/SQLite/encryption-provider boundary.
+- [x] Canonical file-by-file repository reference.
+- [x] Detailed `what_changed.md` continuation ledger.
+- [ ] Keep all canonical docs synchronized as future behavior changes.
+
+## Principles for future roadmap completion
+
+- Do not call a roadmap item complete merely because a stub/project/file exists.
+- Require behavioral verification appropriate to the risk of the feature.
+- Prefer false-negative duplicate detection over destructive false-positive merges.
+- Keep storage/recovery operations transactional or safely recoverable.
+- Keep real user data out of tests/issues/docs/release evidence.
+- Keep signing credentials/secrets out of source.
+- Preserve the distinction between source/build support, automated verification, manual representative testing, and signed/store distribution.
