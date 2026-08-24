@@ -1,20 +1,114 @@
 name: Bug report
-description: Report a reproducible ContactCore defect
+description: Report a reproducible ContactCore defect using fictional or sanitized data
 title: "bug: "
-labels: [bug]
+labels:
+  - bug
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve ContactCore. Do not attach a real `contactcore.db`, backup/recovery database, CSV/vCard export, database key, `.env`, token, or screenshot containing real contacts. For an undisclosed security vulnerability, use the private process in `SECURITY.md` instead of this public form.
+
   - type: textarea
     id: summary
-    attributes: { label: What happened?, description: Do not attach a database containing real contacts. }
-    validations: { required: true }
+    attributes:
+      label: What happened?
+      description: Describe the defect and its impact without including private contact data.
+      placeholder: A concise description of the observable problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: Describe the expected behavior.
+    validations:
+      required: true
+
   - type: textarea
     id: steps
-    attributes: { label: Reproduction steps }
-    validations: { required: true }
+    attributes:
+      label: Reproduction steps
+      description: Use a disposable profile and fictional contacts whenever data is needed.
+      placeholder: |
+        1. Start ContactCore with ...
+        2. Create a fictional contact ...
+        3. Choose ...
+        4. Observe ...
+    validations:
+      required: true
+
   - type: input
     id: version
-    attributes: { label: ContactCore version }
+    attributes:
+      label: ContactCore version or commit
+      description: Release tag or full/short commit SHA if built from source.
+      placeholder: v2.0.12 or abc1234
+    validations:
+      required: true
+
   - type: dropdown
     id: platform
-    attributes: { label: Platform, options: [Windows, macOS, Linux] }
-    validations: { required: true }
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other / not platform-specific
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version and architecture
+      placeholder: Windows 11 24H2 x64 / macOS 15 arm64 / Ubuntu 24.04 x64
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: How are you running ContactCore?
+      options:
+        - Built from source
+        - GitHub release artifact
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Paste only the minimum error/status output needed. Review it manually for names, emails, phone numbers, private paths, keys, tokens, and other personal information first.
+      render: text
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Relevant local configuration
+      description: State whether CONTACTCORE_DATA_PATH, CONTACTCORE_DATABASE_KEY, or a custom SQLite/SQLCipher provider is involved. Never paste the key itself.
+      placeholder: CONTACTCORE_DATA_PATH set to a disposable test directory; no database key configured.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add privacy-safe context, links, or fictional-data screenshots if they materially help reproduce the issue.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Public-report safety checklist
+      options:
+        - label: I did not attach a real ContactCore database, backup, recovery file, or real contact export.
+          required: true
+        - label: I removed passwords, database keys, tokens, private keys, and other secrets.
+          required: true
+        - label: Any contacts or screenshots included here use fictional data only.
+          required: true
+        - label: This is not an undisclosed security vulnerability that should be reported privately.
+          required: true

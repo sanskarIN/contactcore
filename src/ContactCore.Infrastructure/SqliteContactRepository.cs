@@ -1,3 +1,4 @@
+using System.Globalization;
 using ContactCore.Application;
 using ContactCore.Domain;
 using Microsoft.Data.Sqlite;
@@ -13,7 +14,7 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM contacts;";
-        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
     }
 
     public async Task<Contact?> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -54,42 +55,60 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         return await LoadContactsAsync(connection, where + " ORDER BY c.family_name COLLATE NOCASE, c.given_name COLLATE NOCASE, c.nickname COLLATE NOCASE", parameters, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task UpsertAsync(Contact contact, CancellationToken cancellationToken = default)
+    public Task UpsertAsync(Contact contact, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(contact);
+        return UpsertManyAsync([contact], cancellationToken);
+    }
+
+    public async Task UpsertManyAsync(IReadOnlyList<Contact> contacts, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(contacts);
+        if (contacts.Count == 0) return;
+
         await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var tx = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await ExecAsync(connection, tx, """
-                INSERT INTO contacts(id,given_name,family_name,nickname,birthday,notes,is_favorite,is_archived,created_at,updated_at)
-                VALUES($id,$given,$family,$nickname,$birthday,$notes,$favorite,$archived,$created,$updated)
-                ON CONFLICT(id) DO UPDATE SET given_name=excluded.given_name,family_name=excluded.family_name,nickname=excluded.nickname,birthday=excluded.birthday,notes=excluded.notes,is_favorite=excluded.is_favorite,is_archived=excluded.is_archived,updated_at=excluded.updated_at;
-                """, cancellationToken,
-                ("$id", contact.Id.ToString()), ("$given", contact.GivenName), ("$family", contact.FamilyName), ("$nickname", contact.Nickname),
-                ("$birthday", contact.Birthday?.ToString("yyyy-MM-dd")), ("$notes", contact.Notes), ("$favorite", contact.IsFavorite ? 1 : 0),
-                ("$archived", contact.IsArchived ? 1 : 0), ("$created", contact.CreatedAt.ToString("O")), ("$updated", contact.UpdatedAt.ToString("O"))).ConfigureAwait(false);
-
-            foreach (var table in new[] { "phones", "emails", "addresses", "organizations", "contact_groups", "contact_tags" })
-                await ExecAsync(connection, tx, $"DELETE FROM {table} WHERE contact_id=$id;", cancellationToken, ("$id", contact.Id.ToString())).ConfigureAwait(false);
-
-            foreach (var p in contact.Phones)
-                await ExecAsync(connection, tx, "INSERT INTO phones(id,contact_id,label,number,kind) VALUES($id,$contact,$label,$number,$kind);", cancellationToken, ("$id", p.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", p.Label), ("$number", p.Number), ("$kind", (int)p.Kind)).ConfigureAwait(false);
-            foreach (var e in contact.Emails)
-                await ExecAsync(connection, tx, "INSERT INTO emails(id,contact_id,label,address,kind) VALUES($id,$contact,$label,$address,$kind);", cancellationToken, ("$id", e.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", e.Label), ("$address", e.Address), ("$kind", (int)e.Kind)).ConfigureAwait(false);
-            foreach (var a in contact.Addresses)
-                await ExecAsync(connection, tx, "INSERT INTO addresses(id,contact_id,label,street,city,region,postal_code,country) VALUES($id,$contact,$label,$street,$city,$region,$postal,$country);", cancellationToken, ("$id", a.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", a.Label), ("$street", a.Street), ("$city", a.City), ("$region", a.Region), ("$postal", a.PostalCode), ("$country", a.Country)).ConfigureAwait(false);
-            foreach (var o in contact.Organizations)
-                await ExecAsync(connection, tx, "INSERT INTO organizations(id,contact_id,name,title,department) VALUES($id,$contact,$name,$title,$department);", cancellationToken, ("$id", o.Id.ToString()), ("$contact", contact.Id.ToString()), ("$name", o.Name), ("$title", o.Title), ("$department", o.Department)).ConfigureAwait(false);
-            foreach (var group in contact.Groups)
+            foreach (var contact in contacts)
             {
-                await ExecAsync(connection, tx, "INSERT INTO groups(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", group.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
-                await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_groups(contact_id,group_id) SELECT $contact,id FROM groups WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
+                ArgumentNullException.ThrowIfNull(contact);
+                await UpsertCoreAsync(connection, tx, contact, cancellationToken).ConfigureAwait(false);
             }
-            foreach (var tag in contact.Tags)
-            {
-                await ExecAsync(connection, tx, "INSERT INTO tags(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", tag.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
-                await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_tags(contact_id,tag_id) SELECT $contact,id FROM tags WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
-            }
+            await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    public async Task MergeAsync(Contact mergedContact, Guid secondaryId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mergedContact);
+        if (mergedContact.Id == secondaryId)
+            throw new ArgumentException("The secondary contact must be different from the merged primary contact.", nameof(secondaryId));
+
+        await using var connection = await factory.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!await ContactExistsAsync(connection, tx, mergedContact.Id, cancellationToken).ConfigureAwait(false))
+                throw new KeyNotFoundException("The primary contact no longer exists, so the merge was cancelled.");
+            if (!await ContactExistsAsync(connection, tx, secondaryId, cancellationToken).ConfigureAwait(false))
+                throw new KeyNotFoundException("The secondary contact no longer exists, so the merge was cancelled.");
+
+            await UpsertCoreAsync(connection, tx, mergedContact, cancellationToken).ConfigureAwait(false);
+
+            await using var delete = connection.CreateCommand();
+            delete.Transaction = tx;
+            delete.CommandText = "DELETE FROM contacts WHERE id=$id;";
+            delete.Parameters.AddWithValue("$id", secondaryId.ToString());
+            var affected = await delete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            if (affected != 1)
+                throw new KeyNotFoundException("The secondary contact no longer exists, so the merge was cancelled.");
+
             await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch
@@ -108,6 +127,57 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    private static async Task UpsertCoreAsync(
+        SqliteConnection connection,
+        SqliteTransaction tx,
+        Contact contact,
+        CancellationToken cancellationToken)
+    {
+        await ExecAsync(connection, tx, """
+            INSERT INTO contacts(id,given_name,family_name,nickname,birthday,notes,is_favorite,is_archived,created_at,updated_at)
+            VALUES($id,$given,$family,$nickname,$birthday,$notes,$favorite,$archived,$created,$updated)
+            ON CONFLICT(id) DO UPDATE SET given_name=excluded.given_name,family_name=excluded.family_name,nickname=excluded.nickname,birthday=excluded.birthday,notes=excluded.notes,is_favorite=excluded.is_favorite,is_archived=excluded.is_archived,updated_at=excluded.updated_at;
+            """, cancellationToken,
+            ("$id", contact.Id.ToString()), ("$given", contact.GivenName), ("$family", contact.FamilyName), ("$nickname", contact.Nickname),
+            ("$birthday", contact.Birthday?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), ("$notes", contact.Notes), ("$favorite", contact.IsFavorite ? 1 : 0),
+            ("$archived", contact.IsArchived ? 1 : 0), ("$created", contact.CreatedAt.ToString("O", CultureInfo.InvariantCulture)), ("$updated", contact.UpdatedAt.ToString("O", CultureInfo.InvariantCulture))).ConfigureAwait(false);
+
+        foreach (var table in new[] { "phones", "emails", "addresses", "organizations", "contact_groups", "contact_tags" })
+            await ExecAsync(connection, tx, $"DELETE FROM {table} WHERE contact_id=$id;", cancellationToken, ("$id", contact.Id.ToString())).ConfigureAwait(false);
+
+        foreach (var p in contact.Phones)
+            await ExecAsync(connection, tx, "INSERT INTO phones(id,contact_id,label,number,kind) VALUES($id,$contact,$label,$number,$kind);", cancellationToken, ("$id", p.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", p.Label), ("$number", p.Number), ("$kind", (int)p.Kind)).ConfigureAwait(false);
+        foreach (var e in contact.Emails)
+            await ExecAsync(connection, tx, "INSERT INTO emails(id,contact_id,label,address,kind) VALUES($id,$contact,$label,$address,$kind);", cancellationToken, ("$id", e.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", e.Label), ("$address", e.Address), ("$kind", (int)e.Kind)).ConfigureAwait(false);
+        foreach (var a in contact.Addresses)
+            await ExecAsync(connection, tx, "INSERT INTO addresses(id,contact_id,label,street,city,region,postal_code,country) VALUES($id,$contact,$label,$street,$city,$region,$postal,$country);", cancellationToken, ("$id", a.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", a.Label), ("$street", a.Street), ("$city", a.City), ("$region", a.Region), ("$postal", a.PostalCode), ("$country", a.Country)).ConfigureAwait(false);
+        foreach (var o in contact.Organizations)
+            await ExecAsync(connection, tx, "INSERT INTO organizations(id,contact_id,name,title,department) VALUES($id,$contact,$name,$title,$department);", cancellationToken, ("$id", o.Id.ToString()), ("$contact", contact.Id.ToString()), ("$name", o.Name), ("$title", o.Title), ("$department", o.Department)).ConfigureAwait(false);
+        foreach (var group in contact.Groups)
+        {
+            await ExecAsync(connection, tx, "INSERT INTO groups(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", group.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
+            await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_groups(contact_id,group_id) SELECT $contact,id FROM groups WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
+        }
+        foreach (var tag in contact.Tags)
+        {
+            await ExecAsync(connection, tx, "INSERT INTO tags(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", tag.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
+            await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_tags(contact_id,tag_id) SELECT $contact,id FROM tags WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<bool> ContactExistsAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = "SELECT 1 FROM contacts WHERE id=$id LIMIT 1;";
+        cmd.Parameters.AddWithValue("$id", id.ToString());
+        return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null;
+    }
+
     private static async Task<IReadOnlyList<Contact>> LoadContactsAsync(SqliteConnection connection, string suffix, IReadOnlyList<SqliteParameter> parameters, CancellationToken cancellationToken)
     {
         var contacts = new List<Contact>();
@@ -120,11 +190,16 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
             {
                 contacts.Add(new Contact
                 {
-                    Id = Guid.Parse(reader.GetString(0)), GivenName = reader.GetString(1), FamilyName = reader.GetString(2), Nickname = reader.GetString(3),
-                    Birthday = reader.IsDBNull(4) ? null : DateOnly.ParseExact(reader.GetString(4), "yyyy-MM-dd"), Notes = reader.GetString(5),
-                    IsFavorite = reader.GetInt32(6) != 0, IsArchived = reader.GetInt32(7) != 0,
-                    CreatedAt = DateTimeOffset.Parse(reader.GetString(8), System.Globalization.CultureInfo.InvariantCulture),
-                    UpdatedAt = DateTimeOffset.Parse(reader.GetString(9), System.Globalization.CultureInfo.InvariantCulture)
+                    Id = Guid.Parse(reader.GetString(0)),
+                    GivenName = reader.GetString(1),
+                    FamilyName = reader.GetString(2),
+                    Nickname = reader.GetString(3),
+                    Birthday = reader.IsDBNull(4) ? null : DateOnly.ParseExact(reader.GetString(4), "yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    Notes = reader.GetString(5),
+                    IsFavorite = reader.GetInt32(6) != 0,
+                    IsArchived = reader.GetInt32(7) != 0,
+                    CreatedAt = DateTimeOffset.Parse(reader.GetString(8), CultureInfo.InvariantCulture),
+                    UpdatedAt = DateTimeOffset.Parse(reader.GetString(9), CultureInfo.InvariantCulture)
                 });
             }
         }
@@ -156,12 +231,15 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Tags.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1)));
     }
 
-    private static string EscapeLike(string value) => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+    private static string EscapeLike(string value) => value
+        .Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("%", "\\%", StringComparison.Ordinal)
+        .Replace("_", "\\_", StringComparison.Ordinal);
 
-    private static async Task ExecAsync(SqliteConnection connection, System.Data.Common.DbTransaction transaction, string sql, CancellationToken cancellationToken, params (string Name, object? Value)[] values)
+    private static async Task ExecAsync(SqliteConnection connection, SqliteTransaction transaction, string sql, CancellationToken cancellationToken, params (string Name, object? Value)[] values)
     {
         await using var cmd = connection.CreateCommand();
-        cmd.Transaction = (SqliteTransaction)transaction;
+        cmd.Transaction = transaction;
         cmd.CommandText = sql;
         foreach (var (name, value) in values) cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

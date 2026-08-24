@@ -18,12 +18,12 @@ public static partial class ContactValidation
 
         foreach (var email in contact.Emails)
         {
-            if (!IsEmail(email.Address)) issues.Add(new("Email", $"Invalid email address: {email.Address}"));
+            if (!IsEmail(email.Address)) issues.Add(new("Email", "Enter a valid email address."));
         }
         foreach (var phone in contact.Phones)
         {
             if (string.IsNullOrWhiteSpace(phone.Number) || !PhonePattern().IsMatch(phone.Number))
-                issues.Add(new("Phone", $"Invalid phone number: {phone.Number}"));
+                issues.Add(new("Phone", "Enter a valid phone number."));
         }
         return issues;
     }

@@ -1,181 +1,286 @@
-# ContactCore — Work Handoff
+# ContactCore — v2.0.12 Final Cross-Platform Handoff
 
-## Current milestone
+## Release checkpoint
 
-**Phase 4 / release-candidate audit** — the repository now contains a complete local-first ContactCore implementation baseline. The current task is to compile/test it through GitHub Actions, fix every discovered build/test/static-analysis defect, reconcile documentation with the real code, and then continue the remaining roadmap items in small, reviewable commits.
+ContactCore **2.0.12** is being finalized through the repository's single authoritative integration path.
 
-## Repository identity
-
-- Repository: `https://github.com/sanskarIN/contactcore`
+- Repository: `sanskarIN/contactcore`
 - Visibility: public
 - Default branch: `main`
-- Audited base commit: `49786b9d4491ce96675e0a91d74dae0bf8602916`
-- Base commit message: `docs: add changelog and delivery roadmap`
-- Confirmed Git author/committer email on repository commits: `sanskarin@outlook.in`
-- Primary stack: C# / .NET 10 / Avalonia / SQLite
-- Product: private, offline-first desktop contact manager
+- Integration base: `3900063bcdc2f7f0834118abc2580e030f133d73`
+- Authoritative branch: `audit/contactcore-20260819`
+- Authoritative pull request: **PR #4**
+- Final continuation checkpoint before exact-head verification: `7b87188a1b3ba02b94000cc3c789fce4e8a3067d`
+- Version: **2.0.12**
+- Intended tag after verified merge: **`v2.0.12`**
+- Stack: C# / .NET 10 / Avalonia 12.1.1 / SQLite on native targets / IndexedDB in Browser
 - License: MIT
-- Required visible credit: **Made by the Sanskar**
+- Product posture: private, local-first, cross-platform contact manager
+- Project credit: **Made by the Sanskar**
+- Canonical tracked-file inventory: **132 files**
 
-## Uploaded-prompt reconciliation
+Older overlapping integration attempts remain superseded. PR #4 is the intended v2.0.12 merge path.
 
-The uploaded master prompt supplied to this session is titled **LibraCore** and describes a Java/Spring/React library-management product, while the explicitly requested destination repository is **ContactCore** and already contains an established .NET/Avalonia contact-management architecture. The master prompt also instructs the coding agent to inspect existing repositories and preserve useful working history rather than replacing working code.
+## 2026-08-24 continuation
 
-For this repository, the safe interpretation is therefore:
+This continuation was driven by the latest real PR #4 runner evidence. Product scope was not expanded ahead of release correctness; the work concentrated on concrete CI failures, AOT/trim safety, accurate release boundaries, and documentation synchronization.
 
-1. Preserve ContactCore's existing product identity and .NET/Avalonia architecture.
-2. Apply the prompt's transferable quality requirements: complete implementation, layered architecture, security/privacy, tests, accessibility, CI, documentation, release engineering, and granular meaningful commits.
-3. Do **not** replace ContactCore with an unrelated LibraCore library-management application.
+### Production/code commits
 
-## Important concurrency note
+1. `4b569e88b` — `fix(domain): tighten country-code phone equivalence`
+2. `bdbe1abd4` — `fix(browser): seal source-generated JSON context`
+3. `f5cdee18f` — `feat(infrastructure): add trim-safe preferences JSON context`
+4. `6cd4df346` — `fix(infrastructure): use generated preferences serialization`
+5. `4d78c92f7` — `fix(ui): compile shared bindings for trimmed targets`
+6. `d32df6eff` — `fix(ios): use copy trim mode for simulator gate`
 
-During this session another repository-writing continuation advanced `main` substantially while a separate phase branch was being prepared. That concurrent `main` work is now the authoritative base because it contains a broader, already-integrated implementation.
+### Documentation synchronization commits
 
-A parallel pull request, **PR #1 (`phase1/contactcore-core-20260819`)**, contains overlapping implementation and must not be merged blindly. Its unique ideas should only be reapplied selectively after comparing them with current `main`; otherwise it should be closed as superseded to avoid duplicate/conflicting code.
+7. `e38853cd3` — `docs: regenerate canonical 132-file repository reference`
+8. `c371ceda2` — `docs(ci): document final mobile and AOT gate behavior`
+9. `7a00d5113` — `docs: record August 24 final release-gate hardening`
+10. `5502c91f2` — `docs(release): clarify iOS simulator verification boundary`
+11. `bceeefde4` — `docs(changelog): record August 24 release-gate fixes`
+12. `350aaabae` — `docs(maintainers): record simulator and final-head release rules`
+13. `d9d6259a5` — `docs(readme): sync final AOT and iOS simulator posture`
+14. `ea1d33e03` — `docs(platforms): clarify iOS simulator versus distribution support`
+15. `b0d6cbd38` — `docs: sync documentation index with 132-file final gate`
+16. `7b87188a1` — `docs(roadmap): close final 2.0.12 release-gate hardening items`
 
-A fresh audit branch was created directly from the current main base:
+A later optional attempt to rewrite `docs/testing.md` encountered a stale-content SHA conflict. It was deliberately not forced; no user/source data was at risk and the existing testing guide remains tracked. The canonical CI/release/platform/maintainer/handoff documents already describe the final verification boundary.
 
-- `audit/contactcore-20260819`
+### Phone-equivalence correction
 
-All further fixes should be made on that branch (or a successor based on the latest `main`) rather than on the stale overlapping PR branch.
+`PhoneKey` remains a digits-only normalization primitive. `PhoneEquivalent` now accepts a suffix-based country-code equivalence only when:
 
-## Completed implementation on current main
+- exact normalized equality did not already match;
+- the shorter representation contains at least **10 digits**;
+- the longer representation differs by no more than three leading digits;
+- the longer representation ends with the shorter representation.
 
-### Domain
+This deliberately prefers a false-negative duplicate over a destructive false-positive merge. It fixes the regression where `+91 98765 43210` was incorrectly considered equivalent to `876543210`.
 
-- Contact aggregate and repeating contact field models.
-- Validation for core contact fields.
-- Unicode-aware text normalization.
-- Phone normalization.
+Duplicate scoring and merge de-duplication continue to use the same equivalence rule.
 
-### Application
+### Browser/AOT hardening
 
-- Repository/preferences/backup abstractions.
-- Contact workflows and validation boundary.
-- Duplicate scoring and deterministic merge logic.
-- CSV import/export codec.
-- vCard import/export codec.
+`BrowserJsonContext` is sealed to satisfy `CA1852` rather than suppressing the analyzer.
 
-### Infrastructure
+The portable production `MainView.axaml` now has:
 
-- Cross-platform application data paths.
-- SQLite connection factory.
-- Versioned SQLite migrations.
-- Complete contact aggregate persistence.
-- Indexed local search/filtering.
-- Transactional writes and foreign-key relationships.
-- Integrity-checked backup/restore.
-- Local JSON preferences.
-- PII-redacted diagnostic logging support.
+- root `x:DataType`;
+- explicit compiled bindings;
+- typed item templates for contact rows, alphabet entries, rich-field editor rows, and duplicate-pair rows.
 
-### Desktop application
+This removes application-owned reflection-binding trim dependencies from Browser/iOS builds.
 
-- Avalonia application bootstrap/composition root.
-- Main desktop window and styling.
-- Contact list/search workspace.
-- Contact editing workflows.
-- Favorites/archive actions.
-- Import/export and backup-oriented actions.
-- Theme/accessibility-oriented UI structure.
-- Editable repository branding assets.
+Browser persistence continues to use source-generated JSON metadata and IndexedDB. Native SQLite backup/encryption capabilities remain unavailable on Browser by design.
 
-### Tests
+### Native preferences AOT hardening
 
-- Domain validation/normalization coverage.
-- Application duplicate/import-export coverage.
-- SQLite aggregate integration coverage.
+New tracked file:
 
-### GitHub/release engineering
-
-- CI workflow.
-- CodeQL/security workflow.
-- Cross-platform release publishing workflow.
-- Dependabot configuration.
-- Issue templates.
-- Pull-request template.
-- Funding metadata.
-
-### Documentation/governance
-
-The repository now contains the required documentation baseline, including README, contribution/governance/security/privacy/support documents, threat/security guidance, architecture and ADRs, setup/development/testing/release/troubleshooting/accessibility/performance guides, changelog, and roadmap.
-
-## Most recent meaningful main commits at audit start
-
-- `49786b9` — `docs: add changelog and delivery roadmap`
-- `e1595f5` — `docs: add release accessibility performance and recovery guides`
-- `3ed6c3c` — `docs: add setup development and testing guides`
-- `8e87c43` — `docs: document architecture storage and encryption decisions`
-- `c542317` — `docs: add governance security privacy and support policies`
-- `af171ae` — `ci: add cross-platform release publishing`
-- `5483ed6` — `ci: add cross-platform quality and security checks`
-- `5f23040` — `chore(github): add contribution automation and funding`
-- `87114b4` — `test(storage): add SQLite aggregate integration coverage`
-- `51f7ab0` — `test(application): cover duplicate and interchange workflows`
-- `6068fa8` — `test(domain): cover validation and Unicode normalization`
-- `3972256` — `feat(ui): wire contact workflows search and desktop actions`
-- `6c8304f` — `feat(ui): add accessible three-pane contact experience`
-- `ca4d48d` — `feat(ui): bootstrap Avalonia desktop application`
-- `fda6f47` — `feat: add local preferences and PII-redacted diagnostics`
-- `696efc0` — `feat: add integrity-checked backup and restore`
-- `1bf185d` — `feat(storage): persist complete contact aggregates in SQLite`
-- `9c4b6f3` — `feat(storage): add SQLite initialization and migrations`
-- `de2b7e2` — `feat: add CSV and vCard import export codecs`
-- `f2f1230` — `feat: add duplicate detection and merge engine`
-
-## Verification status
-
-### Local execution limitation
-
-The coding environment available in this chat does not provide the .NET SDK/compiler, so the following commands cannot be truthfully reported as locally executed:
-
-```bash
-dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes
-dotnet build ContactCore.slnx -c Release
-dotnet test ContactCore.slnx -c Release
+```text
+src/ContactCore.Infrastructure/JsonAppPreferencesContext.cs
 ```
 
-This is an environment limitation, not evidence that the project passes or fails.
+`JsonAppPreferences` now serializes/deserializes through generated `JsonTypeInfo` metadata. Database keys remain runtime-only and are not serialized into settings.
 
-### Verification strategy
+### iOS simulator boundary
 
-A pull request from `audit/contactcore-20260819` must be used to run the real GitHub Actions quality gates against the latest integrated implementation. Compiler, test, format, CodeQL, and workflow failures must be fixed before calling the milestone verified.
+The current public iOS gate selects:
 
-## Audit findings to verify/fix
+```text
+/Applications/Xcode_26.0.app/Contents/Developer
+```
 
-These are audit targets, not yet claims of confirmed defects:
+and builds:
 
-1. Validate CSV/vCard parser edge cases and all `DateOnly.TryParseExact` usages against the actual .NET 10 compiler.
-2. Verify Avalonia XAML resource names/bindings and generated MVVM commands compile against the pinned Avalonia/CommunityToolkit versions.
-3. Verify SQLite migration/transaction APIs compile cleanly with Microsoft.Data.Sqlite 10.0.10.
-4. Confirm backup restore behavior cannot overwrite the only good copy after a failed post-restore migration.
-5. Confirm the optional encryption configuration fails closed rather than silently accepting a key with plaintext SQLite.
-6. Confirm search/filter refresh cannot lose a user query while another async UI operation is busy.
-7. Check CSV spreadsheet-formula behavior and document/implement a safe export mode if spreadsheet-oriented export is exposed.
-8. Verify release workflow packaging commands on Windows, Linux, macOS Intel, and macOS Apple Silicon runners.
-9. Check all README/documentation claims against current code and actual CI results.
-10. Confirm no real secrets, databases, exported personal data, signing material, or private endpoints are tracked.
+```text
+ios simulator RID: iossimulator-arm64
+```
 
-## Known limitations / remaining roadmap
+`ContactCore.iOS.csproj` applies `TrimMode=copy` **only to simulator RIDs**.
 
-- Build/test status is not yet verified in this chat environment; GitHub Actions is required.
-- Desktop UI still needs deeper manual accessibility/platform verification before claiming full conformance.
-- Large-result SQLite materialization and UI virtualization should be benchmarked before claiming high-scale performance.
-- Parser fuzz/property tests remain desirable for CSV/vCard inputs.
-- Release artifacts are not to be described as signed/notarized unless signing is actually configured.
-- Real screenshots must use fictional sample contacts only.
+This was introduced only after application-owned trim hazards were removed through generated JSON metadata and compiled XAML bindings. The simulator gate verifies source/runtime integration. It does **not** claim production device trimming, Apple signing, provisioning, TestFlight/App Store acceptance, or representative physical-device certification.
 
-## Next exact tasks
+Production Apple distribution remains a future protected pipeline requiring real maintainer-controlled credentials.
 
-1. Inspect current `main` source/tests/workflows file-by-file for likely compile/runtime defects.
-2. Commit only incremental audit fixes on `audit/contactcore-20260819`.
-3. Open a fresh audit PR into `main` to trigger CI/CodeQL.
-4. Read failed job steps/logs and fix every actionable failure with small commits.
-5. Re-run failed jobs until quality gates pass.
-6. Close stale overlapping PR #1 as superseded once unique useful changes have been compared/reapplied.
-7. Update this file with exact CI results, fixes, commit hashes, and the next unfinished roadmap tasks.
-8. Merge the audit PR only when repository checks are satisfactory and the branch is up to date with `main`.
+## Verification evidence
 
-## Release-note draft
+For code checkpoint `d32df6effb93d3312c7306cfebd5a966744ad3f5`, GitHub Actions confirmed before subsequent documentation commits superseded that run:
 
-ContactCore has progressed from repository bootstrap to a complete local-first desktop contact-management baseline with layered architecture, transactional SQLite persistence, import/export, duplicate handling, backup/restore, Avalonia UI, automated tests, security/privacy documentation, and GitHub CI/release automation. The current milestone is verification and hardening rather than feature-count expansion.
+- Ubuntu core restore/format/Release build/tests: **success**;
+- Windows core restore/format/Release build/tests: **success**;
+- macOS core restore/format/Release build/tests: **success**;
+- Browser/WebAssembly Release build: **success**;
+- Android `android-arm64` Release build: **success**;
+- CodeQL: **success**;
+- iOS simulator: still executing when documentation synchronization intentionally changed the PR head.
+
+Because PR workflow concurrency cancels obsolete attempts, **none of the above is the final merge approval**. The merge signal must come from CI + CodeQL for the exact final PR #4 synthetic merge candidate after this handoff checkpoint.
+
+## Current architecture and platforms
+
+| Platform | Target/runtime | Persistence | Current posture |
+|---|---|---|---|
+| Windows x64 | `win-x64` | SQLite | core CI + ZIP release |
+| Windows ARM64 | `win-arm64` | SQLite | ZIP release |
+| Linux x64 | `linux-x64` | SQLite | core CI + tar.gz release |
+| Linux ARM64 | `linux-arm64` | SQLite | tar.gz release |
+| macOS Intel | `osx-x64` | SQLite | core CI + tar.gz release |
+| macOS Apple Silicon | `osx-arm64` | SQLite | core CI + tar.gz release |
+| Android | `net10.0-android`, `android-arm64` CI RID | SQLite | source/build gate; production signing separate |
+| iPhone/iPad | `net10.0-ios`, `iossimulator-arm64` CI RID | SQLite | unsigned simulator source/runtime gate; device distribution separate |
+| Browser/WebAssembly | `net10.0-browser` | IndexedDB | dedicated WASM build + static ZIP |
+| ChromeOS | Browser route; Android where supported | route-dependent | no fabricated native ChromeOS target |
+
+## Solution layout
+
+`ContactCore.slnx` is the complete solution. `ContactCore.Core.slnx` is the workload-free quality/CodeQL solution.
+
+```text
+ContactCore.Domain
+ContactCore.Application
+ContactCore.Infrastructure
+ContactCore.UI
+ContactCore.Native
+ContactCore.Desktop
+ContactCore.Android
+ContactCore.iOS
+ContactCore.Browser
+
+ContactCore.Domain.Tests
+ContactCore.Application.Tests
+ContactCore.Infrastructure.Tests
+ContactCore.UI.Tests
+ContactCore.Desktop.Tests
+```
+
+## Product/data behavior retained
+
+Implemented behavior includes:
+
+- local-first contacts with no mandatory account/cloud/telemetry dependency;
+- rich contact fields and repeated rows;
+- stable contact/contact-owned identities;
+- safe shared group/tag reassignment;
+- unsaved-versus-persisted draft safety;
+- All/Favorites/Archived/A–Z filters;
+- debounce/cancellation-safe search;
+- conservative duplicate detection and stale-safe merge;
+- hardened CSV/focused-vCard import/export;
+- transactional native imports/persistence;
+- verified native backup/restore with recovery/rollback safeguards;
+- runtime-only database-key handling with fail-closed requested cipher verification;
+- System/Light/Dark/reduced-motion/delete-confirmation preferences;
+- responsive shared UI on Android/iOS/Browser and mature Desktop UI.
+
+## Quality posture
+
+The repository keeps:
+
+- `TreatWarningsAsErrors` globally enabled;
+- `AnalysisLevel=latest-recommended`;
+- Browser AOT/trimming diagnostics active;
+- generated JSON metadata for Browser and native preferences;
+- compiled production shared-UI bindings;
+- five behavioral test projects with shared XPlat coverage collection;
+- three-OS core matrix;
+- Browser/Android/iOS build gates;
+- CodeQL.
+
+No general analyzer/trimming gate was disabled to hide the August 24 failures.
+
+## Repository inventory
+
+Canonical tracked-file count: **132**.
+
+Later additions beyond the earlier cross-platform reference include:
+
+```text
+src/ContactCore.Infrastructure/Properties/AssemblyInfo.cs
+src/ContactCore.Infrastructure/JsonAppPreferencesContext.cs
+src/ContactCore.Browser/BrowserJsonContext.cs
+tests/ContactCore.UI.Tests/ContactCore.UI.Tests.csproj
+tests/ContactCore.UI.Tests/TestDoubles.cs
+tests/ContactCore.UI.Tests/MainViewModelSearchTests.cs
+tests/ContactCore.UI.Tests/MainViewModelConfirmationTests.cs
+docs/release-smoke-test.md
+```
+
+See `docs/repository-reference.md` for the canonical file-by-file inventory.
+
+## Required exact-final-head merge gate
+
+Before PR #4 may merge, the same current synthetic merge candidate must have:
+
+- Ubuntu core restore/format/build/tests: success;
+- Windows core restore/format/build/tests: success;
+- macOS core restore/format/build/tests: success;
+- Browser/WebAssembly Release build: success;
+- Android `android-arm64` Release build: success;
+- iOS `iossimulator-arm64` Release build using compatible Xcode and simulator trim policy: success;
+- CodeQL: success/no unresolved newly introduced actionable finding.
+
+An older green/cancelled/superseded run is not sufficient.
+
+## Release process after merge
+
+1. Confirm the verified PR head is merged to `main`.
+2. Apply/verify `main` branch protection/ruleset requiring the stable checks.
+3. Complete `docs/release-smoke-test.md` against the actual candidate/artifacts or explicitly mark sections not executed.
+4. Create `v2.0.12` only from the intended verified merged commit.
+5. Confirm release workflow output:
+   - six desktop archives;
+   - Browser WebAssembly ZIP;
+   - Android/iOS source build gates;
+   - `SHA256SUMS.txt`.
+6. Keep signing/notarization/store claims separate until real protected pipelines exist.
+
+## Remaining non-blocking roadmap
+
+### Product/UX
+
+- repeated-field drag/reorder;
+- global group/tag taxonomy management;
+- general undo/recovery UX.
+
+### Browser/resilience
+
+- real IndexedDB automation harness;
+- cross-tab conflict strategy/tests;
+- deeper native restore cleanup/failure injection.
+
+### Performance
+
+- reproducible 100/1,000/10,000-contact benchmarks;
+- SQL amplification measurement;
+- Browser snapshot-write benchmarks;
+- pagination/list projection evaluation;
+- FTS5 ADR/evaluation if justified;
+- duplicate-candidate optimization;
+- streaming import evaluation while preserving atomicity.
+
+### Security/distribution
+
+- production SQLCipher provider/packaging/licensing if selected;
+- native secure secret-store abstraction;
+- Windows signing/installers;
+- macOS signing/notarization;
+- Android production signing/store publishing;
+- iOS signed device/TestFlight/App Store pipeline;
+- additional package-manager formats.
+
+### Manual verification
+
+- representative desktop keyboard/screen-reader/high-DPI/theme checks;
+- Android/iOS touch/orientation/file-picker/lifecycle/accessibility checks;
+- Browser persistence/accessibility checks across representative engines/profiles;
+- real product screenshots using only fictional data.
+
+These items are deliberately not mislabeled as complete.
+
+## Current posture
+
+The remaining immediate task is **verification, not speculative feature expansion**: run CI + CodeQL on the exact final PR #4 head, fix any real remaining failure, then merge through the documented path. Production signing and manual representative-device/browser checks remain explicit external requirements rather than fabricated completion claims.

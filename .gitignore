@@ -1,19 +1,44 @@
+# Build and test output
 bin/
 obj/
-.vs/
-.idea/
-*.user
-*.suo
-*.db
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
 artifacts/
 TestResults/
 coverage/
-.env
+
+# IDE and OS-local files
+.vs/
+.idea/
+.vscode/*.user
+*.user
+*.suo
 .DS_Store
 Thumbs.db
+
+# Local environment and secret files
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
 *.pfx
 *.snk
+
+# ContactCore/local database artifacts
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+backups/
+local-data/
+exports/
+
+# Temporary/recovery artifacts
+*.restore-*.tmp
+*.tmp
+*.bak
+*.backup

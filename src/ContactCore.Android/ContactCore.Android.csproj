@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <ApplicationId>com.sanskarin.contactcore</ApplicationId>
+    <ApplicationVersion>2012</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.12</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ContactCore.UI/ContactCore.UI.csproj" />
+    <ProjectReference Include="../ContactCore.Native/ContactCore.Native.csproj" />
+  </ItemGroup>
+</Project>

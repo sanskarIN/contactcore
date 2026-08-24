@@ -1,16 +1,92 @@
 name: Feature request
-description: Suggest an improvement that fits ContactCore
+description: Suggest an improvement that fits ContactCore's local-first and privacy-preserving direction
 title: "feat: "
-labels: [enhancement]
+labels:
+  - enhancement
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem first. ContactCore is local-first, so proposals that add networking, accounts, telemetry, synchronization, new sensitive data, or destructive workflows should explain privacy, security, offline, migration, and accessibility implications.
+
   - type: textarea
     id: problem
-    attributes: { label: Problem or need }
-    validations: { required: true }
+    attributes:
+      label: Problem or need
+      description: What user/developer problem exists today? Avoid assuming a specific implementation is the only solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Desired workflow
+      description: Describe the expected user-visible behavior from start to finish.
+    validations:
+      required: true
+
   - type: textarea
     id: proposal
-    attributes: { label: Proposed solution }
-    validations: { required: true }
+    attributes:
+      label: Proposed solution
+      description: Optional implementation/design ideas, including the likely Domain/Application/Infrastructure/Desktop layer when relevant.
+
+  - type: checkboxes
+    id: areas
+    attributes:
+      label: Areas affected
+      description: Select every area that may be involved.
+      options:
+        - label: Contact data model or SQLite schema/migration
+        - label: Import/export format or compatibility
+        - label: Backup/restore or destructive data operation
+        - label: Desktop UI/keyboard/accessibility
+        - label: Search/performance
+        - label: Encryption/secrets/security
+        - label: Networking/account/synchronization/privacy
+        - label: Build/CI/release/packaging
+        - label: Documentation only
+
   - type: textarea
     id: privacy
-    attributes: { label: Privacy/accessibility considerations }
+    attributes:
+      label: Privacy, security, and offline considerations
+      description: Explain any new data collection/storage/transmission, credentials, permissions, remote services, or attack surface. State "none" when genuinely not applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: accessibility
+    attributes:
+      label: Accessibility and keyboard considerations
+      description: For UI changes, describe keyboard/focus/text-scaling/screen-reader or motion implications. State "not applicable" for non-UI changes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Data and compatibility considerations
+      description: Note migrations, older database versions, import/export compatibility, release-platform differences, or rollback concerns.
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Suggested acceptance criteria
+      description: List observable behaviors/tests that would make the feature complete without overclaiming unsupported platforms or certification.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What simpler or safer approaches have you considered?
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Submission checklist
+      options:
+        - label: This request contains no real contact database/export, credentials, or private personal data.
+          required: true
+        - label: I reviewed the current README/roadmap to confirm the feature is not already implemented exactly as requested.
+          required: true
