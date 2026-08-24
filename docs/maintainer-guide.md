@@ -1,227 +1,338 @@
 # Maintainer Guide
 
-This guide covers recurring engineering responsibilities for ContactCore maintainers. It complements `CONTRIBUTING.md`; maintainers are additionally responsible for data compatibility, release quality, privacy claims, destructive-operation safety, and repository/documentation hygiene.
+This guide captures ContactCore's maintainer-level invariants and release expectations. It is intentionally stricter than a quick-start guide because changes in persistence, duplicate handling, backup/restore, mobile/browser composition, or release automation can affect user data even when the UI appears to work.
 
-## Core invariants
+## Core maintenance principles
 
-Treat these as product invariants unless an explicit reviewed architecture decision changes them:
+1. Preserve local-first behavior. Do not introduce mandatory account, cloud sync, telemetry, analytics, or remote contact upload while keeping the existing privacy claims unchanged.
+2. Treat contact data as private. Tests, screenshots, bug reports, logs, and release evidence should use fictional/disposable data.
+3. Preserve complete aggregates. A save must not silently drop rich repeated fields that a caller did not intentionally remove.
+4. Preserve identity semantics. Root contact IDs and surviving contact-owned child IDs should remain stable through ordinary edits; shared group/tag identities follow their documented reassignment rules.
+5. Prefer transactional/data-safe failure over partial success for imports, duplicate merge, and native restore.
+6. Keep warnings-as-errors/analyzers meaningful. Fix actionable code rather than broadly suppressing diagnostics.
+7. Keep exact-final-head CI and CodeQL as the merge gate. Older or cancelled runs are evidence for diagnosis, not approval of a newer commit.
+8. Do not fabricate signing/provisioning success. Public source build gates and production distribution are separate claims.
 
-1. ContactCore remains useful without a mandatory account, cloud, telemetry, or advertising service.
-2. Domain rules do not depend on Avalonia or SQLite.
-3. User/data SQL values remain parameterized; literal search wildcards remain escaped.
-4. A `Contact` repository write represents the complete desired aggregate.
-5. Contact-owned phone/email/address/organization identities survive ordinary editor changes unless intentionally removed/recreated; unchanged group/tag assignments retain shared dictionary identity, while a true per-contact group/tag rename is reassignment to a new dictionary identity.
-6. Single-contact aggregate writes, bulk imports, and destructive duplicate merges remain transactional.
-7. An unsaved draft is never treated as a persisted record merely because it has a generated GUID.
-8. Duplicate detection stays advisory; no score automatically performs a destructive merge.
-9. Duplicate merge requires explicit survivor choice and confirmation, requires both reviewed records to still exist, and must update the survivor/delete the secondary atomically.
-10. Database upgrades are versioned/forward-only; unsupported future schemas are rejected.
-11. Restore validates before replacement and retains a verified pre-restore recovery path.
-12. Requested database encryption fails closed when a compatible provider is unavailable.
-13. Runtime database keys are not serialized into ordinary preferences.
-14. Destructive desktop actions do not silently bypass required confirmation.
-15. Documentation does not overclaim platform, accessibility, encryption, signing, performance, or verification status.
+## Solutions and project boundaries
 
-## Branch and review workflow
+Use `ContactCore.Core.slnx` for workload-free core verification and CodeQL. It contains Domain, Application, Infrastructure, shared UI, native composition, Desktop, and all five behavioral test projects.
 
-Base work on the latest intended integration branch. Keep commits conceptually small and use clear prefixes such as `feat:`, `fix:`, `test:`, `docs:`, `ci:`, `refactor:`, or `chore:`.
+Use `ContactCore.slnx` when working with the complete cross-platform tree, including Android, iOS/iPadOS, and Browser/WebAssembly heads.
 
-Before merge:
+Keep dependencies pointed inward:
 
-```bash
-dotnet restore ContactCore.slnx
-dotnet format ContactCore.slnx --verify-no-changes --no-restore
-dotnet build ContactCore.slnx -c Release --no-restore
-dotnet test ContactCore.slnx -c Release --no-build --collect:"XPlat Code Coverage"
+```text
+Domain
+  ↑
+Application
+  ↑
+Infrastructure / UI adapters
+  ↑
+Desktop / Native / Browser / mobile heads
 ```
 
-Then verify CI and CodeQL on the **final branch head**. A green superseded commit is not verification of a newer head.
+Browser remains intentionally separate from native SQLite Infrastructure. Do not add a native SQLite dependency to the Browser target merely to reuse implementation details.
 
-## Changing contact fields
+## Domain and rich-field maintenance
 
-When modifying `Contact` or a child record:
+When adding or changing a contact field:
 
-1. decide scalar/contact-owned/shared-many-to-many semantics;
-2. update validation and normalization where appropriate;
-3. append a schema migration if persistence changes;
-4. update repository load/write behavior;
-5. update `DeepCopy` and merge semantics;
-6. update import/export only where deliberately supported;
-7. update the full desktop editor or explicitly preserve any newly unsupported field;
-8. add regression tests at the lowest useful layers;
-9. update `data-model.md`, `desktop-ui.md`, testing docs, changelog, roadmap, and file reference.
+- update the Domain model and `DeepCopy` behavior;
+- update validation and normalization where applicable;
+- update native persistence schema/mapping if persisted;
+- update browser persistence DTO/source-generation metadata if the Browser stores it;
+- update CSV/vCard only if the interchange contract intentionally supports the field;
+- update both mature Desktop and portable shared UI editing paths where applicable;
+- preserve existing IDs for surviving contact-owned rows;
+- update tests before claiming full editor support;
+- document fidelity/import-export limitations explicitly.
 
-## Complete-aggregate editor invariant
+Repeated fields currently support add/edit/remove but not drag/drop reorder. Do not document reorder as implemented until the actual interaction and persistence semantics exist.
 
-The current editor directly represents all repeated collections in the present domain model: phones, emails, addresses, organizations, groups, and tags.
+## Group and tag identity rules
 
-Maintain these properties:
+Groups and tags are shared dictionary entities rather than contact-owned rows.
 
-- editing an existing contact-owned phone/email/address/organization row retains its child ID;
-- unchanged group/tag assignments retain their shared dictionary ID;
-- a true per-contact group/tag rename receives a new dictionary identity rather than reusing one shared ID with a different name;
-- a case-only/normalization-equivalent group/tag edit retains the old dictionary identity and canonical stored name;
-- removing one row removes only that intended row/link;
-- blank newly added rows do not create meaningless children;
-- legacy representable values such as a label-only address remain preservable;
-- group/tag names are independent rows and may contain commas or semicolons exactly;
-- duplicate group/tag names in one draft collapse case-insensitively while preserving the first applicable identity;
-- the root contact ID and `CreatedAt` survive editing;
-- draft editing does not mutate the source aggregate before save.
+Maintain these rules:
 
-Groups/tags are shared dictionaries. Ordinary per-contact editing must not silently become a global taxonomy rename. A future global group/tag management feature must define true rename/delete/orphan-cleanup behavior explicitly and test all linked contacts.
+- unchanged assignment keeps its shared identity;
+- case-only/normalization-equivalent edits keep the existing canonical identity/name;
+- a true per-contact rename means reassignment to another/new shared identity rather than mutating a shared row globally;
+- names containing delimiters must remain exact because the editor uses independent rows rather than comma/semicolon tokenization;
+- ordinary relationship removal must not silently claim global taxonomy cleanup.
 
-Repeated-field reordering is not currently exposed. If reorder support is added, define whether order is persisted before presenting a visual order as durable.
+A dedicated global group/tag taxonomy management workflow remains future work. Define rename/delete/orphan semantics explicitly before implementing it.
 
-## Unsaved draft semantics
+## Native SQLite changes
 
-A newly created `Contact` already has a GUID. Never infer persistence from `Id != Guid.Empty`.
+For any schema change:
 
-`ContactDraftViewModel.IsPersisted` is the current explicit boundary. Unsaved **Delete / discard** closes the draft without a repository delete or permanent-delete confirmation. After successful persistence, the draft is reloaded as persisted.
+1. add a numbered forward migration;
+2. keep schema-family identity metadata intact;
+3. update expected schema version tests;
+4. verify old supported databases migrate successfully;
+5. verify newer-than-supported schema versions fail safely;
+6. review backup/restore compatibility;
+7. update data model/storage/maintenance documentation.
 
-Any alternate editor/new-contact flow must preserve an equivalent distinction.
+Do not edit an already-shipped migration in a way that changes the meaning of an existing schema version.
 
-## Duplicate handling
+`SqliteContactRepository` aggregate writes should remain transactional. Shared group/tag linking, child replacement, duplicate merge, and bulk import must not leave partial state after failure.
 
-Duplicate detection must remain explainable and non-destructive until the user confirms.
+## Native connection/encryption boundary
 
-Current workflow:
+`CONTACTCORE_DATABASE_KEY` is runtime-only and must not be serialized into normal settings.
 
-1. load contacts, including archived records;
-2. score candidate pairs with `DuplicateDetector`;
-3. show score/reasons and side-by-side summaries;
-4. let the user choose which record survives;
-5. confirm the destructive action;
-6. call `ContactService.MergeAsync`, which reloads both records;
-7. inside the repository transaction, require both chosen survivor/primary and secondary to still exist;
-8. persist survivor update + secondary deletion atomically.
+If a database key is requested, the connection factory must continue to fail closed unless a compatible cipher provider proves itself. Do not turn a requested-but-unavailable cipher into a silent plaintext database.
 
-If either reviewed record disappeared, `SqliteContactRepository.MergeAsync` throws/cancels before commit. A removed chosen primary must never be resurrected from stale UI data; a missing secondary must never leave only a survivor update committed.
+Before claiming production encrypted-at-rest support:
 
-When changing merge logic, test overlapping/distinct phones, emails, addresses, organizations, groups, tags, notes, flags, IDs, self-merge rejection, missing-secondary rollback, and missing-primary non-resurrection. Never convert a heuristic score into automatic deletion.
+- choose and license/validate a SQLCipher-compatible provider;
+- validate native packaging on every supported native platform;
+- add encrypted create/open/backup/restore/migration tests;
+- add secure OS credential-store integration;
+- expose a user-visible encryption state only when runtime verification can prove it.
 
-There is no general-purpose undo stack. Verified backups remain the recovery mechanism for destructive cleanup.
+## Native preferences
 
-## Database migrations
+`JsonAppPreferences` stores ordinary UI/safety preferences only. It uses source-generated JSON metadata through `JsonAppPreferencesContext` so mobile/AOT builds do not depend on reflection-based serializer discovery.
 
-`DatabaseMigrator` is the schema authority. New migrations use monotonically increasing integer versions and should be deterministic, one-way, transactional where SQLite permits, upgrade-tested, and compatible with previously supported databases.
+When changing the preferences model:
 
-Do not delete/renumber released migrations. A schema-family identity change requires explicit architecture/security review because backup recognition depends on it.
+- update the source-generation DTO/context;
+- preserve safe defaults for malformed/missing settings;
+- keep theme normalization deliberate;
+- keep database keys and future secrets out of serialized settings;
+- run Infrastructure tests and mobile/Browser gates as applicable.
+
+## Browser persistence maintenance
+
+`BrowserContactRepository` implements `IContactRepository` with IndexedDB-backed serialized state.
+
+Preserve these invariants:
+
+- malformed state and duplicate root identities are rejected;
+- repository boundaries deep-copy aggregates;
+- writes are serialized;
+- failed persistence restores the previous in-memory snapshot;
+- duplicate merge stale-checks both reviewed records;
+- JSON serialization uses generated metadata rather than reflection-dependent runtime discovery;
+- owned synchronization primitives are disposed;
+- native SQLite backup/encryption capabilities remain unavailable through Browser capabilities.
+
+A real-browser/IndexedDB automated harness and cross-tab conflict handling remain future work. Do not make strong multi-tab durability claims before those exist.
+
+## Portable Avalonia UI and AOT
+
+The shared `MainView.axaml` uses explicit data types and compiled bindings. Keep portable view markup trim/AOT-friendly:
+
+- prefer typed compiled bindings for production shared UI;
+- add `x:DataType` to new item templates;
+- do not reintroduce broad reflection bindings into Browser/mobile markup without evaluating trim impact;
+- diagnose Browser/iOS linker/AOT failures as first-class regressions;
+- keep view-model tests deterministic and independent of real platform storage.
+
+The portable UI test project currently covers search debounce/cancellation ordering and confirmation-gated delete/restore behavior. Extend it for new stateful view-model workflows.
+
+## Duplicate detection and merge
+
+Duplicate detection and merge de-duplication must use the same phone-equivalence policy.
+
+Current phone comparison deliberately prefers false negatives over destructive false positives:
+
+- exact digit-normalized equality matches;
+- otherwise suffix equivalence requires a shorter representation of at least ten digits;
+- the longer representation may differ by no more than three leading digits.
+
+If changing this rule, update Domain and Application regression cases together and consider the destructive merge impact, not only candidate recall.
+
+Duplicate merge must continue to:
+
+- require explicit reviewed survivor direction;
+- require confirmation;
+- reload/stale-check records before destructive persistence;
+- preserve primary identity;
+- avoid contact-owned child-ID collisions;
+- update survivor/delete secondary atomically;
+- reject missing reviewed records instead of resurrecting stale UI state.
+
+## Import/export maintenance
+
+CSV and vCard are interchange formats, not native full-fidelity backup formats.
+
+When modifying parsers/codecs:
+
+- maintain bounded/malformed-input behavior;
+- keep validation messages from unnecessarily echoing private imported values;
+- preserve CSV header protections;
+- preserve explicit spreadsheet-formula safety boundaries;
+- preserve vCard escaping/folding/terminator behavior supported by the implementation;
+- add deterministic regression/fuzz-style cases for parser changes;
+- keep import validation before one-transaction persistence.
+
+Do not silently broaden claims to full vCard implementation unless the actual property/parameter/encoding surface is covered.
 
 ## Backup and restore
 
-Treat `BackupService` as high-risk code. Preserve this safety ordering:
+Native backup/restore is a high-impact data path.
 
-**verify source → snapshot current → stage → migrate/verify stage → switch → verify active → rollback if necessary**.
+Maintain the current sequence:
 
-Keep coverage for invalid input, unrelated SQLite, identity tampering, future schema, older-schema migration, missing/self restore sources, retained pre-restore snapshot, and unique artifacts. High-value remaining failure injection is forced post-switch verification failure plus cleanup failures at each stage.
+1. verify selected backup before touching active data;
+2. stage a copy;
+3. migrate/validate the stage;
+4. create/verify a pre-restore recovery snapshot;
+5. switch active data only after preflight succeeds;
+6. verify the switched database;
+7. roll back from the recovery snapshot on final verification failure where possible;
+8. retain useful failed-copy evidence without exposing private data publicly;
+9. clean temporary staging files.
 
-Never remove a restore verification stage solely to improve benchmark numbers.
+Any new cleanup/failure injection must use disposable fixtures. Never ask contributors to upload a real contact database publicly.
 
-## SQLite encryption boundary
+Browser backup remains CSV/vCard export; do not route Browser through native SQLite backup APIs.
 
-The repository does not bundle a guaranteed SQLCipher provider. `CONTACTCORE_DATABASE_KEY` is meaningful only when a compatible provider is actually active.
+## Search and async state
 
-Current behavior reads the runtime key even before a first `settings.json` exists, applies it through the connection factory, and fails closed when `PRAGMA cipher_version` cannot verify cipher support.
+Portable search is debounced and cancellation-safe. New async UI state must not allow stale operations to replace newer results.
 
-Any production encryption integration must preserve verification, avoid logging/interpolating the original secret, document provider licensing/native packaging, add platform integration tests, and avoid committing keys/license material/proprietary binaries contrary to policy.
+When modifying search:
 
-## Preferences
+- preserve cancellation propagation;
+- retain latest-query wins semantics;
+- keep literal SQLite wildcard escaping on native storage;
+- update portable UI race tests for changed timing/state behavior;
+- avoid unbounded sleeps as correctness mechanisms in tests.
 
-`settings.json` stores non-secret local preferences. Missing new fields need conservative defaults; malformed JSON must continue to degrade safely. Writes use a temporary file + replacement strategy.
+## Accessibility and UX maintenance
 
-`DatabaseKey` remains runtime-only. `ConfirmPermanentDelete = true` is the conservative default.
+For significant UI changes, review:
 
-## Import boundary
+- keyboard navigation/focus visibility where applicable;
+- touch target/phone/tablet layout on mobile heads;
+- theme/contrast behavior;
+- reduced-motion preference;
+- labels/accessible names;
+- confirmation/cancellation flows;
+- high-DPI/scaling;
+- screen-reader behavior on representative real targets before stronger conformance claims.
 
-Imports are untrusted input. Maintain:
+Do not claim certification/conformance from source inspection alone.
 
-- bounded desktop text input;
-- predictable termination/warnings for malformed input;
-- Unicode/escaping tests;
-- complete-batch normalization/validation before persistence;
-- one-transaction batch writes;
-- privacy-preserving error/warning text;
-- fictional fixtures only.
+## Performance changes
 
-CSV with no recognized ContactCore header currently imports zero contacts with a warning. Duplicate headers use the first occurrence and warn. Formula-like text is preserved and warned about; do not claim spreadsheet-formula neutralization.
+Before optimizing, preserve correctness/data safety and measure representative workloads.
 
-Focused vCard support handles supported escaped delimiters/newlines and common `TYPE` values but is not a full RFC ecosystem implementation. Invalid birthday warnings intentionally do not echo the supplied value.
+Future benchmark priorities include 100/1,000/10,000 contacts, duplicate candidate generation, native SQL amplification, browser IndexedDB snapshot writes, pagination/list projection, and potential FTS5 evaluation.
 
-## Export boundary
+If adopting FTS5 or another index/storage strategy, write an ADR covering migration, synchronization, recovery, and fallback behavior.
 
-CSV and vCard are interchange formats, not complete backups. CSV exports selected scalar fields plus only the first phone/email. Focused vCard omits many ContactCore fields and external vCard properties.
+## CI maintenance
 
-Use verified SQLite backup for full database recovery. Expanding an interchange format requires a field-support matrix and round-trip tests for every newly claimed field.
+Required exact-final-head PR gates are:
 
-## Search changes
+- Ubuntu core restore/format/Release build/all tests;
+- Windows core restore/format/Release build/all tests;
+- macOS core restore/format/Release build/all tests;
+- Browser/WebAssembly Release build;
+- Android `android-arm64` Release build;
+- iOS `iossimulator-arm64` Release build after selecting compatible Xcode;
+- CodeQL.
 
-Preserve parameterized SQL, literal `LIKE` escaping, favorites/archive semantics, deterministic ordering, and debounce cancellation.
+All five behavioral test projects should continue to resolve the shared XPlat coverage collector.
 
-Current root + per-contact child loading and leading-wildcard search should be benchmarked before scale claims. FTS5, pagination, or list projections require measured justification; FTS5 additionally deserves an ADR covering migration/tokenization/index synchronization.
+Do not remove a platform job because it exposes a real regression. Fix the code/toolchain or document a deliberate platform-support decision.
 
-## Performance-sensitive duplicate detection
+### iOS simulator boundary
 
-`DuplicateDetector.Find` is pairwise, approximately `n(n-1)/2`. If optimizing candidate generation, preserve candidate-quality tests and explain blocking rules. Do not silently reduce recall for speed without a product decision.
+The public iOS gate selects `/Applications/Xcode_26.0.app/Contents/Developer` and builds `iossimulator-arm64`. `ContactCore.iOS.csproj` applies `TrimMode=copy` only for simulator RIDs.
 
-## Accessibility maintenance
+This scoped policy exists after application-owned trim hazards were fixed with generated JSON metadata and compiled UI bindings. It avoids turning third-party linker diagnostics in an unsigned simulator build into a false production-distribution claim. It is **not** evidence of final device/App Store trimming, signing, provisioning, or certification.
 
-For UI changes verify keyboard reachability, visible focus, meaningful labels/names, logical tab order, scaling, non-color-only cues, theme behavior, and reduced-motion handling for custom animation.
-
-The current full editor and duplicate-review pane increase control density; include their add/remove rows, group/tag reassignment, both survivor buttons, confirmation dialog, scrolling, and minimum-window behavior in manual accessibility checks.
-
-Do not claim formal accessibility conformance without the relevant audit.
+If a production Apple distribution pipeline is added, create explicit signed/device verification with real protected credentials and do not treat the simulator gate as a substitute.
 
 ## Dependency updates
 
-Versions are centralized in `Directory.Packages.props`. Review official release/security notes, framework compatibility, Avalonia XAML/source-generator effects, SQLite native behavior, MSTest/coverage changes, licensing, and the final cross-platform checks.
+Dependabot suggestions are discovery, not approval.
 
-Dependabot is an input to review, not automatic approval.
+For package/action updates:
 
-## GitHub Actions maintenance
+- inspect release notes/security implications;
+- preserve central package management;
+- run exact-head core + platform gates;
+- ensure mobile workload/action runtime compatibility;
+- do not merge an automated version bump merely because it is newer;
+- update docs when a dependency changes supported platforms/toolchains or release behavior.
 
-Keep permissions minimal, retain sensible timeouts/concurrency, and treat workflow changes as production/release-integrity code. Pull-request checks must not expose secrets to untrusted code.
+## Release procedure
 
-For release automation, preserve the source-version/tag equality guard, `global.json` SDK policy, permission-preserving Unix packaging, checksum publication, and least-privilege write permission unless a reviewed stronger design replaces them.
+Before tagging:
 
-## Release process
+1. merge only a final PR head whose exact synthetic merge candidate has all required CI/CodeQL gates green;
+2. ensure version metadata and intended tag match;
+3. ensure changelog/README/platform/setup/CI/release/handoff documentation match source;
+4. verify repository inventory when tracked files changed;
+5. check no real user data/secrets/signing material are tracked;
+6. complete the release smoke-test record against the exact candidate/artifacts or explicitly mark unavailable manual checks;
+7. preserve signing/manual-verification boundaries.
 
-Before a version tag:
+The tag workflow publishes six desktop archives plus Browser WebAssembly ZIP and checksums after Android/iOS source build gates. It does not produce production mobile store packages.
 
-1. merge only a fully reviewed/verified intended head;
-2. update `CHANGELOG.md` and version-facing docs;
-3. verify all user-facing behavior docs match the shipped code;
-4. inspect CI and CodeQL on that exact head;
-5. decide/document unsigned artifact policy;
-6. create the intended semantic `v*.*.*` tag matching the source version;
-7. inspect all runtime archives/checksums;
-8. smoke-test supported RIDs with fictional data;
-9. include rich editing/group-tag reassignment, both duplicate survivor directions, import/export, backup/restore, settings, and delete safety in release smoke tests;
-10. publish known limitations plainly.
+Do not tag an unmerged audit branch as the canonical public release unless the project explicitly changes its release policy.
 
-Do not claim signing/notarization if the workflow does not perform it.
+## Branch/repository governance
+
+`main` should be protected by repository rules requiring the stable CI and CodeQL checks before merge, blocking uncontrolled force-push/deletion, and routing normal changes through pull requests. Repository settings must match the documented check names after the final v2.0.12 workflow stabilizes.
+
+If emergency bypass is ever enabled, document who may use it and require a follow-up audit trail. Do not normalize direct unchecked pushes as routine maintenance.
 
 ## Documentation maintenance
 
-For every meaningful behavior change check README, docs index, user guide, architecture, data model, desktop UI, import/export, storage/security/testing/performance/troubleshooting, changelog, roadmap, repository reference, and `what_changed.md` as applicable.
+Update documentation in the same change whenever behavior/platform/release claims change.
 
-A documentation mismatch is a release defect when it could cause data loss, unsafe restore/merge behavior, misunderstood encryption/privacy, or unsupported expectations.
+At minimum consider:
 
-## Repository hygiene
+- `README.md`;
+- `CHANGELOG.md`;
+- `ROADMAP.md`;
+- `docs/platform-support.md`;
+- `docs/setup.md`;
+- `docs/architecture.md`;
+- `docs/testing.md`;
+- `docs/ci-cd.md`;
+- `docs/release.md`;
+- `docs/repository-reference.md`;
+- `what_changed.md`.
 
-Before merge/release scan for accidental:
+The canonical repository inventory is currently **132 tracked files**. Regenerate `docs/repository-reference.md` whenever a tracked file is added/removed/renamed.
 
-- live databases/WAL/SHM/backups/recovery files/exports;
-- `.env` secrets;
-- API tokens/passwords/database keys;
-- signing certificates/private keys;
-- real contact fixtures/screenshots;
-- build output;
-- IDE/user-specific files;
-- temporary restore/preferences artifacts.
+## Security/reporting
 
-Update `.gitignore` when introducing a new generated or sensitive artifact type.
+Keep public issue/PR discussion free of private user data and secrets. Security-sensitive findings should follow `SECURITY.md` rather than being turned into a public data dump.
 
-## Deprecation policy
+Before merging/releasing, review diffs for:
 
-When removing observable behavior/data support, document old/new behavior, preserve migration where reasonable, never silently discard fields, update changelog, consider compatibility periods for interchange formats, and record architecture/storage/privacy/security changes in an ADR when appropriate.
+- real contact data;
+- SQLite databases/WAL/SHM;
+- exports/backups;
+- `.env`/tokens/passwords;
+- certificates/keystores/provisioning profiles;
+- private endpoints/identifiers;
+- screenshots containing personal information.
+
+## Current remaining non-blocking work
+
+After the v2.0.12 merge/release gate, meaningful future work includes:
+
+- repeated-field drag/reorder;
+- global group/tag taxonomy management;
+- general undo/recovery UX;
+- real IndexedDB browser automation and cross-tab conflict handling;
+- deeper restore cleanup/failure injection;
+- representative accessibility/lifecycle automation;
+- scale benchmarks and candidate-generation optimization;
+- production SQLCipher/secret-store integration if chosen;
+- signed/notarized/store distribution pipelines;
+- additional installer/package-manager formats.
+
+Do not relabel those items complete until implementation and appropriate verification actually exist.
