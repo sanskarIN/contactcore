@@ -1,8 +1,8 @@
 # Repository Reference
 
-This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 132 tracked files** present after the 2026-08-24 final release-gate hardening continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
+This is the canonical file-by-file reference for ContactCore **2.0.13 maintenance preparation**. It documents **all 132 tracked files** present after the 2026-08-24 final 2.0.12 release-gate hardening and next-version maintenance preparation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
 
-The previous 131-file reference predated the trim-safe native preferences JSON source-generation context. This reference supersedes the earlier 124/130/131-file counts. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
+The 2.0.13 branch changes metadata/dependencies/workflows/docs but does not add or remove tracked files, so the canonical count remains 132. The previous 131-file reference predated the trim-safe native preferences JSON source-generation context. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
 
 ## 1. Repository root — 19 files
 
@@ -19,7 +19,7 @@ Git text/line-ending handling rules for consistent cross-platform checkouts.
 Ignores build/IDE output, local databases/WAL/SHM, backups/exports/temp restore artifacts, environment secrets, signing-key material, and other generated/private files.
 
 ### `CHANGELOG.md`
-Release/change history for 2.0.12 and Unreleased hardening/cross-platform work.
+Release/change history for the 2.0.12 baseline plus Unreleased 2.0.13 maintenance preparation.
 
 ### `CODE_OF_CONDUCT.md`
 Community behavior/enforcement policy, including privacy-conscious handling of accidentally shared sensitive data.
@@ -34,10 +34,10 @@ Workload-free core verification solution. Contains Domain, Application, Infrastr
 Complete repository solution containing Domain, Application, Infrastructure, shared UI, native composition, Desktop, Android, iOS, Browser, and all five behavioral test projects.
 
 ### `Directory.Build.props`
-Shared MSBuild/compiler/analyzer policy: .NET 10 baseline for ordinary projects, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI settings, and centralized 2.0.12 version metadata. Platform heads override `TargetFramework` where required.
+Shared MSBuild/compiler/analyzer policy: .NET 10 baseline, modern C#, nullable/implicit usings, warnings-as-errors, deterministic/CI settings, and centralized **2.0.13** maintenance version metadata. Platform heads override `TargetFramework` where required.
 
 ### `Directory.Packages.props`
-Central NuGet version management for Avalonia core/Desktop/Android/iOS/Browser/themes, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite 10.0.11, MSTest, test SDK, and coverage collector.
+Central NuGet version management for Avalonia core/Desktop/Android/iOS/Browser/themes, CommunityToolkit.Mvvm, Microsoft.Data.Sqlite 10.0.11, Microsoft.NET.Test.Sdk **18.9.0**, MSTest, and coverage collector.
 
 ### `LICENSE`
 MIT license text for repository code; third-party dependency licenses remain separate.
@@ -46,10 +46,10 @@ MIT license text for repository code; third-party dependency licenses remain sep
 User-facing privacy posture for local-first behavior, native storage/export/backup, runtime-key handling, and absence of mandatory telemetry/cloud behavior.
 
 ### `README.md`
-Primary project landing page. Documents the cross-platform matrix, native SQLite/browser IndexedDB split, rich contact behavior, build commands, release targets, signing boundaries, privacy/security, and documentation links.
+Primary project landing page. Documents the cross-platform matrix, native SQLite/browser IndexedDB split, rich contact behavior, build commands, 2.0.13 maintenance/release preparation, signing boundaries, privacy/security, and documentation links.
 
 ### `ROADMAP.md`
-Separates completed 2.0.12/cross-platform work from future UX, resilience, performance, signing, packaging, and manual validation work.
+Separates completed 2.0.12 foundations, prepared 2.0.13 maintenance work, release-process gates, and future UX/resilience/performance/signing work.
 
 ### `SECURITY.md`
 Public vulnerability-reporting and supported-security-policy document.
@@ -61,7 +61,7 @@ Support channels and privacy-safe diagnostic guidance that discourages public sh
 Pins stable .NET SDK baseline `10.0.100` with latest-compatible feature-band roll-forward and prereleases disabled.
 
 ### `what_changed.md`
-Authoritative continuation/handoff ledger for branch/PR reconciliation, versioning, implementation, release hardening, cross-platform expansion, verification, and remaining boundaries.
+Authoritative continuation/handoff ledger for v2.0.12 release verification plus the isolated v2.0.13 maintenance branch, issue #15, commit sequence, governance state, and remaining boundaries.
 
 ## 2. GitHub configuration — 8 files
 
@@ -81,13 +81,13 @@ Dependabot configuration for configured dependency ecosystems.
 PR checklist covering CI/CodeQL, tests, data safety, identity semantics, migrations/recovery, privacy, documentation, and review evidence.
 
 ### `.github/workflows/ci.yml`
-Workload-aware cross-platform CI. `ContactCore.Core.slnx` restores/formats/builds/tests on Ubuntu, Windows, and macOS with XPlat coverage. Dedicated jobs install `wasm-tools`, Android, and iOS workloads and build the Browser, Android, and iOS heads. The iOS job explicitly selects the Xcode 26.0 toolchain accepted by the current .NET iOS workload rather than trusting the rolling runner default.
+Workload-aware cross-platform CI using `actions/checkout@v7` and `actions/setup-dotnet@v6`. `ContactCore.Core.slnx` restores/formats/builds/tests on Ubuntu, Windows, and macOS with XPlat coverage. Dedicated jobs build Browser, Android, and iOS. Push verification includes `main` and `release/**`, while PR verification targets `main`. The iOS job explicitly selects Xcode 26.0.
 
 ### `.github/workflows/codeql.yml`
-C# CodeQL workflow using checkout v6, setup-dotnet v5, CodeQL v4, and the workload-free `ContactCore.Core.slnx` so security analysis does not depend on mobile workloads.
+C# CodeQL workflow using checkout v7, setup-dotnet v6, CodeQL v4, and the workload-free core solution. It analyzes `main`, `release/**` pushes, PRs targeting `main`, and the scheduled weekly run.
 
 ### `.github/workflows/release.yml`
-Tag-driven 2.0.12 release workflow. Enforces tag/source-version equality; publishes six desktop RIDs plus browser WebAssembly ZIP; build-gates Android/iOS with compatible Xcode selection for iOS; generates SHA-256 checksums; limits repository write permission to final release creation; does not claim store signing/notarization.
+Tag-driven **2.0.13-prepared** release workflow using checkout v7/setup-dotnet v6. It enforces tag/source-version equality, publishes six desktop RIDs plus Browser WebAssembly ZIP, build-gates Android/iOS, generates SHA-256 checksums, limits repository write permission to final release creation, and does not claim store signing/notarization.
 
 ## 3. Documentation — 23 files
 
@@ -110,7 +110,7 @@ Accepted optional SQLCipher-compatible provider boundary with fail-closed reques
 Cross-platform project/dependency map; desktop/mobile/browser startup; native SQLite/browser IndexedDB flows; shared UI; persistence, identity, import, duplicate, backup, security, and evolution rules.
 
 ### `docs/ci-cd.md`
-Three-OS core CI, platform workload jobs, CodeQL, six-RID desktop release matrix, WebAssembly publish, mobile build gate, coverage/AOT/Xcode gates, permissions, checksums, and troubleshooting.
+2.0.13 maintenance CI documentation covering checkout v7/setup-dotnet v6, Test SDK 18.9.0, three-OS core CI, release-branch push checks, platform workload jobs, CodeQL, six-RID desktop release matrix, WebAssembly publish, mobile gates, permissions, checksums, and troubleshooting.
 
 ### `docs/data-model.md`
 Domain-to-SQLite mapping, scalar/repeated fields, shared group/tag identities, timestamps, complete aggregate replacement, duplicate merge, indexes, normalization, schema identity, and migrations.
@@ -137,7 +137,7 @@ Canonical platform matrix for Windows/Linux/macOS architectures, Android, iPhone
 Repeatable manual release-candidate verification record. Binds evidence to an exact SHA and includes fictional-fixture rules, automated-gate recording, desktop/browser/mobile matrices, data-safety scenarios, accessibility/privacy review, deviations, and release sign-off.
 
 ### `docs/release.md`
-2.0.12 tag/version preflight, six desktop packages, browser package, mobile build gate, explicit mobile RIDs/Xcode selection, signing/provisioning boundaries, verification/smoke tests, failures/rollback, and post-release process. References the repeatable smoke-test record.
+Prepared 2.0.13 tag/version preflight, explicit prerequisite to finish/reconcile 2.0.12 first, six desktop packages, Browser package, mobile gates, workflow generations, signing/provisioning boundaries, verification/smoke tests, failures/rollback, and post-release process.
 
 ### `docs/repository-reference.md`
 This canonical 132-file inventory.
@@ -189,7 +189,7 @@ Use-case boundary for initialize/count/search/save/import/merge/favorite/archive
 Duplicate candidate scoring/comparison plus `ContactMerger`; normalizes signals, uses conservative country-code-aware phone equivalence, rejects self-merge, deduplicates rich child data, and gives copied contact-owned rows fresh IDs where needed.
 
 ### `src/ContactCore.Application/ImportExport.cs`
-`ImportResult`, CSV codec, and focused vCard codec with escaping, warnings, header hardening, formula-prefix warnings, TYPE mapping, and no direct persistence.
+`ImportResult`, lossless CSV codec, and focused vCard codec with escaping, warnings, header hardening, formula-prefix warnings, TYPE mapping, and no direct persistence. The separate opt-in spreadsheet-safe export idea is tracked as future feature issue #16 rather than silently added to patch 2.0.13.
 
 ## 6. Infrastructure production project — 10 files
 
@@ -375,7 +375,7 @@ Validation/normalization/domain-model regression tests including invalid/valid f
 ## 14. Application tests — 5 files
 
 ### `tests/ContactCore.Application.Tests/ContactCore.Application.Tests.csproj`
-Application MSTest project definition/reference with XPlat coverage collector.
+Application MSTest project definition/reference with XPlat coverage collector. The centrally resolved test SDK is 18.9.0 on the 2.0.13 maintenance branch.
 
 ### `tests/ContactCore.Application.Tests/ContactServiceTests.cs`
 Fake-repository tests for scalar/rich normalization, timestamping, batch import validation-before-write, deep-copy behavior, shared timestamp, and query forwarding.
@@ -392,7 +392,7 @@ Baseline CSV/vCard round-trip tests plus deterministic randomized Unicode/malfor
 ## 15. Infrastructure tests — 7 files
 
 ### `tests/ContactCore.Infrastructure.Tests/ContactCore.Infrastructure.Tests.csproj`
-Infrastructure MSTest project definition/reference with XPlat coverage collector.
+Infrastructure MSTest project definition/reference with XPlat coverage collector and centrally managed Test SDK 18.9.0 on the maintenance line.
 
 ### `tests/ContactCore.Infrastructure.Tests/AppPathsTests.cs`
 Environment/fallback path resolution/derivation tests using controlled disposable paths.
@@ -415,7 +415,7 @@ Repository tests for base/rich aggregate round trip/replacement, dictionary reas
 ## 16. Portable UI tests — 4 files
 
 ### `tests/ContactCore.UI.Tests/ContactCore.UI.Tests.csproj`
-Portable UI MSTest project referencing `ContactCore.UI` and the shared XPlat coverage collector.
+Portable UI MSTest project referencing `ContactCore.UI`, the shared XPlat coverage collector, and centrally managed Test SDK 18.9.0 on the maintenance line.
 
 ### `tests/ContactCore.UI.Tests/TestDoubles.cs`
 Deterministic in-memory repository, backup-service, preferences, and platform-composition doubles used to exercise portable view models without real user data or platform storage.
@@ -429,7 +429,7 @@ Regression tests for confirmation-gated permanent delete, cancellation preservat
 ## 17. Desktop tests — 2 files
 
 ### `tests/ContactCore.Desktop.Tests/ContactCore.Desktop.Tests.csproj`
-Desktop MSTest project referencing the mature desktop production project and XPlat coverage collector.
+Desktop MSTest project referencing the mature desktop production project, XPlat coverage collector, and centrally managed Test SDK 18.9.0 on the maintenance line.
 
 ### `tests/ContactCore.Desktop.Tests/ContactDraftViewModelTests.cs`
 Non-visual desktop editor regressions for root/timestamp/flags/persistence state, birthday, contact-owned IDs, group/tag identity/reassignment/case behavior, delimiter names, label-only addresses, blank-row suppression, and source non-mutation.
@@ -457,4 +457,4 @@ Non-visual desktop editor regressions for root/timestamp/flags/persistence state
 | Desktop tests | 2 |
 | **Total** | **132** |
 
-This total intentionally counts tracked files only, not directories. It supersedes the previous 124/130/131-file cross-platform references and includes the eight later tracked additions: infrastructure test visibility, browser source-generated JSON metadata, the four-file portable UI test project, the release smoke-test record, and native preferences source-generated JSON metadata. Regenerate this inventory whenever the tracked tree changes.
+This total counts tracked files only, not directories. It remains unchanged by 2.0.13 maintenance preparation because no tracked file was added or removed. Regenerate the inventory whenever the tracked tree changes.
