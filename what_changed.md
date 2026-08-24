@@ -10,6 +10,7 @@ A separate patch-maintenance line has now been prepared without changing the aut
 - Branch base: exact v2.0.12 source head `4005b19fddeda7989cc52522aadd0bc91fece8e3`
 - The branch must be reconciled with the eventual 2.0.12 merge commit before its pull request is opened/merged.
 - Large feature-roadmap work remains outside this patch line.
+- Future additive spreadsheet-safe CSV export is preserved separately as **issue #16**, rather than being silently added to a patch release.
 
 ### 2.0.13 preparation commits
 
@@ -24,8 +25,31 @@ A separate patch-maintenance line has now been prepared without changing the aut
 9. `d50ebf3b2` — `docs(readme): prepare 2.0.13 maintenance line`
 10. `07a3390f5` — `docs(changelog): record 2.0.13 maintenance preparation`
 11. `44cdbe306` — `docs(roadmap): add 2.0.13 maintenance checkpoint`
+12. `d6cfc69d4` — `docs: record 2.0.13 maintenance branch preparation`
+13. `c562705d0` — `docs(ci): prepare 2.0.13 workflow generations`
+14. `720bc6d80` — `docs(release): prepare 2.0.13 maintenance release path`
+15. `b595c2393` — `ci: verify release branches on push`
+16. `782a57d3c` — `ci(codeql): analyze release branches on push`
+17. `adceb78f5` — `docs: sync 132-file reference for 2.0.13`
 
-The 2.0.13 maintenance line therefore currently contains only version metadata, one test-SDK update, maintained GitHub Actions generations, and documentation. It deliberately does not include global taxonomy UI, general undo, browser multi-tab conflict handling, production SQLCipher integration, signing/notarization, or store-distribution work.
+The 2.0.13 maintenance line contains version metadata, one test-SDK update, maintained GitHub Actions generations, release-branch CI/CodeQL push verification, and synchronized canonical documentation. It deliberately does not include global taxonomy UI, general undo, browser multi-tab conflict handling, production SQLCipher integration, signing/notarization, store-distribution work, or the new spreadsheet-safe CSV export API tracked in issue #16.
+
+### Release-branch verification improvement
+
+The maintenance branch changes CI and CodeQL push filters from `main` only to:
+
+```text
+main
+release/**
+```
+
+This gives future release branches GitHub-hosted verification before their PRs open while preserving PR verification against `main`. The connected GitHub helper available in this session exposes PR-triggered workflow runs by commit but does not enumerate unknown push-triggered runs, so the authoritative merge signal remains the exact-head PR workflow after the 2.0.13 PR is opened.
+
+### Superseded PR #13 reconciliation
+
+PR #13 was audited before closure rather than dismissed mechanically. Its invariant date handling, stale-search protection, restore rollback safety, parser robustness, dependency/workflow security, and packaging hardening are already present in PR #4 in equal or stronger form.
+
+Its one meaningful additive behavior—an opt-in spreadsheet-neutralized CSV export mode—was deliberately not moved into patch 2.0.13 because that is new functionality. The idea and required tests/UI behavior are preserved as issue #16 for a later feature/minor release. PR #13 should be closed as superseded only after PR #4 lands on `main`.
 
 ### Required 2.0.13 sequence
 
@@ -34,7 +58,7 @@ The 2.0.13 maintenance line therefore currently contains only version metadata, 
 3. Close superseded dependency/hardening PRs only after their effective changes are present on the appropriate branch/main line.
 4. Open a focused 2.0.13 PR against `main`.
 5. Require the complete Ubuntu/Windows/macOS/Browser/Android/iOS/CodeQL exact-head gate again.
-6. Fix any actual compatibility regression introduced by Test SDK 18.9.0, checkout v7, or setup-dotnet v6 rather than weakening checks.
+6. Fix any actual compatibility regression introduced by Test SDK 18.9.0, checkout v7, setup-dotnet v6, or release-branch workflow filters rather than weakening checks.
 7. Synchronize final release documentation and merge only after the complete exact-head gate is green.
 
 ## Release checkpoint
@@ -106,13 +130,7 @@ Duplicate scoring and merge de-duplication continue to use the same equivalence 
 
 `BrowserJsonContext` is sealed to satisfy `CA1852` rather than suppressing the analyzer.
 
-The portable production `MainView.axaml` now has:
-
-- root `x:DataType`;
-- explicit compiled bindings;
-- typed item templates for contact rows, alphabet entries, rich-field editor rows, and duplicate-pair rows.
-
-This removes application-owned reflection-binding trim dependencies from Browser/iOS builds.
+The portable production `MainView.axaml` now has root `x:DataType`, explicit compiled bindings, and typed item templates for contact rows, alphabet entries, rich-field editor rows, and duplicate-pair rows. This removes application-owned reflection-binding trim dependencies from Browser/iOS builds.
 
 Browser persistence continues to use source-generated JSON metadata and IndexedDB. Native SQLite backup/encryption capabilities remain unavailable on Browser by design.
 
@@ -124,27 +142,13 @@ New tracked file:
 src/ContactCore.Infrastructure/JsonAppPreferencesContext.cs
 ```
 
-`JsonAppPreferences` now serializes/deserializes through generated `JsonTypeInfo` metadata. Database keys remain runtime-only and are not serialized into settings.
+`JsonAppPreferences` serializes/deserializes through generated `JsonTypeInfo` metadata. Database keys remain runtime-only and are not serialized into settings.
 
 ### iOS simulator boundary
 
-The current public iOS gate selects:
+The public iOS gate selects `/Applications/Xcode_26.0.app/Contents/Developer` and builds RID `iossimulator-arm64`. `ContactCore.iOS.csproj` applies `TrimMode=copy` only to simulator RIDs.
 
-```text
-/Applications/Xcode_26.0.app/Contents/Developer
-```
-
-and builds:
-
-```text
-ios simulator RID: iossimulator-arm64
-```
-
-`ContactCore.iOS.csproj` applies `TrimMode=copy` **only to simulator RIDs**.
-
-This was introduced only after application-owned trim hazards were removed through generated JSON metadata and compiled XAML bindings. The simulator gate verifies source/runtime integration. It does **not** claim production device trimming, Apple signing, provisioning, TestFlight/App Store acceptance, or representative physical-device certification.
-
-Production Apple distribution remains a future protected pipeline requiring real maintainer-controlled credentials.
+This was introduced only after application-owned trim hazards were removed through generated JSON metadata and compiled XAML bindings. The simulator gate verifies source/runtime integration. It does not claim production device trimming, Apple signing, provisioning, TestFlight/App Store acceptance, or representative physical-device certification.
 
 ## Verification evidence
 
@@ -156,9 +160,9 @@ For exact v2.0.12 head `4005b19fddeda7989cc52522aadd0bc91fece8e3`:
 - Browser/WebAssembly Release build: **success**;
 - Android `android-arm64` Release build: **success**;
 - CodeQL: **success**;
-- iOS simulator: the first exact-head job was **cancelled**, not failed; a targeted rerun of only the iOS job was queued on the same source head during this next-version preparation.
+- iOS simulator: the first exact-head job was **cancelled**, not failed; a targeted rerun of only the iOS job remained **queued** on the same source head during this maintenance preparation.
 
-PR #4 must remain unmerged until that exact-head iOS rerun completes successfully. No older green or cancelled workflow is treated as final approval.
+PR #4 remains unmerged until that exact-head iOS rerun succeeds. No older green or cancelled workflow is treated as final approval.
 
 ## Current architecture and platforms
 
@@ -175,152 +179,45 @@ PR #4 must remain unmerged until that exact-head iOS rerun completes successfull
 | Browser/WebAssembly | `net10.0-browser` | IndexedDB | dedicated WASM build + static ZIP |
 | ChromeOS | Browser route; Android where supported | route-dependent | no fabricated native ChromeOS target |
 
-## Solution layout
-
-`ContactCore.slnx` is the complete solution. `ContactCore.Core.slnx` is the workload-free quality/CodeQL solution.
-
-```text
-ContactCore.Domain
-ContactCore.Application
-ContactCore.Infrastructure
-ContactCore.UI
-ContactCore.Native
-ContactCore.Desktop
-ContactCore.Android
-ContactCore.iOS
-ContactCore.Browser
-
-ContactCore.Domain.Tests
-ContactCore.Application.Tests
-ContactCore.Infrastructure.Tests
-ContactCore.UI.Tests
-ContactCore.Desktop.Tests
-```
-
-## Product/data behavior retained
-
-Implemented behavior includes:
-
-- local-first contacts with no mandatory account/cloud/telemetry dependency;
-- rich contact fields and repeated rows;
-- stable contact/contact-owned identities;
-- safe shared group/tag reassignment;
-- unsaved-versus-persisted draft safety;
-- All/Favorites/Archived/A–Z filters;
-- debounce/cancellation-safe search;
-- conservative duplicate detection and stale-safe merge;
-- hardened CSV/focused-vCard import/export;
-- transactional native imports/persistence;
-- verified native backup/restore with recovery/rollback safeguards;
-- runtime-only database-key handling with fail-closed requested cipher verification;
-- System/Light/Dark/reduced-motion/delete-confirmation preferences;
-- responsive shared UI on Android/iOS/Browser and mature Desktop UI.
-
 ## Quality posture
 
-The repository keeps:
-
-- `TreatWarningsAsErrors` globally enabled;
-- `AnalysisLevel=latest-recommended`;
-- Browser AOT/trimming diagnostics active;
-- generated JSON metadata for Browser and native preferences;
-- compiled production shared-UI bindings;
-- five behavioral test projects with shared XPlat coverage collection;
-- three-OS core matrix;
-- Browser/Android/iOS build gates;
-- CodeQL.
-
-No general analyzer/trimming gate was disabled to hide the August 24 failures.
+The repository keeps warnings-as-errors, latest-recommended analysis, Browser AOT/trimming diagnostics, generated JSON metadata for Browser/native preferences, compiled production shared-UI bindings, five behavioral test projects, three-OS core CI, Browser/Android/iOS build gates, and CodeQL. No general analyzer/trimming gate was disabled to hide the August 24 failures.
 
 ## Repository inventory
 
-Canonical tracked-file count: **132**.
-
-Later additions beyond the earlier cross-platform reference include:
-
-```text
-src/ContactCore.Infrastructure/Properties/AssemblyInfo.cs
-src/ContactCore.Infrastructure/JsonAppPreferencesContext.cs
-src/ContactCore.Browser/BrowserJsonContext.cs
-tests/ContactCore.UI.Tests/ContactCore.UI.Tests.csproj
-tests/ContactCore.UI.Tests/TestDoubles.cs
-tests/ContactCore.UI.Tests/MainViewModelSearchTests.cs
-tests/ContactCore.UI.Tests/MainViewModelConfirmationTests.cs
-docs/release-smoke-test.md
-```
-
-See `docs/repository-reference.md` for the canonical file-by-file inventory.
+Canonical tracked-file count: **132**. The 2.0.13 maintenance branch modifies existing files only, so the count is unchanged. See `docs/repository-reference.md` for the canonical file-by-file inventory.
 
 ## Required exact-final-head merge gate
 
-Before PR #4 may merge, the same current synthetic merge candidate must have:
-
-- Ubuntu core restore/format/build/tests: success;
-- Windows core restore/format/build/tests: success;
-- macOS core restore/format/build/tests: success;
-- Browser/WebAssembly Release build: success;
-- Android `android-arm64` Release build: success;
-- iOS `iossimulator-arm64` Release build using compatible Xcode and simulator trim policy: success;
-- CodeQL: success/no unresolved newly introduced actionable finding.
-
-An older green/cancelled/superseded run is not sufficient.
+Before PR #4 may merge, the same current synthetic merge candidate must have Ubuntu/Windows/macOS core success, Browser success, Android success, iOS simulator success using the compatible Xcode/simulator policy, and CodeQL success. An older green/cancelled/superseded run is not sufficient.
 
 ## Release process after merge
 
 1. Confirm the verified PR head is merged to `main`.
-2. Apply/verify `main` branch protection/ruleset requiring the stable checks. As of the 2026-08-24 live GitHub check, `main` reports `protected: false`; issue #14 remains open because the connected repository actions do not expose a branch-protection/ruleset write operation.
+2. Apply/verify `main` branch protection/ruleset requiring stable checks. As of the live 2026-08-24 GitHub check, `main` reports `protected: false`; issue #14 remains open because the connected repository actions do not expose a branch-protection/ruleset write operation.
 3. Complete `docs/release-smoke-test.md` against the actual candidate/artifacts or explicitly mark sections not executed.
 4. Create `v2.0.12` only from the intended verified merged commit.
-5. Confirm release workflow output:
-   - six desktop archives;
-   - Browser WebAssembly ZIP;
-   - Android/iOS source build gates;
-   - `SHA256SUMS.txt`.
+5. Confirm six desktop archives, Browser WebAssembly ZIP, Android/iOS source build gates, and `SHA256SUMS.txt`.
 6. Keep signing/notarization/store claims separate until real protected pipelines exist.
 
 ## Remaining non-blocking roadmap
 
-### Product/UX
-
 - repeated-field drag/reorder;
 - global group/tag taxonomy management;
-- general undo/recovery UX.
-
-### Browser/resilience
-
+- general undo/recovery UX;
 - real IndexedDB automation harness;
 - cross-tab conflict strategy/tests;
-- deeper native restore cleanup/failure injection.
-
-### Performance
-
-- reproducible 100/1,000/10,000-contact benchmarks;
-- SQL amplification measurement;
-- Browser snapshot-write benchmarks;
-- pagination/list projection evaluation;
-- FTS5 ADR/evaluation if justified;
+- deeper native restore cleanup/failure injection;
+- reproducible performance/scale benchmarks;
 - duplicate-candidate optimization;
-- streaming import evaluation while preserving atomicity.
-
-### Security/distribution
-
-- production SQLCipher provider/packaging/licensing if selected;
-- native secure secret-store abstraction;
-- Windows signing/installers;
-- macOS signing/notarization;
-- Android production signing/store publishing;
-- iOS signed device/TestFlight/App Store pipeline;
-- additional package-manager formats.
-
-### Manual verification
-
-- representative desktop keyboard/screen-reader/high-DPI/theme checks;
-- Android/iOS touch/orientation/file-picker/lifecycle/accessibility checks;
-- Browser persistence/accessibility checks across representative engines/profiles;
-- real product screenshots using only fictional data.
+- production SQLCipher/secret-store integration if selected;
+- Windows/macOS/mobile signing and store pipelines;
+- additional package-manager formats;
+- representative accessibility/lifecycle/browser/device verification;
+- opt-in spreadsheet-safe CSV export feature tracked in issue #16.
 
 These items are deliberately not mislabeled as complete.
 
 ## Current posture
 
-For 2.0.12, the only missing automated release gate is the targeted exact-head iOS simulator rerun. For 2.0.13, the maintenance branch is already prepared but intentionally remains separate from `main` until 2.0.12 is merged and the branch is reconciled with that merge commit.
+For 2.0.12, the only missing automated release gate is the targeted exact-head iOS simulator rerun. For 2.0.13, the maintenance branch is prepared with version/dependency/workflow/documentation updates and future release-branch push verification, but intentionally remains separate from `main` until 2.0.12 is merged and the branch is reconciled with that merge commit.
