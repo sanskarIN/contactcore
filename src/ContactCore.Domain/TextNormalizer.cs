@@ -32,9 +32,13 @@ public static class TextNormalizer
         var shorter = leftKey.Length < rightKey.Length ? leftKey : rightKey;
         var longer = leftKey.Length < rightKey.Length ? rightKey : leftKey;
 
-        // Country calling codes are at most three digits. Requiring at least seven
-        // local digits avoids treating short extensions or service numbers as equal.
-        return shorter.Length >= 7 &&
+        // Keep country-code inference deliberately conservative. Country calling codes
+        // are at most three digits, but accepting shorter suffixes can turn a different
+        // subscriber number into a false duplicate (for example, dropping a leading
+        // local digit as though it were part of the country code). Requiring a
+        // ten-digit local representation covers the release's supported equivalence
+        // cases while preferring false negatives over destructive false positives.
+        return shorter.Length >= 10 &&
                longer.Length - shorter.Length <= 3 &&
                longer.EndsWith(shorter, StringComparison.Ordinal);
     }
