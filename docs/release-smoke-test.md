@@ -1,258 +1,238 @@
-# Release Smoke-Test Record
+# ContactCore Release Smoke-Test Record
 
-Use this document as the repeatable manual verification record for a ContactCore release candidate. Copy it for an actual release run, fill it with the exact tested commit/artifact/device details, and keep all sample contact data fictional.
+Use this document as a **template** for each release candidate. Copy it to an external/internal release record or a versioned evidence location as appropriate, then fill it using only fictional/disposable data.
 
-A completed record is evidence of what was actually exercised; it is not permission to claim platforms, signing, accessibility, or store certification that were not tested.
+A completed record is valid only for the exact SHA/artifacts/environment it names. Do not reuse an older record after the candidate changes.
 
-## 1. Release identity
+## Candidate identity
 
-- ContactCore version: `2.0.12`
-- Candidate tag: `v2.0.12`
-- Git commit SHA: ______________________________
-- Pull request / release URL: ______________________________
-- Test date (UTC): ______________________________
-- Tester / reviewer: ______________________________
-- CI run URL: ______________________________
-- CodeQL run URL: ______________________________
-- Result: `PASS / PASS WITH NOTES / FAIL`
+- Version: `2.0.12`
+- Intended tag: `v2.0.12`
+- Candidate commit SHA: `______________________________`
+- PR / merge commit: `______________________________`
+- Test date/time: `______________________________`
+- Tester/maintainer: `______________________________`
+- Decision: `APPROVE / HOLD / REJECT`
 
-### Exact-head automated gate
+## Safety/privacy fixture rule
 
-Record the status for the same candidate SHA:
+- [ ] All contacts used are obviously fictional.
+- [ ] No real contact database/backup/export was used.
+- [ ] Screenshots contain no real names/emails/phone numbers/paths/notifications.
+- [ ] Logs/evidence contain no credentials, keys, signing material, private endpoints, or personal data.
+- [ ] Browser testing uses a disposable profile/origin where destructive/storage tests are performed.
+- [ ] Native destructive/restore tests use a disposable application profile/database.
 
-| Gate | Result | Evidence / notes |
-|---|---|---|
-| Ubuntu core restore/format/build/tests |  |  |
-| Windows core restore/format/build/tests |  |  |
-| macOS core restore/format/build/tests |  |  |
-| Browser/WebAssembly Release build |  |  |
-| Android `android-arm64` Release build |  |  |
-| iOS `iossimulator-arm64` Release build |  |  |
-| CodeQL |  |  |
+## Exact-head automated gate evidence
 
-Do not substitute a successful run from an older SHA.
+Record the workflow URLs/run IDs for the **same final synthetic PR merge candidate or merged commit**.
 
-## 2. Privacy-safe test fixture
-
-Create a disposable profile/database/origin containing fictional contacts only. Include enough variation to exercise the rich data model without using copied real-world contact data.
-
-Suggested fictional fixture:
-
-- Ada Example — multiple phones/emails, one address, one organization, one group, one tag.
-- Grace Sample — favorite, birthday, notes, archived-state transition.
-- Alex Duplicate — a pair whose local phone numbers differ only by a country-code prefix.
-- Delimiter Demo — group/tag names containing commas and semicolons.
-- Unicode Example — accented/non-ASCII name and notes.
-
-Record fixture location/profile name without exposing a private user path: ______________________________
-
-Confirm before testing:
-
-- [ ] No real contacts were imported.
-- [ ] No real database, backup, export, screenshot, signing key, certificate, or secret is used.
-- [ ] The disposable profile can be deleted after verification.
-
-## 3. Release-artifact verification
-
-For a tag-produced release, confirm the expected assets exist:
-
-- [ ] `contactcore-v2.0.12-win-x64.zip`
-- [ ] `contactcore-v2.0.12-win-arm64.zip`
-- [ ] `contactcore-v2.0.12-linux-x64.tar.gz`
-- [ ] `contactcore-v2.0.12-linux-arm64.tar.gz`
-- [ ] `contactcore-v2.0.12-osx-x64.tar.gz`
-- [ ] `contactcore-v2.0.12-osx-arm64.tar.gz`
-- [ ] `contactcore-v2.0.12-browser-wasm.zip`
-- [ ] `SHA256SUMS.txt`
-
-Checksum verification command/result: ______________________________
-
-Remember: checksum verification checks byte integrity against the published manifest. It does not mean an artifact is code-signed, notarized, or store-certified.
-
-## 4. Desktop smoke matrix
-
-Complete the applicable rows for each representative desktop environment tested.
-
-| Check | Windows | Linux | macOS | Notes |
-|---|---|---|---|---|
-| App launches from packaged output |  |  |  |  |
-| First-run local database initializes |  |  |  |  |
-| Existing disposable profile reopens |  |  |  |  |
-| Create rich contact |  |  |  |  |
-| Edit/save rich repeated fields |  |  |  |  |
-| Add/remove phone/email/address/org rows |  |  |  |  |
-| Group/tag delimiter names round-trip |  |  |  |  |
-| Favorite/archive filters |  |  |  |  |
-| A–Z navigation |  |  |  |  |
-| Search updates without stale result overwrite |  |  |  |  |
-| Duplicate pair evidence/preview |  |  |  |  |
-| Merge keeping first record |  |  |  |  |
-| Merge keeping second record |  |  |  |  |
-| Merge cancellation preserves records |  |  |  |  |
-| CSV import/export |  |  |  |  |
-| vCard import/export |  |  |  |  |
-| Verified database backup |  |  |  |  |
-| Restore confirmation |  |  |  |  |
-| Verified restore from disposable backup |  |  |  |  |
-| Unsaved contact discard |  |  |  |  |
-| Permanent-delete confirmation/cancellation |  |  |  |  |
-| System/Light/Dark theme |  |  |  |  |
-| Reduced-motion preference persistence |  |  |  |  |
-| Keyboard shortcuts |  |  |  |  |
-| Visible focus indication |  |  |  |  |
-
-Desktop environments tested:
-
-- Windows version / architecture: ______________________________
-- Linux distribution / architecture / desktop: ______________________________
-- macOS version / architecture: ______________________________
-
-## 5. Browser/WebAssembly smoke matrix
-
-Serve the published browser artifact from an HTTP(S) origin using a disposable browser profile. Do not validate persistence using a normal profile containing personal browser data.
-
-| Check | Result | Notes |
-|---|---|---|
-| Application boots from static publish output |  |  |
-| Empty first-run IndexedDB initializes |  |  |
-| Rich contact create/edit/save |  |  |
-| Reload preserves contact aggregate |  |  |
-| Favorite/archive/A–Z filters |  |  |
-| Search/debounce behavior |  |  |
-| Duplicate review and both survivor directions |  |  |
-| CSV import/export picker path |  |  |
-| vCard import/export picker path |  |  |
-| Theme/preferences survive reload where persistent storage is allowed |  |  |
-| Native SQLite backup/restore controls are unavailable as documented |  |  |
-| Native database encryption is not falsely claimed |  |  |
-| Blocked/unavailable browser storage fails usefully |  |  |
-| Clearing disposable site data removes local browser data as expected |  |  |
-
-Browser/profile/origin tested:
-
-- Browser + version: ______________________________
-- OS: ______________________________
-- Origin: ______________________________
-- Private/incognito mode used? ______________________________
-
-If more than one engine is tested, add one completed copy of this section per engine/profile.
-
-## 6. Android smoke matrix
-
-The public repository's automated gate proves source/build compatibility, not production signing or Play Store certification. Complete this section only for devices/emulators actually tested.
-
-| Check | Result | Notes |
-|---|---|---|
-| Startup |  |  |
-| Local SQLite persistence after restart |  |  |
-| Rich contact editing on touch |  |  |
-| Repeated-field scrolling/layout |  |  |
-| Search/filter/duplicates |  |  |
-| Import/export file picker |  |  |
-| Destructive confirmation usability |  |  |
-| Portrait/landscape behavior |  |  |
-| Background/resume lifecycle |  |  |
-| Software keyboard/input |  |  |
-| Theme/contrast/focus/labels accessibility smoke |  |  |
-
-Android device/emulator details: ______________________________
-
-Signing state: `debug / test / production / not evaluated`
-
-Do not mark Play Store readiness unless an actual secure store-signing and publishing review has been completed separately.
-
-## 7. iPhone/iPad smoke matrix
-
-The public repository's automated gate uses `iossimulator-arm64` and an explicitly compatible Xcode toolchain. Complete this section only for simulators/devices actually tested.
-
-| Check | Result | Notes |
-|---|---|---|
-| Startup |  |  |
-| Local SQLite persistence after restart |  |  |
-| Rich contact editing on touch |  |  |
-| Repeated-field scrolling/layout |  |  |
-| Search/filter/duplicates |  |  |
-| Import/export file picker |  |  |
-| Destructive confirmation usability |  |  |
-| iPhone portrait/landscape behavior where supported |  |  |
-| iPad layout/orientation behavior |  |  |
-| Background/resume lifecycle |  |  |
-| Software/hardware keyboard input where applicable |  |  |
-| Theme/contrast/focus/labels accessibility smoke |  |  |
-
-Apple test environment:
-
-- macOS: ______________________________
-- Xcode: ______________________________
-- Simulator/device: ______________________________
-- iOS/iPadOS: ______________________________
-
-Signing/provisioning state: `simulator only / development / distribution / not evaluated`
-
-Do not mark App Store readiness unless real signing/provisioning and store validation have been completed separately.
-
-## 8. Data-safety scenarios
-
-Use only disposable data.
-
-- [ ] Invalid contact input is rejected without partial persistence.
-- [ ] Malformed/unsupported import input produces controlled warnings/errors.
-- [ ] Import validation occurs before the batch is persisted.
-- [ ] Duplicate merge does not proceed before explicit confirmation.
-- [ ] Cancelling permanent delete preserves the contact.
-- [ ] Cancelling restore preserves the active database.
-- [ ] Native backup restore is performed only with a verified ContactCore backup.
-- [ ] A failed operation does not expose a private filesystem path in user-visible diagnostics.
-- [ ] Runtime database keys/signing credentials are absent from exported logs/screenshots/artifacts.
-
-Observed recovery artifact names/locations, redacted to non-private form: ______________________________
-
-## 9. Accessibility and interaction record
-
-This section is a smoke record, not a formal accessibility certification.
-
-- [ ] Keyboard traversal checked on a keyboard-capable desktop target.
-- [ ] Visible focus checked.
-- [ ] Light and Dark themes checked for obvious unreadable text/controls.
-- [ ] Reduced-motion setting checked where visible motion applies.
-- [ ] Screen-reader labels/reading order sampled where a supported reader/device is available.
-- [ ] High-DPI/scaling sampled on desktop where available.
-- [ ] Touch targets/scrolling sampled on mobile where available.
-- [ ] Small-window/narrow-layout behavior sampled.
-
-Assistive technology / scaling details: ______________________________
-
-## 10. Privacy review before screenshots or public evidence
-
-For every screenshot, screen recording, uploaded log, or attached test artifact:
-
-- [ ] Contacts are obviously fictional.
-- [ ] No real email address, phone number, street address, or note is visible.
-- [ ] No username/private filesystem path is visible.
-- [ ] No notification or unrelated application content is visible.
-- [ ] No database key, token, certificate, signing identity, or provisioning information is visible.
-- [ ] Image/file metadata has been reviewed where applicable.
-
-Public evidence links: ______________________________
-
-## 11. Deviations and known failures
-
-Record every skipped test, failure, workaround, or environment-specific limitation. Do not silently convert `NOT TESTED` into `PASS`.
-
-| Platform / area | Status | Issue / limitation | Follow-up |
+| Gate | Run/job evidence | Result | Notes |
 |---|---|---|---|
-|  |  |  |  |
-|  |  |  |  |
+| Ubuntu core restore/format/build/tests |  | PASS / FAIL |  |
+| Windows core restore/format/build/tests |  | PASS / FAIL |  |
+| macOS core restore/format/build/tests |  | PASS / FAIL |  |
+| Browser/WebAssembly Release build |  | PASS / FAIL |  |
+| Android `android-arm64` Release build |  | PASS / FAIL |  |
+| iOS `iossimulator-arm64` Release build |  | PASS / FAIL | Xcode 26.0 + simulator-only trim policy |
+| CodeQL |  | PASS / FAIL |  |
 
-## 12. Release decision
+- [ ] No row above is copied from an older/superseded PR head.
+- [ ] The iOS simulator result is recorded only as source/runtime integration evidence, not production device/App Store signing/trimming certification.
+- [ ] Browser Release build kept application-owned AOT/trimming diagnostics active.
 
-- Exact candidate SHA: ______________________________
-- Automated gates green for this SHA? `YES / NO`
-- Required manual smoke tests complete? `YES / NO / PARTIAL`
-- Known blockers: ______________________________
-- Non-blocking limitations accepted for this release: ______________________________
-- Release decision: `APPROVE / HOLD / REJECT`
-- Reviewer/sign-off: ______________________________
-- Decision date (UTC): ______________________________
+## Artifact/checksum evidence
 
-If the decision is `HOLD` or `REJECT`, fix the issue and create a new record against the new exact candidate SHA. Never reuse a prior completed record as evidence for changed code.
+Expected automated downloadable artifacts:
+
+```text
+contactcore-v2.0.12-win-x64.zip
+contactcore-v2.0.12-win-arm64.zip
+contactcore-v2.0.12-linux-x64.tar.gz
+contactcore-v2.0.12-linux-arm64.tar.gz
+contactcore-v2.0.12-osx-x64.tar.gz
+contactcore-v2.0.12-osx-arm64.tar.gz
+contactcore-v2.0.12-browser-wasm.zip
+SHA256SUMS.txt
+```
+
+| Artifact | Present | Checksum verified | Notes |
+|---|---|---|---|
+| Windows x64 | YES / NO | YES / NO |  |
+| Windows ARM64 | YES / NO | YES / NO |  |
+| Linux x64 | YES / NO | YES / NO |  |
+| Linux ARM64 | YES / NO | YES / NO |  |
+| macOS Intel | YES / NO | YES / NO |  |
+| macOS Apple Silicon | YES / NO | YES / NO |  |
+| Browser WebAssembly | YES / NO | YES / NO |  |
+| SHA256SUMS | YES / NO | N/A |  |
+
+Do not mark Android/iOS store packages present unless a separate real signed distribution pipeline actually produced them.
+
+## Desktop smoke matrix
+
+For every platform actually exercised, record exact OS/architecture/package.
+
+| Platform/environment | Startup | Rich edit/save | Search/filter | Duplicate merge | Import/export | Backup/restore | Theme/focus | Result/notes |
+|---|---|---|---|---|---|---|---|---|
+| Windows |  |  |  |  |  |  |  |  |
+| Linux |  |  |  |  |  |  |  |  |
+| macOS |  |  |  |  |  |  |  |  |
+
+Suggested fictional workflow:
+
+1. Create several contacts with repeated phones/emails/addresses/organizations/groups/tags.
+2. Edit/remove/add repeated fields and verify retained fields/IDs behavior indirectly through UI persistence.
+3. Exercise Favorites/Archived/A–Z/free-text search.
+4. Create a deliberate duplicate with a legitimate international country-code variant and verify evidence/merge.
+5. Also create a different short/nine-digit suffix case and confirm it is **not** treated as equivalent solely by suffix.
+6. Exercise both duplicate survivor directions and cancel confirmation once.
+7. Export CSV/vCard, then import into a disposable profile.
+8. Create native backup and restore it into the disposable profile.
+9. Exercise delete confirmation/discard behavior.
+10. Exercise theme/reduced-motion/keyboard focus behavior.
+
+## Browser/WebAssembly smoke matrix
+
+Environment:
+
+- Browser engine/version: `______________________________`
+- OS: `______________________________`
+- Deployment origin: `______________________________`
+- Disposable profile confirmed: `YES / NO`
+
+- [ ] WebAssembly application boots.
+- [ ] Contact create/edit/save works.
+- [ ] Reload preserves IndexedDB contact state.
+- [ ] Search/filter/favorite/archive works.
+- [ ] Duplicate review/merge works.
+- [ ] CSV/vCard import/export works.
+- [ ] Theme/preferences persist as documented.
+- [ ] UI compiled-binding paths behave correctly in the actual browser.
+- [ ] Native SQLite backup/restore is not presented as available.
+- [ ] Native database encryption is not presented as available.
+- [ ] Blocked/denied storage produces useful controlled behavior.
+- [ ] Clearing site data removes browser-managed state as documented.
+- [ ] Cross-tab behavior is not overclaimed beyond current support.
+
+Result/notes:
+
+`________________________________________________________________________`
+
+## Android smoke matrix
+
+Environment:
+
+- Device/emulator: `______________________________`
+- Android version: `______________________________`
+- Architecture/package: `______________________________`
+- Signed distribution artifact? `YES / NO` (only if real)
+
+- [ ] Application starts.
+- [ ] Rich editor fits/scrolls/accepts touch input.
+- [ ] Software/hardware keyboard input works as applicable.
+- [ ] SQLite persistence survives restart.
+- [ ] Search/filter/duplicate workflows work.
+- [ ] Import/export/file-picker behavior works where supported.
+- [ ] Orientation/configuration changes preserve safe state.
+- [ ] Background/resume behavior is acceptable.
+- [ ] Theme/reduced-motion/accessibility behavior checked.
+- [ ] No signing/store claim is made unless actually verified.
+
+Result/notes:
+
+`________________________________________________________________________`
+
+## iPhone/iPad smoke matrix
+
+Environment:
+
+- Simulator/device: `______________________________`
+- iOS/iPadOS version: `______________________________`
+- Xcode: `______________________________`
+- Architecture: `______________________________`
+- Signed/provisioned physical-device build? `YES / NO`
+
+- [ ] Application starts.
+- [ ] Rich editor fits/scrolls/accepts touch input.
+- [ ] SQLite persistence survives restart.
+- [ ] Search/filter/duplicate workflows work.
+- [ ] Import/export/file-picker behavior works where supported.
+- [ ] Orientation/lifecycle/background/resume behavior checked.
+- [ ] Theme/reduced-motion/VoiceOver behavior checked where available.
+- [ ] Simulator-only CI trim policy is not presented as physical-device distribution verification.
+- [ ] If a real signed device build exists, its actual production trim/link/sign/provision/install behavior is separately recorded.
+- [ ] No App Store certification claim is made unless actually verified.
+
+Result/notes:
+
+`________________________________________________________________________`
+
+## Data-safety scenarios
+
+- [ ] Unsaved new-contact **Delete / discard** does not delete an unrelated persisted contact.
+- [ ] Permanent delete confirmation cancellation preserves the target.
+- [ ] Duplicate merge confirmation cancellation preserves both records.
+- [ ] Stale duplicate review state does not resurrect a removed survivor or silently merge when a reviewed record is missing.
+- [ ] Native restore rejects unrelated/corrupt/future-schema input before destructive switch.
+- [ ] Native restore keeps/creates the documented recovery snapshot.
+- [ ] If forced post-switch verification failure is exercised, rollback behavior matches tests/docs.
+- [ ] Browser failed persistence does not leave the in-memory repository pretending an uncommitted mutation succeeded.
+
+## Accessibility/interaction checks
+
+Record only checks actually executed.
+
+- [ ] Keyboard navigation/focus visibility (desktop/browser as applicable).
+- [ ] `Ctrl+N` / editor-only `Ctrl+S` / `Ctrl+F` / `Esc` behavior where supported.
+- [ ] High-DPI/scaling checked.
+- [ ] Light/Dark/System theme checked.
+- [ ] Reduced-motion preference checked.
+- [ ] Screen-reader/VoiceOver/TalkBack check executed on: `______________________________`.
+- [ ] Touch targets/layout checked on representative phone/tablet where applicable.
+
+## Privacy review for evidence
+
+- [ ] Screenshot notification areas reviewed.
+- [ ] Usernames/home-directory paths reviewed.
+- [ ] Contact fixture values are fictional.
+- [ ] No API tokens/keys/passwords/certificates/provisioning profiles/keystores shown.
+- [ ] CI logs attached to evidence do not contain private values.
+- [ ] Browser origin/profile details do not disclose a private environment unnecessarily.
+
+## Deviations / intentionally untested items
+
+Every skipped item must be explicit; do not turn an empty checkbox into implied success.
+
+| Item | Why not tested | Release impact / follow-up |
+|---|---|---|
+|  |  |  |
+
+## Known limitations acknowledged
+
+- [ ] Repeated-field drag/drop reordering is not claimed.
+- [ ] Global group/tag taxonomy management is not claimed.
+- [ ] General undo is not claimed.
+- [ ] Full vCard fidelity is not claimed.
+- [ ] CSV full-fidelity backup/spreadsheet neutralization is not claimed.
+- [ ] Browser native SQLite backup/encryption is not claimed.
+- [ ] Browser robust multi-tab conflict handling is not claimed.
+- [ ] Ordinary native SQLite encrypted-at-rest support is not claimed without a verified compatible cipher provider.
+- [ ] Signed/notarized/store-certified desktop/mobile packages are not claimed unless actually produced and verified.
+- [ ] iOS simulator source-build success is not claimed as production signed-device trim/link verification.
+
+## Final decision
+
+Decision: `APPROVE / HOLD / REJECT`
+
+Rationale:
+
+`________________________________________________________________________`
+
+Blocking follow-up items:
+
+`________________________________________________________________________`
+
+Approver/date:
+
+`________________________________________________________________________`
