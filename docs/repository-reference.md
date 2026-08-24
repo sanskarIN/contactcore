@@ -1,8 +1,8 @@
 # Repository Reference
 
-This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 131 tracked files** present after the 2026-08-23 release-hardening, portable-UI-test, and release-smoke-record continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
+This is the canonical file-by-file reference for ContactCore **2.0.12**. It documents **all 132 tracked files** present after the 2026-08-24 final release-gate hardening continuation. Directories such as `bin/`, `obj/`, `TestResults/`, local databases, browser runtime data, exports, backups, restore staging files, secrets, signing material, and other ignored/generated artifacts are intentionally excluded because they are not tracked repository files.
 
-The previous 124-file cross-platform reference predated a test-visibility assembly attribute, trimming-safe browser JSON metadata, the dedicated portable UI test project, and the repeatable manual release smoke-test record. This reference supersedes those earlier counts. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
+The previous 131-file reference predated the trim-safe native preferences JSON source-generation context. This reference supersedes the earlier 124/130/131-file counts. If a tracked file is added, removed, renamed, or materially repurposed, update this reference in the same change.
 
 ## 1. Repository root — 19 files
 
@@ -140,7 +140,7 @@ Repeatable manual release-candidate verification record. Binds evidence to an ex
 2.0.12 tag/version preflight, six desktop packages, browser package, mobile build gate, explicit mobile RIDs/Xcode selection, signing/provisioning boundaries, verification/smoke tests, failures/rollback, and post-release process. References the repeatable smoke-test record.
 
 ### `docs/repository-reference.md`
-This canonical 131-file inventory.
+This canonical 132-file inventory.
 
 ### `docs/security.md`
 Engineering threat model and controls for native SQL, aggregate data-loss boundaries, draft/duplicate/backup safeguards, encryption requests, parsers, diagnostics, dependencies, and release risk.
@@ -191,7 +191,7 @@ Duplicate candidate scoring/comparison plus `ContactMerger`; normalizes signals,
 ### `src/ContactCore.Application/ImportExport.cs`
 `ImportResult`, CSV codec, and focused vCard codec with escaping, warnings, header hardening, formula-prefix warnings, TYPE mapping, and no direct persistence.
 
-## 6. Infrastructure production project — 9 files
+## 6. Infrastructure production project — 10 files
 
 ### `src/ContactCore.Infrastructure/ContactCore.Infrastructure.csproj`
 Native Infrastructure project referencing Domain/Application and centrally versioned SQLite dependency.
@@ -206,7 +206,10 @@ SQLite-native verified backup plus staged verified restore with pre-restore snap
 Native SQLite schema authority: migration tracking, relational tables/indexes, schema-family marker, and future-schema rejection.
 
 ### `src/ContactCore.Infrastructure/JsonAppPreferences.cs`
-Native preferences with safe defaults, theme normalization, replacement writes, first-run runtime-key loading, and deliberate non-serialization of database key.
+Native preferences with safe defaults, theme normalization, replacement writes, first-run runtime-key loading, deliberate non-serialization of database key, and source-generated `System.Text.Json` metadata usage for trim-safe native/mobile builds.
+
+### `src/ContactCore.Infrastructure/JsonAppPreferencesContext.cs`
+Trim-safe source-generated `System.Text.Json` context and preferences DTO used by native preferences so iOS/mobile AOT analysis does not depend on reflection-based serializer discovery.
 
 ### `src/ContactCore.Infrastructure/Properties/AssemblyInfo.cs`
 Test-only assembly visibility declaration exposing internal migration-version helpers to `ContactCore.Infrastructure.Tests` without widening the production API.
@@ -267,7 +270,7 @@ Desktop list/draft/main view-model implementation preserving full aggregate/iden
 ## 8. Shared UI production project — 9 files
 
 ### `src/ContactCore.UI/ContactCore.UI.csproj`
-Portable Avalonia UI library referencing Application/Domain plus Avalonia core/themes and CommunityToolkit.Mvvm. Compiled bindings are disabled by default for the current portable binding model.
+Portable Avalonia UI library referencing Application/Domain plus Avalonia core/themes and CommunityToolkit.Mvvm. The project default remains conservative, while the production `MainView` explicitly opts into typed compiled bindings for trim/AOT-safe shared UI markup.
 
 ### `src/ContactCore.UI/AppServices.cs`
 Defines `AppPlatformCapabilities`, the shared `AppServices` composition record, and `AppBootstrapper` factory used by Android/iOS/Browser heads.
@@ -288,7 +291,7 @@ Portable full aggregate editor/draft conversion. Preserves root/contact-owned ID
 Portable contact workflow for search/filters/new/edit/save/delete, duplicates, CSV/vCard import/export, capability-aware backup/restore, settings/theme, confirmation overlay, debounce/cancellation, and safe status messages.
 
 ### `src/ContactCore.UI/MainView.axaml`
-Responsive single-view visual shell used by phone/tablet/browser heads. Contains contact list, full rich editor, duplicates, data tools, settings/About, horizontal navigation, and in-view destructive-action confirmation.
+Responsive single-view visual shell used by phone/tablet/browser heads. Contains contact list, full rich editor, duplicates, data tools, settings/About, horizontal navigation, and in-view destructive-action confirmation. The root and all item templates use explicit data types and compiled bindings to remove reflection-binding trim dependencies from Browser/iOS release builds.
 
 ### `src/ContactCore.UI/MainView.axaml.cs`
 Portable Avalonia `StorageProvider` picker integration, bounded import reader, export writer, stream-backed native backup picker handling, delegate wiring, and keyboard shortcuts where applicable.
@@ -315,7 +318,7 @@ Exported main-launcher `AvaloniaMainActivity` with orientation/screen-size/UI-mo
 ## 11. iOS/iPadOS application project — 4 files
 
 ### `src/ContactCore.iOS/ContactCore.iOS.csproj`
-`net10.0-ios` executable with application ID/version, minimum OS metadata, Avalonia.iOS dependency, and shared UI/native composition references.
+`net10.0-ios` executable with application ID/version, minimum OS metadata, Avalonia.iOS dependency, shared UI/native composition references, and a simulator-only `TrimMode=copy` policy so CI validates source/runtime integration without converting third-party linker diagnostics into a false store/device-signing claim.
 
 ### `src/ContactCore.iOS/AppDelegate.cs`
 Registered `AvaloniaAppDelegate<App>` host configuring native iOS/iPadOS services.
@@ -338,7 +341,7 @@ Browser composition: `ContactService`, `BrowserContactRepository`, source-genera
 `IContactRepository` browser implementation. Loads full aggregate state, performs local queries, serializes writes behind a disposable semaphore, stale-checks merges, persists source-generated JSON through IndexedDB, and restores prior in-memory state on persistence failure.
 
 ### `src/ContactCore.Browser/BrowserJsonContext.cs`
-Trimming/AOT-safe `System.Text.Json` source-generation context plus browser persistence DTOs. Preserves camel-case JSON compatibility while avoiding reflection-dependent serializer discovery in WebAssembly.
+Trimming/AOT-safe `System.Text.Json` source-generation context plus browser persistence DTOs. Preserves camel-case JSON compatibility while avoiding reflection-dependent serializer discovery in WebAssembly. The context is sealed to satisfy the repository's latest-recommended analyzer policy.
 
 ### `src/ContactCore.Browser/BrowserStorageInterop.cs`
 .NET 10 `[JSImport]` declarations for asynchronous contact load/save and preference load/save through the browser storage module.
@@ -367,7 +370,7 @@ Browser host/full-viewport/loading-shell CSS around the Avalonia WebAssembly sur
 Domain MSTest project definition/reference with XPlat coverage collector.
 
 ### `tests/ContactCore.Domain.Tests/ContactValidationTests.cs`
-Validation/normalization/domain-model regression tests including invalid/valid fields, non-echoing errors, Unicode search normalization, display/deep-copy/phone-key behavior, and country-code-aware phone equivalence boundaries.
+Validation/normalization/domain-model regression tests including invalid/valid fields, non-echoing errors, Unicode search normalization, display/deep-copy/phone-key behavior, and country-code-aware phone equivalence boundaries including protection against nine-digit suffix overmatching.
 
 ## 14. Application tests — 5 files
 
@@ -440,7 +443,7 @@ Non-visual desktop editor regressions for root/timestamp/flags/persistence state
 | `docs` | 23 |
 | Domain source | 4 |
 | Application source | 5 |
-| Infrastructure source | 9 |
+| Infrastructure source | 10 |
 | Desktop source | 14 |
 | Shared UI source | 9 |
 | Native composition source | 2 |
@@ -452,6 +455,6 @@ Non-visual desktop editor regressions for root/timestamp/flags/persistence state
 | Infrastructure tests | 7 |
 | Portable UI tests | 4 |
 | Desktop tests | 2 |
-| **Total** | **131** |
+| **Total** | **132** |
 
-This total intentionally counts tracked files only, not directories. It supersedes the previous 124/130-file cross-platform references and includes the seven later tracked additions: infrastructure test visibility, browser source-generated JSON metadata, the four-file portable UI test project, and the release smoke-test record. Regenerate this inventory whenever the tracked tree changes.
+This total intentionally counts tracked files only, not directories. It supersedes the previous 124/130/131-file cross-platform references and includes the eight later tracked additions: infrastructure test visibility, browser source-generated JSON metadata, the four-file portable UI test project, the release smoke-test record, and native preferences source-generated JSON metadata. Regenerate this inventory whenever the tracked tree changes.
