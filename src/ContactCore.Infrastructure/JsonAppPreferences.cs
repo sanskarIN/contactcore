@@ -5,7 +5,6 @@ namespace ContactCore.Infrastructure;
 
 public sealed class JsonAppPreferences : IAppPreferences
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
     private readonly string _path;
 
     public JsonAppPreferences(string path)
@@ -17,7 +16,9 @@ public sealed class JsonAppPreferences : IAppPreferences
         if (!File.Exists(_path)) return;
         try
         {
-            var model = JsonSerializer.Deserialize<Model>(File.ReadAllText(_path), SerializerOptions);
+            var model = JsonSerializer.Deserialize(
+                File.ReadAllText(_path),
+                JsonAppPreferencesContext.Default.JsonAppPreferencesModel);
             if (model is not null)
             {
                 Theme = NormalizeTheme(model.Theme);
@@ -42,8 +43,8 @@ public sealed class JsonAppPreferences : IAppPreferences
             ?? throw new InvalidOperationException("The preferences path does not have a parent directory.");
         Directory.CreateDirectory(directory);
 
-        var model = new Model(NormalizeTheme(Theme), ReducedMotion, ConfirmPermanentDelete);
-        var json = JsonSerializer.Serialize(model, SerializerOptions);
+        var model = new JsonAppPreferencesModel(NormalizeTheme(Theme), ReducedMotion, ConfirmPermanentDelete);
+        var json = JsonSerializer.Serialize(model, JsonAppPreferencesContext.Default.JsonAppPreferencesModel);
         var tmp = _path + ".tmp";
         try
         {
@@ -62,9 +63,4 @@ public sealed class JsonAppPreferences : IAppPreferences
         "dark" => "Dark",
         _ => "System"
     };
-
-    private sealed record Model(
-        string? Theme = "System",
-        bool ReducedMotion = false,
-        bool ConfirmPermanentDelete = true);
 }
