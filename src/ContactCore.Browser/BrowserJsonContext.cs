@@ -9,7 +9,7 @@ namespace ContactCore.Browser;
     WriteIndented = false)]
 [JsonSerializable(typeof(BrowserContactDocument[]))]
 [JsonSerializable(typeof(BrowserPreferencesModel))]
-internal partial class BrowserJsonContext : JsonSerializerContext;
+internal sealed partial class BrowserJsonContext : JsonSerializerContext;
 
 internal sealed record BrowserPreferencesModel(
     string Theme,
