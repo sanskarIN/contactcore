@@ -46,6 +46,40 @@ public sealed class DatabaseMigrator(SqliteConnectionFactory factory)
         (2, """
         CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         INSERT OR IGNORE INTO app_metadata(key, value) VALUES ('schema_family', 'contactcore');
+        """),
+        (3, """
+        ALTER TABLE phones ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE emails ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE addresses ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE organizations ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE contact_groups ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE contact_tags ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+
+        UPDATE phones AS p SET position = (
+          SELECT COUNT(*) - 1 FROM phones p2 WHERE p2.contact_id=p.contact_id AND p2.rowid<=p.rowid
+        );
+        UPDATE emails AS e SET position = (
+          SELECT COUNT(*) - 1 FROM emails e2 WHERE e2.contact_id=e.contact_id AND e2.rowid<=e.rowid
+        );
+        UPDATE addresses AS a SET position = (
+          SELECT COUNT(*) - 1 FROM addresses a2 WHERE a2.contact_id=a.contact_id AND a2.rowid<=a.rowid
+        );
+        UPDATE organizations AS o SET position = (
+          SELECT COUNT(*) - 1 FROM organizations o2 WHERE o2.contact_id=o.contact_id AND o2.rowid<=o.rowid
+        );
+        UPDATE contact_groups AS cg SET position = (
+          SELECT COUNT(*) - 1 FROM contact_groups cg2 WHERE cg2.contact_id=cg.contact_id AND cg2.rowid<=cg.rowid
+        );
+        UPDATE contact_tags AS ct SET position = (
+          SELECT COUNT(*) - 1 FROM contact_tags ct2 WHERE ct2.contact_id=ct.contact_id AND ct2.rowid<=ct.rowid
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_phones_contact_position ON phones(contact_id, position);
+        CREATE INDEX IF NOT EXISTS ix_emails_contact_position ON emails(contact_id, position);
+        CREATE INDEX IF NOT EXISTS ix_addresses_contact_position ON addresses(contact_id, position);
+        CREATE INDEX IF NOT EXISTS ix_organizations_contact_position ON organizations(contact_id, position);
+        CREATE INDEX IF NOT EXISTS ix_contact_groups_contact_position ON contact_groups(contact_id, position);
+        CREATE INDEX IF NOT EXISTS ix_contact_tags_contact_position ON contact_tags(contact_id, position);
         """)
     };
 
