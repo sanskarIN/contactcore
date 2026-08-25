@@ -18,55 +18,63 @@ ContactCore treats a contact as one aggregate with scalar profile fields plus re
 | `IsArchived` | `bool` | `contacts.is_archived` | Integer 0/1. |
 | `CreatedAt` | `DateTimeOffset` | `contacts.created_at` | Round-trip `O` format. |
 | `UpdatedAt` | `DateTimeOffset` | `contacts.updated_at` | Refreshed by save/import/merge workflows. |
-| `Phones` | list | `phones` | Contact-owned repeated rows. |
-| `Emails` | list | `emails` | Contact-owned repeated rows. |
-| `Addresses` | list | `addresses` | Contact-owned repeated rows. |
-| `Organizations` | list | `organizations` | Contact-owned repeated rows. |
-| `Groups` | list | `groups` + `contact_groups` | Shared-name dictionary + links. |
-| `Tags` | list | `tags` + `contact_tags` | Shared-name dictionary + links. |
+| `Phones` | ordered list | `phones` | Contact-owned repeated rows with persisted position. |
+| `Emails` | ordered list | `emails` | Contact-owned repeated rows with persisted position. |
+| `Addresses` | ordered list | `addresses` | Contact-owned repeated rows with persisted position. |
+| `Organizations` | ordered list | `organizations` | Contact-owned repeated rows with persisted position. |
+| `Groups` | ordered list | `groups` + `contact_groups` | Shared-name dictionary + ordered links. |
+| `Tags` | ordered list | `tags` + `contact_tags` | Shared-name dictionary + ordered links. |
 
 `DisplayName` prefers given/family name, then nickname, then `Unnamed contact`.
 
-`DeepCopy()` creates a new aggregate object with the same root/scalar values and copied child lists. Child records are immutable records, so the copied collections can be edited independently.
+`DeepCopy()` creates a new aggregate object with the same root/scalar values and copied child lists. Child records are immutable records, so the copied collections can be edited independently. List sequence is significant for all six repeated-field categories in the 2.1.0 data model.
 
 ## Repeated record types
 
 ### Phones
 
-`ContactPhone(Guid Id, string Label, string Number, ContactFieldKind Kind)` maps to `phones(id, contact_id, label, number, kind)`.
+`ContactPhone(Guid Id, string Label, string Number, ContactFieldKind Kind)` maps to `phones(id, contact_id, label, number, kind, position)`.
 
 `ContactFieldKind` is `Home`, `Work`, `Mobile`, or `Other`. Current phone validation allows digits plus `+ ( ) space . -` with total length 3–40 characters.
 
 ### Emails
 
-`ContactEmail(Guid Id, string Label, string Address, ContactFieldKind Kind)` maps to `emails`. Validation uses `System.Net.Mail.MailAddress`, a 320-character cap, and requires parser-normalized address equality ignoring case.
+`ContactEmail(Guid Id, string Label, string Address, ContactFieldKind Kind)` maps to `emails(id, contact_id, label, address, kind, position)`. Validation uses `System.Net.Mail.MailAddress`, a 320-character cap, and requires parser-normalized address equality ignoring case.
 
 ### Addresses
 
-`ContactAddress(Guid Id, string Label, string Street, string City, string Region, string PostalCode, string Country)` maps to `addresses`.
+`ContactAddress(Guid Id, string Label, string Street, string City, string Region, string PostalCode, string Country)` maps to `addresses`, including a persisted `position` column.
 
-The current domain validation layer does not impose per-address-field length rules. An existing address containing only a label is still representable by the desktop editor and must not be silently dropped merely because other address fields are blank.
+The current domain validation layer does not impose per-address-field length rules. An existing address containing only a label is still representable by the editors and must not be silently dropped merely because other address fields are blank.
 
 ### Organizations
 
-`ContactOrganization(Guid Id, string Name, string? Title, string? Department)` maps to `organizations`.
+`ContactOrganization(Guid Id, string Name, string? Title, string? Department)` maps to `organizations`, including a persisted `position` column.
 
 Duplicate merge equivalence compares normalized organization name/title/department.
 
 ### Groups and tags
 
-`ContactGroup` and `ContactTag` each contain an ID and name. Unlike phone/email/address/organization rows, group and tag IDs identify **shared dictionary rows** rather than contact-owned rows. SQLite enforces case-insensitive unique dictionary names with `COLLATE NOCASE`; link tables use `(contact_id, group_id)` / `(contact_id, tag_id)` composite primary keys.
+`ContactGroup` and `ContactTag` each contain an ID and name. Unlike phone/email/address/organization rows, group and tag IDs identify **shared dictionary rows** rather than contact-owned rows. SQLite enforces case-insensitive unique dictionary names with `COLLATE NOCASE`; link tables use `(contact_id, group_id)` / `(contact_id, tag_id)` composite primary keys plus a contact-local `position` column.
 
-The desktop editor models each group/tag as an independent row rather than delimiter-separated text. Therefore names containing commas or semicolons are valid exact names. During draft conversion, case-insensitive duplicates on the same contact collapse to the first row identity.
+The editors model each group/tag as an independent row rather than delimiter-separated text. Therefore names containing commas or semicolons are valid exact names. During draft conversion, case-insensitive duplicates on the same contact collapse to the first row identity.
 
 A true per-contact group/tag rename is modeled as **reassignment**, not as an in-place rename of the shared dictionary ID. `GroupDraftViewModel`/`TagDraftViewModel` retain `OriginalName` from the loaded relationship:
 
 - if the edited name is normalization-equivalent to the original name, the existing dictionary ID and original canonical name are retained;
 - if the name is materially different, `ToContact()` assigns a fresh dictionary ID for the requested name;
-- Infrastructure then inserts-or-reuses the dictionary entry by case-insensitive name and links the contact to that entry;
+- Infrastructure then inserts-or-reuses the dictionary entry by case-insensitive name and links the contact to that entry at the current contact-local position;
 - the old dictionary row can remain orphaned after its last link is removed, consistent with the current no-global-taxonomy-cleanup policy.
 
 This avoids reusing one shared dictionary primary key for a different name, which would otherwise conflict with the existing global row or accidentally imply a global rename.
+
+## Repeated-field ordering semantics
+
+Beginning with schema version 3 / the ContactCore 2.1.0 feature line, order is explicitly user-significant for phones, emails, addresses, organizations, groups, and tags.
+
+The editor move commands change only collection sequence. They do not regenerate IDs or mutate row values. When an aggregate is saved, Infrastructure writes zero-based positions in current list order. When an aggregate is loaded, child/link queries order by `position` and then a deterministic tie-breaker. This prevents SQLite's incidental row-return order from becoming a hidden product behavior.
+
+Browser persistence serializes ordered domain lists into the stored contact document. `DeepCopy()` and browser document conversion preserve list sequence, so Browser does not require a relational `position` column.
 
 ## Schema tables
 
@@ -90,29 +98,44 @@ Schema version 2 adds:
 
 The schema-family marker helps backup/restore reject unrelated valid SQLite databases.
 
+Schema version 3 adds zero-based `position` columns to:
+
+- `phones`;
+- `emails`;
+- `addresses`;
+- `organizations`;
+- `contact_groups`;
+- `contact_tags`.
+
+The v3 migration backfills existing rows deterministically per contact using their existing SQLite row order, then creates `(contact_id, position)` indexes for ordered child/link reads. Existing v1/v2 databases remain upgradeable through the normal append-only migrator path.
+
 ## Foreign keys and delete semantics
 
 Child tables reference contacts with `ON DELETE CASCADE`. Link tables cascade as their parent rows are deleted. Factory-opened connections enable `PRAGMA foreign_keys = ON`.
 
 Permanent root deletion therefore cascades owned child/link rows.
 
-An **unsaved** desktop draft is different: it has a generated GUID but no database row. Desktop explicitly tracks persistence state and discards such a draft without calling repository delete.
+An **unsaved** draft is different: it has a generated GUID but no database row. Presentation code explicitly tracks persistence state and discards such a draft without calling repository delete.
 
 ## Complete-aggregate write model
 
 `SqliteContactRepository.UpsertManyAsync` opens one connection/transaction for the supplied batch. For each contact it upserts the root, removes that contact's current owned child/link rows, and inserts the complete supplied child/link state. Any failure rolls the transaction back.
 
+For each repeated collection, inserts enumerate the aggregate in list order and write the zero-based index to `position`. Re-saving a reordered aggregate therefore rewrites only the contact's complete child/link projection while preserving the IDs supplied by the domain aggregate.
+
 `UpsertAsync` delegates to the same path with one item.
 
-This means the aggregate passed to Infrastructure is authoritative. Presentation/Application code must not omit persisted children accidentally.
+This means the aggregate passed to Infrastructure is authoritative. Presentation/Application code must not omit persisted children accidentally, and sequence is part of that authoritative repeated-field state.
 
-## Desktop identity preservation
+## Presentation identity preservation
 
-`ContactDraftViewModel.Load` projects every current repeated collection into editable row view models while preserving identity metadata. `ToContact()` reconstructs the aggregate with the root `Id`/`CreatedAt`.
+Both the portable and mature Desktop `ContactDraftViewModel` implementations project every current repeated collection into editable row view models while preserving identity metadata. `ToContact()` reconstructs the aggregate with the root `Id`/`CreatedAt` and emits repeated rows in current editor order.
 
 Current intended semantics:
 
 - edits to contact-owned phone/email/address/organization rows preserve their IDs;
+- reorder operations preserve all repeated-row identities and values;
+- saved repeated-field order matches the editor collection order;
 - unchanged group/tag assignments retain their shared dictionary identities;
 - true group/tag name changes become reassignment to fresh dictionary identities rather than reusing the old global ID;
 - case-only/normalization-equivalent group/tag edits retain the existing identity and canonical stored name;
@@ -124,11 +147,11 @@ Current intended semantics:
 - duplicate group/tag names collapse case-insensitively before persistence;
 - draft mutation does not mutate the source aggregate supplied to `Load`.
 
-Desktop and SQLite regression tests protect these rules, including renamed group/tag reassignment.
+Portable UI, Desktop, and SQLite regression tests protect these rules, including reordered save output, identity preservation, durable reload order, and v2-to-v3 migration backfill.
 
 ## Group/tag dictionary behavior
 
-During contact save, link rows are replaced, but group/tag dictionary rows are not mass-deleted. Infrastructure inserts dictionary values by case-insensitive name when absent and links by name lookup.
+During contact save, link rows are replaced, but group/tag dictionary rows are not mass-deleted. Infrastructure inserts dictionary values by case-insensitive name when absent and links by name lookup while recording the contact-local link position.
 
 Orphaned dictionary rows can therefore remain after the last contact link is removed. That is current storage behavior; a future global taxonomy-management/cleanup feature should define deletion and true global-rename semantics deliberately rather than silently changing them in ordinary per-contact save.
 
@@ -136,7 +159,7 @@ Orphaned dictionary rows can therefore remain after the last contact link is rem
 
 `ContactMerger` constructs a survivor aggregate in Application. The selected survivor retains its root identity. Missing scalar identity fields may be filled from the secondary record; notes/favorite state and unique child collections are combined according to the documented merge policy.
 
-Child records copied from the secondary receive fresh IDs when needed so their primary keys cannot collide with existing persisted children.
+Child records copied from the secondary receive fresh IDs when needed so their primary keys cannot collide with existing persisted children. The merged aggregate's resulting repeated-list sequence is persisted through the same position-aware complete-aggregate write path.
 
 `ContactService.MergeAsync` loads both contacts, merges, normalizes, validates, and then calls:
 
@@ -169,6 +192,17 @@ The initial schema defines:
 - `ix_phones_number` on `phones(number)`;
 - `ix_emails_address` on `emails(address COLLATE NOCASE)`.
 
+Schema v3 additionally defines:
+
+- `ix_phones_contact_position`;
+- `ix_emails_contact_position`;
+- `ix_addresses_contact_position`;
+- `ix_organizations_contact_position`;
+- `ix_contact_groups_contact_position`;
+- `ix_contact_tags_contact_position`.
+
+Each v3 index begins with `contact_id` and then `position`, matching the ordered child/link load pattern.
+
 Free-text search uses `LIKE` across names plus `EXISTS` for phone/email. Group/tag filters use relationship `EXISTS` queries. Large datasets should be measured before scale claims.
 
 ## Literal search escaping
@@ -196,4 +230,6 @@ Regression tests prove literal matching for those metacharacters.
 
 `DatabaseMigrator` tracks applied versions in `schema_migrations`. A database reporting a version newer than `LatestSchemaVersion` raises `NotSupportedException` rather than attempting unsafe downgrade behavior.
 
-Each new migration should be append-only, deterministic, transactional where SQLite permits, upgrade-tested, and documented here/changelog/repository reference as appropriate.
+Schema v3 is append-only and is exercised by a regression test that constructs a valid v2 database, runs the normal migrator, verifies all six `position` columns, verifies version advancement to 3, and verifies existing phone rows receive deterministic positions.
+
+Each new migration should remain append-only, deterministic, transactional where SQLite permits, upgrade-tested, and documented here/changelog/repository reference as appropriate.
