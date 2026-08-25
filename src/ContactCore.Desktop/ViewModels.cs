@@ -182,6 +182,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         if (phone is not null) Phones.Remove(phone);
     }
 
+    [RelayCommand] private void MovePhoneUp(PhoneDraftViewModel? phone) => MoveUp(Phones, phone);
+    [RelayCommand] private void MovePhoneDown(PhoneDraftViewModel? phone) => MoveDown(Phones, phone);
+
     [RelayCommand]
     private void AddEmail() => Emails.Add(new EmailDraftViewModel());
 
@@ -190,6 +193,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     {
         if (email is not null) Emails.Remove(email);
     }
+
+    [RelayCommand] private void MoveEmailUp(EmailDraftViewModel? email) => MoveUp(Emails, email);
+    [RelayCommand] private void MoveEmailDown(EmailDraftViewModel? email) => MoveDown(Emails, email);
 
     [RelayCommand]
     private void AddAddress() => Addresses.Add(new AddressDraftViewModel());
@@ -200,6 +206,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         if (address is not null) Addresses.Remove(address);
     }
 
+    [RelayCommand] private void MoveAddressUp(AddressDraftViewModel? address) => MoveUp(Addresses, address);
+    [RelayCommand] private void MoveAddressDown(AddressDraftViewModel? address) => MoveDown(Addresses, address);
+
     [RelayCommand]
     private void AddOrganization() => Organizations.Add(new OrganizationDraftViewModel());
 
@@ -208,6 +217,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     {
         if (organization is not null) Organizations.Remove(organization);
     }
+
+    [RelayCommand] private void MoveOrganizationUp(OrganizationDraftViewModel? organization) => MoveUp(Organizations, organization);
+    [RelayCommand] private void MoveOrganizationDown(OrganizationDraftViewModel? organization) => MoveDown(Organizations, organization);
 
     [RelayCommand]
     private void AddGroup() => Groups.Add(new GroupDraftViewModel());
@@ -218,6 +230,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         if (group is not null) Groups.Remove(group);
     }
 
+    [RelayCommand] private void MoveGroupUp(GroupDraftViewModel? group) => MoveUp(Groups, group);
+    [RelayCommand] private void MoveGroupDown(GroupDraftViewModel? group) => MoveDown(Groups, group);
+
     [RelayCommand]
     private void AddTag() => Tags.Add(new TagDraftViewModel());
 
@@ -226,6 +241,9 @@ public sealed partial class ContactDraftViewModel : ObservableObject
     {
         if (tag is not null) Tags.Remove(tag);
     }
+
+    [RelayCommand] private void MoveTagUp(TagDraftViewModel? tag) => MoveUp(Tags, tag);
+    [RelayCommand] private void MoveTagDown(TagDraftViewModel? tag) => MoveDown(Tags, tag);
 
     private void AddDistinctGroups(Contact contact)
     {
@@ -265,6 +283,22 @@ public sealed partial class ContactDraftViewModel : ObservableObject
         // Groups/tags are shared dictionary rows. A per-contact rename must therefore become
         // a reassignment to a new dictionary identity rather than mutating/reusing the old ID.
         return (Guid.NewGuid(), editedName);
+    }
+
+    private static void MoveUp<T>(ObservableCollection<T> items, T? value) where T : class
+    {
+        if (value is null) return;
+        var index = items.IndexOf(value);
+        if (index > 0)
+            items.Move(index, index - 1);
+    }
+
+    private static void MoveDown<T>(ObservableCollection<T> items, T? value) where T : class
+    {
+        if (value is null) return;
+        var index = items.IndexOf(value);
+        if (index >= 0 && index < items.Count - 1)
+            items.Move(index, index + 1);
     }
 
     private static bool HasAddressValue(AddressDraftViewModel address) =>
@@ -309,9 +343,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ContactDraftViewModel Draft { get; }
     public string DataDirectory => _paths.DataDirectory;
     public string BackupDirectory => _paths.BackupDirectory;
-    public string AboutSummary => "ContactCore • MIT License • Made by the Sanskar";
+    public string AboutSummary => $"ContactCore {ProductVersion} • MIT License • Made by the Sanskar";
     public string SupportSummary => "sanskarin@outlook.in • supportramsandesh@gmail.com";
     public string ProjectSummary => "github.com/sanskarIN/contactcore • buymeacoffee.com/sanskarIN";
+
+    private static string ProductVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
 
     [ObservableProperty] private string searchText = "";
     [ObservableProperty] private ContactListItemViewModel? selectedContact;
