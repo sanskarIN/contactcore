@@ -143,16 +143,28 @@ public sealed partial class ContactDraftViewModel : ObservableObject
 
     [RelayCommand] private void AddPhone() => Phones.Add(new PhoneDraftViewModel());
     [RelayCommand] private void RemovePhone(PhoneDraftViewModel? value) { if (value is not null) Phones.Remove(value); }
+    [RelayCommand] private void MovePhoneUp(PhoneDraftViewModel? value) => MoveUp(Phones, value);
+    [RelayCommand] private void MovePhoneDown(PhoneDraftViewModel? value) => MoveDown(Phones, value);
     [RelayCommand] private void AddEmail() => Emails.Add(new EmailDraftViewModel());
     [RelayCommand] private void RemoveEmail(EmailDraftViewModel? value) { if (value is not null) Emails.Remove(value); }
+    [RelayCommand] private void MoveEmailUp(EmailDraftViewModel? value) => MoveUp(Emails, value);
+    [RelayCommand] private void MoveEmailDown(EmailDraftViewModel? value) => MoveDown(Emails, value);
     [RelayCommand] private void AddAddress() => Addresses.Add(new AddressDraftViewModel());
     [RelayCommand] private void RemoveAddress(AddressDraftViewModel? value) { if (value is not null) Addresses.Remove(value); }
+    [RelayCommand] private void MoveAddressUp(AddressDraftViewModel? value) => MoveUp(Addresses, value);
+    [RelayCommand] private void MoveAddressDown(AddressDraftViewModel? value) => MoveDown(Addresses, value);
     [RelayCommand] private void AddOrganization() => Organizations.Add(new OrganizationDraftViewModel());
     [RelayCommand] private void RemoveOrganization(OrganizationDraftViewModel? value) { if (value is not null) Organizations.Remove(value); }
+    [RelayCommand] private void MoveOrganizationUp(OrganizationDraftViewModel? value) => MoveUp(Organizations, value);
+    [RelayCommand] private void MoveOrganizationDown(OrganizationDraftViewModel? value) => MoveDown(Organizations, value);
     [RelayCommand] private void AddGroup() => Groups.Add(new GroupDraftViewModel());
     [RelayCommand] private void RemoveGroup(GroupDraftViewModel? value) { if (value is not null) Groups.Remove(value); }
+    [RelayCommand] private void MoveGroupUp(GroupDraftViewModel? value) => MoveUp(Groups, value);
+    [RelayCommand] private void MoveGroupDown(GroupDraftViewModel? value) => MoveDown(Groups, value);
     [RelayCommand] private void AddTag() => Tags.Add(new TagDraftViewModel());
     [RelayCommand] private void RemoveTag(TagDraftViewModel? value) { if (value is not null) Tags.Remove(value); }
+    [RelayCommand] private void MoveTagUp(TagDraftViewModel? value) => MoveUp(Tags, value);
+    [RelayCommand] private void MoveTagDown(TagDraftViewModel? value) => MoveDown(Tags, value);
 
     private void AddDistinctGroups(Contact contact)
     {
@@ -188,6 +200,22 @@ public sealed partial class ContactDraftViewModel : ObservableObject
             return (id == Guid.Empty ? Guid.NewGuid() : id, original);
 
         return (Guid.NewGuid(), editedName);
+    }
+
+    private static void MoveUp<T>(ObservableCollection<T> items, T? value) where T : class
+    {
+        if (value is null) return;
+        var index = items.IndexOf(value);
+        if (index > 0)
+            items.Move(index, index - 1);
+    }
+
+    private static void MoveDown<T>(ObservableCollection<T> items, T? value) where T : class
+    {
+        if (value is null) return;
+        var index = items.IndexOf(value);
+        if (index >= 0 && index < items.Count - 1)
+            items.Move(index, index + 1);
     }
 
     private static bool HasAddressValue(AddressDraftViewModel address) =>
