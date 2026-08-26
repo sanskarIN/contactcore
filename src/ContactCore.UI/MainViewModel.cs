@@ -48,10 +48,12 @@ public sealed partial class MainViewModel : ObservableObject
     public string BackupLocation => _capabilities.BackupLocation;
     public bool CanUseDatabaseBackups => _capabilities.SupportsDatabaseBackups;
     public bool CanUseDatabaseEncryption => _capabilities.SupportsDatabaseEncryption;
-    public string AboutSummary => $"ContactCore 2.0.12 • {_capabilities.PlatformName} • MIT License • Made by the Sanskar";
+    public string AboutSummary => $"ContactCore {ProductVersion} • {_capabilities.PlatformName} • MIT License • Made by the Sanskar";
     public string SupportSummary => "sanskarin@outlook.in • supportramsandesh@gmail.com";
     public string ProjectSummary => "github.com/sanskarIN/contactcore • buymeacoffee.com/sanskarIN";
     public bool IsListVisible => !IsEditorVisible && !IsSettingsVisible && !IsDataToolsVisible && !IsDuplicatesVisible;
+
+    private static string ProductVersion => typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
 
     [ObservableProperty] private string searchText = "";
     [ObservableProperty] private ContactListItemViewModel? selectedContact;

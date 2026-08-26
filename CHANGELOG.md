@@ -4,6 +4,21 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ## [Unreleased]
 
+### 2026-08-25 ContactCore 2.1.0 preparation
+
+- Advanced source, assembly, file, and informational version metadata to **2.1.0** on the dedicated next-version branch while leaving the still-verifying 2.0.12 release candidate unchanged.
+- Added explicit move-up/move-down commands for phones, emails, addresses, organizations, groups, and tags in both the portable `ContactCore.UI` draft and the separate mature `ContactCore.Desktop` draft implementation.
+- Added visible keyboard/touch-operable reorder controls to both Avalonia editor surfaces while preserving existing remove controls and row identities.
+- Defined repeated-field sequence as user-significant for all six repeated categories.
+- Added native SQLite schema version 3 with zero-based `position` columns for phones, emails, addresses, organizations, contact-group links, and contact-tag links; existing v1/v2 rows are backfilled per contact and `(contact_id, position)` indexes support deterministic ordered reloads.
+- Updated `SqliteContactRepository` to write current aggregate order on every complete child/link replacement and to reload repeated rows by persisted position rather than incidental SQLite row order.
+- Confirmed Browser persistence already preserves repeated-field order through ordered `List<T>` serialization/deserialization without requiring a relational position column.
+- Added portable UI, Desktop, native SQLite round-trip, and v2-to-v3 migration regression tests covering reorder boundaries, all repeated categories, identity preservation, saved order, durable reload order, schema advancement, and position backfill.
+- Removed hard-coded About-version literals from portable and Desktop view models; both now derive displayed product version from built assembly metadata, with regression coverage on the portable UI path.
+- Updated centrally managed `Microsoft.NET.Test.Sdk` from 18.8.1 to 18.9.0 on the 2.1.0 line.
+- Added `docs/next-version-2.1.0.md` and synchronized `ROADMAP.md`, `docs/data-model.md`, PR #17 metadata, and `what_changed.md` with the next-version boundary.
+- PR #17 remains a draft based on the exact PR #4 source head so its review delta is isolated. Repository PR CI/CodeQL is intentionally not claimed until v2.0.12 merges and PR #17 is retargeted to `main` for normal exact-head validation.
+
 ### 2026-08-24 final release-gate hardening
 
 - Tightened country-code phone equivalence so suffix matching requires at least a ten-digit local representation; this prevents a different nine-digit suffix from becoming a destructive false-positive duplicate while retaining exact normalized equality and conservative country-code matching.
@@ -168,7 +183,7 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ### Known limitations
 
-- Repeated rich-field rows support add/edit/remove but not drag/drop reordering.
+- Repeated rich-field rows now support explicit move-up/move-down ordering in the 2.1.0 feature line; pointer drag/drop, reorder announcements, and representative accessibility validation remain future work.
 - Groups/tags are editable per contact; there is no dedicated global group/tag taxonomy-management UI or global rename/cleanup workflow yet.
 - Orphaned shared group/tag dictionary rows can remain after the last relationship is removed; ordinary per-contact editing does not silently delete them.
 - Duplicate review uses an in-memory pairwise candidate scan; large address books may require indexed candidate generation before high-scale use.
@@ -186,4 +201,4 @@ All notable changes to ContactCore are documented here. The project follows Sema
 
 ### Documentation checkpoint
 
-The current documentation pass is synchronized with the cross-platform v2.0.12 integration branch through the 2026-08-24 release-gate hardening continuation. See `docs/README.md` for navigation, `docs/platform-support.md` for the platform matrix, `docs/repository-reference.md` for the **132-file inventory**, `docs/testing.md` for the five-project behavioral test posture, `docs/release-smoke-test.md` for repeatable manual verification, and `what_changed.md` for the continuation/audit checkpoint and exact verification boundary.
+The 2.0.12 release documentation remains frozen around the authoritative PR #4 release candidate and its 132-file canonical inventory. The active next-version continuation is tracked separately on draft PR #17 through `docs/next-version-2.1.0.md`, `ROADMAP.md`, `docs/data-model.md`, this Unreleased section, and `what_changed.md`. The 2.1.0 line must be retargeted to `main` and pass exact-head CI + CodeQL after v2.0.12 merges before it can be called release-ready.

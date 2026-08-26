@@ -134,7 +134,11 @@
                       <TextBox PlaceholderText="Label" Text="{Binding Label, Mode=TwoWay}" />
                       <TextBox PlaceholderText="Phone number" Text="{Binding Number, Mode=TwoWay}" />
                       <ComboBox ItemsSource="{Binding $parent[UserControl].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
-                      <Button Content="Remove phone" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemovePhoneCommand}" CommandParameter="{Binding}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Move up" Command="{Binding $parent[UserControl].DataContext.Draft.MovePhoneUpCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Move down" Command="{Binding $parent[UserControl].DataContext.Draft.MovePhoneDownCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Remove phone" Command="{Binding $parent[UserControl].DataContext.Draft.RemovePhoneCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -152,7 +156,11 @@
                       <TextBox PlaceholderText="Label" Text="{Binding Label, Mode=TwoWay}" />
                       <TextBox PlaceholderText="Email address" Text="{Binding Address, Mode=TwoWay}" />
                       <ComboBox ItemsSource="{Binding $parent[UserControl].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
-                      <Button Content="Remove email" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Move up" Command="{Binding $parent[UserControl].DataContext.Draft.MoveEmailUpCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Move down" Command="{Binding $parent[UserControl].DataContext.Draft.MoveEmailDownCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Remove email" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -173,7 +181,11 @@
                       <TextBox PlaceholderText="Region / state" Text="{Binding Region, Mode=TwoWay}" />
                       <TextBox PlaceholderText="Postal code" Text="{Binding PostalCode, Mode=TwoWay}" />
                       <TextBox PlaceholderText="Country" Text="{Binding Country, Mode=TwoWay}" />
-                      <Button Content="Remove address" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveAddressCommand}" CommandParameter="{Binding}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Move up" Command="{Binding $parent[UserControl].DataContext.Draft.MoveAddressUpCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Move down" Command="{Binding $parent[UserControl].DataContext.Draft.MoveAddressDownCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Remove address" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveAddressCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -191,7 +203,11 @@
                       <TextBox PlaceholderText="Organization" Text="{Binding Name, Mode=TwoWay}" />
                       <TextBox PlaceholderText="Title" Text="{Binding Title, Mode=TwoWay}" />
                       <TextBox PlaceholderText="Department" Text="{Binding Department, Mode=TwoWay}" />
-                      <Button Content="Remove organization" HorizontalAlignment="Left" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveOrganizationCommand}" CommandParameter="{Binding}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Move up" Command="{Binding $parent[UserControl].DataContext.Draft.MoveOrganizationUpCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Move down" Command="{Binding $parent[UserControl].DataContext.Draft.MoveOrganizationDownCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Remove organization" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveOrganizationCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -207,7 +223,11 @@
                   <DataTemplate x:DataType="vm:GroupDraftViewModel">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
                       <TextBox PlaceholderText="Group name" Text="{Binding Name, Mode=TwoWay}" />
-                      <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Button Content="Move up" Command="{Binding $parent[UserControl].DataContext.Draft.MoveGroupUpCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Move down" Command="{Binding $parent[UserControl].DataContext.Draft.MoveGroupDownCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Remove" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -223,7 +243,11 @@
                   <DataTemplate x:DataType="vm:TagDraftViewModel">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
                       <TextBox PlaceholderText="Tag name" Text="{Binding Name, Mode=TwoWay}" />
-                      <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Button Content="Move up" Command="{Binding $parent[UserControl].DataContext.Draft.MoveTagUpCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Move down" Command="{Binding $parent[UserControl].DataContext.Draft.MoveTagDownCommand}" CommandParameter="{Binding}" />
+                        <Button Content="Remove" Command="{Binding $parent[UserControl].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
+                      </StackPanel>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>

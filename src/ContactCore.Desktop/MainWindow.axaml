@@ -108,7 +108,11 @@
                           <TextBox PlaceholderText="Label" Text="{Binding Label, Mode=TwoWay}" />
                           <TextBox Grid.Column="1" PlaceholderText="Phone number" Text="{Binding Number, Mode=TwoWay}" />
                           <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
-                          <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemovePhoneCommand}" CommandParameter="{Binding}" />
+                          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                            <Button Content="↑" ToolTip.Tip="Move phone up" Command="{Binding $parent[Window].DataContext.Draft.MovePhoneUpCommand}" CommandParameter="{Binding}" />
+                            <Button Content="↓" ToolTip.Tip="Move phone down" Command="{Binding $parent[Window].DataContext.Draft.MovePhoneDownCommand}" CommandParameter="{Binding}" />
+                            <Button Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemovePhoneCommand}" CommandParameter="{Binding}" />
+                          </StackPanel>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -129,7 +133,11 @@
                           <TextBox PlaceholderText="Label" Text="{Binding Label, Mode=TwoWay}" />
                           <TextBox Grid.Column="1" PlaceholderText="Email address" Text="{Binding Address, Mode=TwoWay}" />
                           <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.Draft.FieldKinds}" SelectedItem="{Binding Kind, Mode=TwoWay}" />
-                          <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
+                          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                            <Button Content="↑" ToolTip.Tip="Move email up" Command="{Binding $parent[Window].DataContext.Draft.MoveEmailUpCommand}" CommandParameter="{Binding}" />
+                            <Button Content="↓" ToolTip.Tip="Move email down" Command="{Binding $parent[Window].DataContext.Draft.MoveEmailDownCommand}" CommandParameter="{Binding}" />
+                            <Button Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveEmailCommand}" CommandParameter="{Binding}" />
+                          </StackPanel>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -150,7 +158,11 @@
                           <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                               <TextBox PlaceholderText="Label (Home, Work…)" Text="{Binding Label, Mode=TwoWay}" />
-                              <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveAddressCommand}" CommandParameter="{Binding}" />
+                              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <Button Content="↑" ToolTip.Tip="Move address up" Command="{Binding $parent[Window].DataContext.Draft.MoveAddressUpCommand}" CommandParameter="{Binding}" />
+                                <Button Content="↓" ToolTip.Tip="Move address down" Command="{Binding $parent[Window].DataContext.Draft.MoveAddressDownCommand}" CommandParameter="{Binding}" />
+                                <Button Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveAddressCommand}" CommandParameter="{Binding}" />
+                              </StackPanel>
                             </Grid>
                             <TextBox PlaceholderText="Street" Text="{Binding Street, Mode=TwoWay}" />
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -182,7 +194,11 @@
                           <TextBox PlaceholderText="Organization" Text="{Binding Name, Mode=TwoWay}" />
                           <TextBox Grid.Column="1" PlaceholderText="Title" Text="{Binding Title, Mode=TwoWay}" />
                           <TextBox Grid.Column="2" PlaceholderText="Department" Text="{Binding Department, Mode=TwoWay}" />
-                          <Button Grid.Column="3" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveOrganizationCommand}" CommandParameter="{Binding}" />
+                          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                            <Button Content="↑" ToolTip.Tip="Move organization up" Command="{Binding $parent[Window].DataContext.Draft.MoveOrganizationUpCommand}" CommandParameter="{Binding}" />
+                            <Button Content="↓" ToolTip.Tip="Move organization down" Command="{Binding $parent[Window].DataContext.Draft.MoveOrganizationDownCommand}" CommandParameter="{Binding}" />
+                            <Button Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveOrganizationCommand}" CommandParameter="{Binding}" />
+                          </StackPanel>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -202,7 +218,11 @@
                         <DataTemplate>
                           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
                             <TextBox PlaceholderText="Group name" Text="{Binding Name, Mode=TwoWay}" />
-                            <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                              <Button Content="↑" ToolTip.Tip="Move group up" Command="{Binding $parent[Window].DataContext.Draft.MoveGroupUpCommand}" CommandParameter="{Binding}" />
+                              <Button Content="↓" ToolTip.Tip="Move group down" Command="{Binding $parent[Window].DataContext.Draft.MoveGroupDownCommand}" CommandParameter="{Binding}" />
+                              <Button Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveGroupCommand}" CommandParameter="{Binding}" />
+                            </StackPanel>
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
@@ -221,7 +241,11 @@
                         <DataTemplate>
                           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
                             <TextBox PlaceholderText="Tag name" Text="{Binding Name, Mode=TwoWay}" />
-                            <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                              <Button Content="↑" ToolTip.Tip="Move tag up" Command="{Binding $parent[Window].DataContext.Draft.MoveTagUpCommand}" CommandParameter="{Binding}" />
+                              <Button Content="↓" ToolTip.Tip="Move tag down" Command="{Binding $parent[Window].DataContext.Draft.MoveTagDownCommand}" CommandParameter="{Binding}" />
+                              <Button Content="Remove" Command="{Binding $parent[Window].DataContext.Draft.RemoveTagCommand}" CommandParameter="{Binding}" />
+                            </StackPanel>
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>

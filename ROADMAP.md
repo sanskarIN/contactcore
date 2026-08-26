@@ -73,13 +73,30 @@ These are process requirements, not missing application code:
 
 Do not convert an older/cancelled workflow into release evidence after the final head changes.
 
-## Product/UX future work
+## Next feature line — 2.1.0 in progress
+
+The 2.1.0 branch is intentionally based on the exact v2.0.12 PR #4 source head while the release gate finishes. It remains a draft integration line until PR #4 lands and the 2.1.0 PR can be retargeted to `main` for normal exact-head CI/CodeQL validation.
 
 ### Repeated-field ordering
 
-- [ ] Add accessible reorder controls for phone/email/address/organization rows.
-- [ ] Define whether persisted order is user-significant for all repeated-field categories.
-- [ ] Add keyboard/touch-friendly reorder behavior and regression tests.
+- [x] Add explicit keyboard/touch-operable move-up/move-down controls for phones, emails, addresses, organizations, groups, and tags in the portable UI.
+- [x] Add matching reorder commands and controls to the separate mature Desktop draft/editor implementation.
+- [x] Define repeated-field order as user-significant and preserve row identities while moving rows.
+- [x] Add SQLite schema v3 `position` persistence for all six repeated-field/link categories, including deterministic migration backfill and ordered reads.
+- [x] Keep Browser ordering through the existing ordered serialized aggregate model.
+- [x] Add portable UI, Desktop, native persistence, and migration regression coverage for ordering behavior.
+- [ ] Evaluate optional pointer drag/drop only if keyboard, touch, screen-reader, focus, trimming, and AOT behavior stay trustworthy across supported targets.
+- [ ] Perform representative accessibility checks for focus retention and reorder announcements.
+
+### Release metadata maintenance
+
+- [x] Advance source version metadata to 2.1.0 on the next-version branch.
+- [x] Derive portable and Desktop About text from built assembly version metadata instead of duplicated version literals.
+- [x] Add a portable About/version regression test.
+- [x] Advance `Microsoft.NET.Test.Sdk` to 18.9.0 on the 2.1.0 line without changing the still-verifying 2.0.12 candidate.
+- [ ] Retarget the draft 2.1.0 PR to `main` after v2.0.12 merges and require fresh exact-head CI + CodeQL before release readiness.
+
+## Product/UX future work
 
 ### Global group/tag taxonomy management
 
@@ -202,6 +219,7 @@ These tasks require real maintainer-controlled credentials/policies and must not
 - [x] ADRs for architecture/SQLite/encryption-provider boundary.
 - [x] Canonical file-by-file repository reference.
 - [x] Detailed `what_changed.md` continuation ledger.
+- [x] Add a dedicated 2.1.0 work-plan document while the next-version branch is in progress.
 - [ ] Keep all canonical docs synchronized as future behavior changes.
 
 ## Principles for future roadmap completion

@@ -145,23 +145,71 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
         foreach (var table in new[] { "phones", "emails", "addresses", "organizations", "contact_groups", "contact_tags" })
             await ExecAsync(connection, tx, $"DELETE FROM {table} WHERE contact_id=$id;", cancellationToken, ("$id", contact.Id.ToString())).ConfigureAwait(false);
 
-        foreach (var p in contact.Phones)
-            await ExecAsync(connection, tx, "INSERT INTO phones(id,contact_id,label,number,kind) VALUES($id,$contact,$label,$number,$kind);", cancellationToken, ("$id", p.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", p.Label), ("$number", p.Number), ("$kind", (int)p.Kind)).ConfigureAwait(false);
-        foreach (var e in contact.Emails)
-            await ExecAsync(connection, tx, "INSERT INTO emails(id,contact_id,label,address,kind) VALUES($id,$contact,$label,$address,$kind);", cancellationToken, ("$id", e.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", e.Label), ("$address", e.Address), ("$kind", (int)e.Kind)).ConfigureAwait(false);
-        foreach (var a in contact.Addresses)
-            await ExecAsync(connection, tx, "INSERT INTO addresses(id,contact_id,label,street,city,region,postal_code,country) VALUES($id,$contact,$label,$street,$city,$region,$postal,$country);", cancellationToken, ("$id", a.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", a.Label), ("$street", a.Street), ("$city", a.City), ("$region", a.Region), ("$postal", a.PostalCode), ("$country", a.Country)).ConfigureAwait(false);
-        foreach (var o in contact.Organizations)
-            await ExecAsync(connection, tx, "INSERT INTO organizations(id,contact_id,name,title,department) VALUES($id,$contact,$name,$title,$department);", cancellationToken, ("$id", o.Id.ToString()), ("$contact", contact.Id.ToString()), ("$name", o.Name), ("$title", o.Title), ("$department", o.Department)).ConfigureAwait(false);
-        foreach (var group in contact.Groups)
+        for (var position = 0; position < contact.Phones.Count; position++)
         {
-            await ExecAsync(connection, tx, "INSERT INTO groups(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", group.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
-            await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_groups(contact_id,group_id) SELECT $contact,id FROM groups WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
+            var phone = contact.Phones[position];
+            await ExecAsync(connection, tx,
+                "INSERT INTO phones(id,contact_id,label,number,kind,position) VALUES($id,$contact,$label,$number,$kind,$position);",
+                cancellationToken,
+                ("$id", phone.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", phone.Label),
+                ("$number", phone.Number), ("$kind", (int)phone.Kind), ("$position", position)).ConfigureAwait(false);
         }
-        foreach (var tag in contact.Tags)
+
+        for (var position = 0; position < contact.Emails.Count; position++)
         {
-            await ExecAsync(connection, tx, "INSERT INTO tags(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;", cancellationToken, ("$id", tag.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
-            await ExecAsync(connection, tx, "INSERT OR IGNORE INTO contact_tags(contact_id,tag_id) SELECT $contact,id FROM tags WHERE name=$name COLLATE NOCASE;", cancellationToken, ("$contact", contact.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
+            var email = contact.Emails[position];
+            await ExecAsync(connection, tx,
+                "INSERT INTO emails(id,contact_id,label,address,kind,position) VALUES($id,$contact,$label,$address,$kind,$position);",
+                cancellationToken,
+                ("$id", email.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", email.Label),
+                ("$address", email.Address), ("$kind", (int)email.Kind), ("$position", position)).ConfigureAwait(false);
+        }
+
+        for (var position = 0; position < contact.Addresses.Count; position++)
+        {
+            var address = contact.Addresses[position];
+            await ExecAsync(connection, tx,
+                "INSERT INTO addresses(id,contact_id,label,street,city,region,postal_code,country,position) VALUES($id,$contact,$label,$street,$city,$region,$postal,$country,$position);",
+                cancellationToken,
+                ("$id", address.Id.ToString()), ("$contact", contact.Id.ToString()), ("$label", address.Label),
+                ("$street", address.Street), ("$city", address.City), ("$region", address.Region),
+                ("$postal", address.PostalCode), ("$country", address.Country), ("$position", position)).ConfigureAwait(false);
+        }
+
+        for (var position = 0; position < contact.Organizations.Count; position++)
+        {
+            var organization = contact.Organizations[position];
+            await ExecAsync(connection, tx,
+                "INSERT INTO organizations(id,contact_id,name,title,department,position) VALUES($id,$contact,$name,$title,$department,$position);",
+                cancellationToken,
+                ("$id", organization.Id.ToString()), ("$contact", contact.Id.ToString()), ("$name", organization.Name),
+                ("$title", organization.Title), ("$department", organization.Department), ("$position", position)).ConfigureAwait(false);
+        }
+
+        for (var position = 0; position < contact.Groups.Count; position++)
+        {
+            var group = contact.Groups[position];
+            await ExecAsync(connection, tx,
+                "INSERT INTO groups(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;",
+                cancellationToken,
+                ("$id", group.Id.ToString()), ("$name", group.Name)).ConfigureAwait(false);
+            await ExecAsync(connection, tx,
+                "INSERT OR IGNORE INTO contact_groups(contact_id,group_id,position) SELECT $contact,id,$position FROM groups WHERE name=$name COLLATE NOCASE;",
+                cancellationToken,
+                ("$contact", contact.Id.ToString()), ("$name", group.Name), ("$position", position)).ConfigureAwait(false);
+        }
+
+        for (var position = 0; position < contact.Tags.Count; position++)
+        {
+            var tag = contact.Tags[position];
+            await ExecAsync(connection, tx,
+                "INSERT INTO tags(id,name) VALUES($id,$name) ON CONFLICT(name) DO NOTHING;",
+                cancellationToken,
+                ("$id", tag.Id.ToString()), ("$name", tag.Name)).ConfigureAwait(false);
+            await ExecAsync(connection, tx,
+                "INSERT OR IGNORE INTO contact_tags(contact_id,tag_id,position) SELECT $contact,id,$position FROM tags WHERE name=$name COLLATE NOCASE;",
+                cancellationToken,
+                ("$contact", contact.Id.ToString()), ("$name", tag.Name), ("$position", position)).ConfigureAwait(false);
         }
     }
 
@@ -211,22 +259,22 @@ public sealed class SqliteContactRepository(SqliteConnectionFactory factory, Dat
     {
         await using var cmd = connection.CreateCommand();
         cmd.Parameters.AddWithValue("$id", contact.Id.ToString());
-        cmd.CommandText = "SELECT id,label,number,kind FROM phones WHERE contact_id=$id;";
+        cmd.CommandText = "SELECT id,label,number,kind FROM phones WHERE contact_id=$id ORDER BY position,id;";
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Phones.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), (ContactFieldKind)reader.GetInt32(3)));
-        cmd.CommandText = "SELECT id,label,address,kind FROM emails WHERE contact_id=$id;";
+        cmd.CommandText = "SELECT id,label,address,kind FROM emails WHERE contact_id=$id ORDER BY position,id;";
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Emails.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), (ContactFieldKind)reader.GetInt32(3)));
-        cmd.CommandText = "SELECT id,label,street,city,region,postal_code,country FROM addresses WHERE contact_id=$id;";
+        cmd.CommandText = "SELECT id,label,street,city,region,postal_code,country FROM addresses WHERE contact_id=$id ORDER BY position,id;";
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Addresses.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6)));
-        cmd.CommandText = "SELECT id,name,title,department FROM organizations WHERE contact_id=$id;";
+        cmd.CommandText = "SELECT id,name,title,department FROM organizations WHERE contact_id=$id ORDER BY position,id;";
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Organizations.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3)));
-        cmd.CommandText = "SELECT g.id,g.name FROM groups g JOIN contact_groups cg ON cg.group_id=g.id WHERE cg.contact_id=$id;";
+        cmd.CommandText = "SELECT g.id,g.name FROM groups g JOIN contact_groups cg ON cg.group_id=g.id WHERE cg.contact_id=$id ORDER BY cg.position,g.name COLLATE NOCASE,g.id;";
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Groups.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1)));
-        cmd.CommandText = "SELECT t.id,t.name FROM tags t JOIN contact_tags ct ON ct.tag_id=t.id WHERE ct.contact_id=$id;";
+        cmd.CommandText = "SELECT t.id,t.name FROM tags t JOIN contact_tags ct ON ct.tag_id=t.id WHERE ct.contact_id=$id ORDER BY ct.position,t.name COLLATE NOCASE,t.id;";
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) contact.Tags.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1)));
     }

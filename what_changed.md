@@ -21,6 +21,104 @@ ContactCore **2.0.12** is being finalized through the repository's single author
 
 Older overlapping integration attempts remain superseded. PR #4 is the intended v2.0.12 merge path.
 
+## 2026-08-25 next-version continuation
+
+The next feature line has been started without changing the still-verifying v2.0.12 release candidate. The new branch is based on the exact PR #4 source head `4005b19fddeda7989cc52522aadd0bc91fece8e3`, so the v2.1.0 delta is isolated from the 331-commit v2.0.12 integration history.
+
+### v2.0.12 verification status at this checkpoint
+
+The targeted rerun of the previously cancelled iOS job is active on the same PR #4 source head. In the rerun:
+
+- Ubuntu core restore/format/Release build/tests: **success**;
+- Windows core restore/format/Release build/tests: **success**;
+- macOS core restore/format/Release build/tests: **success**;
+- Browser/WebAssembly Release build: **success**;
+- Android `android-arm64` Release build: **success**;
+- CodeQL on the exact source head: **success**;
+- iOS `iossimulator-arm64`: setup, checkout, .NET setup, Xcode selection, workload installation, and restore are **success**; the final simulator build step is still **in progress** at this checkpoint.
+
+PR #4 remains deliberately unmerged until that final iOS build step succeeds. No green-release claim is made early.
+
+### v2.1.0 branch and draft PR
+
+- Branch: `release/contactcore-2.1.0`
+- Draft pull request: **PR #17**
+- Initial base: `audit/contactcore-20260819`
+- Version metadata: **2.1.0**
+
+PR #17 is intentionally based on the v2.0.12 integration branch while PR #4 is still open. The repository CI workflow only runs `pull_request` events whose base is `main`, so PR #17 will remain draft and unverified until PR #4 lands and PR #17 is retargeted to `main`. The workflow trigger is not being weakened merely to manufacture an early green check.
+
+### v2.1.0 commits so far
+
+1. `0d4c8db18` — `chore(version): start ContactCore 2.1.0`
+2. `c653e4470` — `feat(ui): add repeated-field reorder commands`
+3. `e736e94e1` — `test(ui): cover repeated-field reordering`
+4. `4d7c83917` — `feat(ui): expose repeated-field reorder controls`
+5. `f8cc530bc` — `build(deps): update Microsoft.NET.Test.Sdk to 18.9.0`
+6. `0ee5e0a58` — `docs: add ContactCore 2.1.0 work plan`
+
+### Repeated-field reordering
+
+The portable contact draft now has move-up/move-down commands for:
+
+- phone numbers;
+- email addresses;
+- addresses;
+- organizations;
+- groups;
+- tags.
+
+The commands use `ObservableCollection<T>.Move`, do nothing at collection boundaries, and do not regenerate the moved row's identity or content. `ToContact()` already enumerates these collections in their current order, so saved aggregate order follows the order selected in the editor.
+
+The shared compiled-binding Avalonia editor exposes explicit **Move up** and **Move down** controls beside the existing remove controls. Because this lives in `ContactCore.UI`, the same implementation is shared by the portable desktop/mobile/browser experience instead of creating divergent platform-specific ordering logic.
+
+Explicit buttons are the initial accessible cross-platform interaction. Pointer drag/drop can be evaluated later only if keyboard, touch, screen-reader, focus, trimming, and AOT behavior remain correct across supported targets.
+
+### Reordering regression coverage
+
+New test file:
+
+```text
+tests/ContactCore.UI.Tests/ContactDraftViewModelReorderTests.cs
+```
+
+Coverage includes:
+
+- first-row move-up boundary no-op;
+- last-row move-down boundary no-op;
+- phone move-down;
+- email move-up;
+- address move-down;
+- organization move-up;
+- group move-down;
+- tag move-up;
+- emitted phone/email save order after reordering.
+
+These tests are committed but are not yet represented as CI-green 2.1.0 evidence because PR #17 has not yet been retargeted to `main`.
+
+### Dependency maintenance
+
+The 2.1.0 line updates centrally managed `Microsoft.NET.Test.Sdk` from **18.8.1** to **18.9.0**. The existing v2.0.12 release candidate is left unchanged so dependency maintenance does not invalidate the release-gate evidence being collected for PR #4.
+
+### Documentation and inventory delta
+
+New 2.1.0 files currently add two tracked paths relative to the 132-file v2.0.12 baseline:
+
+```text
+tests/ContactCore.UI.Tests/ContactDraftViewModelReorderTests.cs
+docs/next-version-2.1.0.md
+```
+
+Therefore the current next-version branch has a **134-file logical inventory before this handoff update is counted as a path change**; `what_changed.md` itself already existed in the baseline and does not add a new tracked path. The canonical `docs/repository-reference.md` remains the 132-file v2.0.12 release inventory until the 2.1.0 documentation pass deliberately regenerates it.
+
+### Next integration sequence
+
+1. Finish the exact-head PR #4 iOS simulator gate.
+2. Merge PR #4 to `main` only if all required exact-head checks are green.
+3. Retarget draft PR #17 to `main`, which will trigger the repository's normal CI and CodeQL policy.
+4. Fix any real 2.1.0 regression reported by those checks before marking PR #17 ready.
+5. Continue measured 2.1.0 work: taxonomy management, undo/recovery, browser resilience, performance benchmarks, and distribution/security improvements without fabricating external signing or device-certification evidence.
+
 ## 2026-08-24 continuation
 
 This continuation was driven by the latest real PR #4 runner evidence. Product scope was not expanded ahead of release correctness; the work concentrated on concrete CI failures, AOT/trim safety, accurate release boundaries, and documentation synchronization.
