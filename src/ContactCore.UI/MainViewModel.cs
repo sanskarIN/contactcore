@@ -241,67 +241,66 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task FindDuplicatesAsync()
     {
+        SelectedContact = null;
         HideDetailViews();
         IsDuplicatesVisible = true;
-        DuplicatePairs.Clear();
-        SelectedDuplicate = null;
-        DuplicateMessage = "Scanning local contacts…";
-
-        try
-        {
-            var all = await _service.ListAsync(new ContactQuery());
-            var pairs = DuplicateDetector.Find(all);
-            foreach (var pair in pairs)
-                DuplicatePairs.Add(new DuplicatePairViewModel(pair));
-
-            SelectedDuplicate = DuplicatePairs.FirstOrDefault();
-            DuplicateMessage = DuplicatePairs.Count == 0
-                ? "No likely duplicates found."
-                : $"{DuplicatePairs.Count} likely duplicate pair{(DuplicatePairs.Count == 1 ? "" : "s")} found. Review the evidence before merging.";
-        }
-        catch (Exception ex)
-        {
-            DuplicateMessage = SafeMessage(ex);
-        }
+        await RefreshDuplicatesAsync();
     }
 
-    [RelayCommand] private Task MergeSelectedDuplicateAsync() => RequestMergeAsync(keepPrimary: true);
-    [RelayCommand] private Task MergeSelectedDuplicateIntoSecondaryAsync() => RequestMergeAsync(keepPrimary: false);
-
-    private Task RequestMergeAsync(bool keepPrimary)
+    [RelayCommand]
+    private void MergeSelectedDuplicate()
     {
         if (SelectedDuplicate is null)
         {
             DuplicateMessage = "Select a duplicate pair first.";
-            return Task.CompletedTask;
+            return;
         }
 
-        var pair = SelectedDuplicate.Candidate;
-        var primary = keepPrimary ? pair.Left : pair.Right;
-        var secondary = keepPrimary ? pair.Right : pair.Left;
+        var pair = SelectedDuplicate;
         QueueConfirmation(
-            $"Merge the selected duplicate pair and keep {primary.DisplayName}? The other local record will be permanently removed after its unique data is merged.",
-            () => MergeConfirmedAsync(primary.Id, secondary.Id));
-        return Task.CompletedTask;
+            $"Merge {pair.SecondaryName} into {pair.PrimaryName}? The first record is kept and the second is permanently removed.",
+            () => MergeDuplicateAsync(pair.Candidate.Left.Id, pair.Candidate.Right.Id));
     }
 
-    private async Task MergeConfirmedAsync(Guid primaryId, Guid secondaryId)
+    [RelayCommand]
+    private void MergeSelectedDuplicateIntoSecondary()
+    {
+        if (SelectedDuplicate is null)
+        {
+            DuplicateMessage = "Select a duplicate pair first.";
+            return;
+        }
+
+        var pair = SelectedDuplicate;
+        QueueConfirmation(
+            $"Merge {pair.PrimaryName} into {pair.SecondaryName}? The second record is kept and the first is permanently removed.",
+            () => MergeDuplicateAsync(pair.Candidate.Right.Id, pair.Candidate.Left.Id));
+    }
+
+    private async Task MergeDuplicateAsync(Guid primaryId, Guid secondaryId)
     {
         try
         {
-            await _service.MergeAsync(primaryId, secondaryId);
-            DuplicateMessage = "Duplicate pair merged locally.";
-            await FindDuplicatesAsync();
+            FooterText = "Merging duplicate contacts…";
+            var merged = await _service.MergeAsync(primaryId, secondaryId);
+            await RefreshAsync();
+            await RefreshDuplicatesAsync();
+            DuplicateMessage = $"Merged duplicate into {merged.DisplayName}.";
         }
         catch (Exception ex)
         {
             DuplicateMessage = SafeMessage(ex);
+        }
+        finally
+        {
+            FooterText = "Ready";
         }
     }
 
     [RelayCommand]
     private void ShowDataTools()
     {
+        SelectedContact = null;
         HideDetailViews();
         IsDataToolsVisible = true;
         StatusMessage = "";
@@ -312,21 +311,22 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (PickImportTextRequested is null)
         {
-            StatusMessage = "Import picker is unavailable on this platform.";
+            StatusMessage = "File picker is unavailable on this platform.";
             return;
         }
 
-        var file = await PickImportTextRequested();
-        if (file is null) return;
         try
         {
-            var format = Path.GetExtension(file.Name).Equals(".csv", StringComparison.OrdinalIgnoreCase)
-                ? ImportFormat.Csv
-                : ImportFormat.VCard;
-            var result = await _service.ImportAsync(file.Content, format);
-            StatusMessage = result.Warnings.Count == 0
-                ? $"Imported {result.ImportedCount} contact{(result.ImportedCount == 1 ? "" : "s")}."
-                : $"Imported {result.ImportedCount} contact{(result.ImportedCount == 1 ? "" : "s")}. {string.Join(" ", result.Warnings)}";
+            var picked = await PickImportTextRequested();
+            if (picked is null) return;
+            var extension = Path.GetExtension(picked.Name);
+            var parsed = extension.Equals(".vcf", StringComparison.OrdinalIgnoreCase) || extension.Equals(".vcard", StringComparison.OrdinalIgnoreCase)
+                ? VCardCodec.Import(picked.Content)
+                : ContactCsvCodec.Import(picked.Content);
+            var count = await _service.ImportAsync(parsed.Contacts);
+            StatusMessage = parsed.Warnings.Count == 0
+                ? $"Imported {count} {(count == 1 ? "contact" : "contacts")} atomically."
+                : $"Imported {count} {(count == 1 ? "contact" : "contacts")} with {parsed.Warnings.Count} warning(s).";
             await RefreshAsync();
         }
         catch (Exception ex)
@@ -336,59 +336,25 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ExportCsvAsync()
-    {
-        if (SaveTextRequested is null)
-        {
-            StatusMessage = "Export is unavailable on this platform.";
-            return;
-        }
-
-        try
-        {
-            var text = await _service.ExportAsync(ExportFormat.Csv);
-            if (await SaveTextRequested("contactcore-contacts.csv", "text/csv", text))
-                StatusMessage = "CSV exported. Treat formula-like text carefully before opening it in spreadsheet software.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = SafeMessage(ex);
-        }
-    }
+    private Task ExportCsvAsync() => ExportTextAsync("contactcore-contacts.csv", ContactCsvCodec.Export);
 
     [RelayCommand]
-    private async Task ExportVCardAsync()
-    {
-        if (SaveTextRequested is null)
-        {
-            StatusMessage = "Export is unavailable on this platform.";
-            return;
-        }
-
-        try
-        {
-            var text = await _service.ExportAsync(ExportFormat.VCard);
-            if (await SaveTextRequested("contactcore-contacts.vcf", "text/vcard", text))
-                StatusMessage = "vCard exported.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = SafeMessage(ex);
-        }
-    }
+    private Task ExportVCardAsync() => ExportTextAsync("contactcore-contacts.vcf", VCardCodec.Export);
 
     [RelayCommand]
     private async Task CreateBackupAsync()
     {
         if (!CanUseDatabaseBackups)
         {
-            StatusMessage = "Native database backups are unavailable on this platform. Use CSV or vCard export for a portable copy.";
+            StatusMessage = "Native database backups are not available on this platform. Use CSV or vCard export instead.";
             return;
         }
 
         try
         {
-            StatusMessage = $"Backup created: {await _backup.CreateAsync()}";
+            Directory.CreateDirectory(BackupLocation);
+            var path = await _backup.CreateBackupAsync(BackupLocation);
+            StatusMessage = $"Verified backup created: {Path.GetFileName(path)}";
         }
         catch (Exception ex)
         {
@@ -399,31 +365,30 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task RestoreBackupAsync()
     {
-        if (!CanUseDatabaseBackups)
+        if (!CanUseDatabaseBackups || PickBackupFileRequested is null)
         {
-            StatusMessage = "Native database restore is unavailable on this platform.";
-            return;
-        }
-        if (PickBackupFileRequested is null)
-        {
-            StatusMessage = "Backup picker is unavailable on this platform.";
+            StatusMessage = "Native database restore is not available on this platform.";
             return;
         }
 
-        var selected = await PickBackupFileRequested();
-        if (selected is null) return;
+        var picked = await PickBackupFileRequested();
+        if (picked is null) return;
         QueueConfirmation(
-            "Restore this verified database backup? Current local data will be replaced only after verification, with a recovery snapshot retained by the restore workflow.",
-            () => RestoreConfirmedAsync(selected));
+            "Restore this ContactCore backup? A snapshot of the current database is retained before replacement.",
+            () => RestorePickedBackupAsync(picked));
     }
 
-    private async Task RestoreConfirmedAsync(PickedBackupFile selected)
+    private async Task RestorePickedBackupAsync(PickedBackupFile picked)
     {
         try
         {
-            await _backup.RestoreAsync(selected.Path);
-            StatusMessage = "Backup restored and verified.";
+            FooterText = "Restoring verified backup…";
+            await _backup.RestoreBackupAsync(picked.Path);
+            await _service.InitializeAsync();
+            SelectedContact = null;
+            HideDetailViews();
             await RefreshAsync();
+            StatusMessage = "Backup restored successfully.";
         }
         catch (Exception ex)
         {
@@ -431,51 +396,58 @@ public sealed partial class MainViewModel : ObservableObject
         }
         finally
         {
-            if (selected.DeleteAfterUse)
-                TryDeleteTemporary(selected.Path);
+            FooterText = "Ready";
+            if (picked.DeleteAfterUse)
+            {
+                try { File.Delete(picked.Path); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
     }
 
     [RelayCommand]
     private void ShowSettings()
     {
+        SelectedContact = null;
         HideDetailViews();
-        IsSettingsVisible = true;
         SelectedTheme = NormalizeTheme(_preferences.Theme);
         ReducedMotion = _preferences.ReducedMotion;
         ConfirmPermanentDelete = _preferences.ConfirmPermanentDelete;
+        IsSettingsVisible = true;
         StatusMessage = "";
     }
 
     [RelayCommand]
-    private async Task SaveSettingsAsync()
+    private void SaveSettings()
     {
-        _preferences.Theme = NormalizeTheme(SelectedTheme);
+        SelectedTheme = NormalizeTheme(SelectedTheme);
+        _preferences.Theme = SelectedTheme;
         _preferences.ReducedMotion = ReducedMotion;
         _preferences.ConfirmPermanentDelete = ConfirmPermanentDelete;
-        try
-        {
-            await _preferences.SaveAsync();
-            ThemeChangeRequested?.Invoke(_preferences.Theme);
-            StatusMessage = "Settings saved locally.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = SafeMessage(ex);
-        }
+        _preferences.Save();
+        ThemeChangeRequested?.Invoke(SelectedTheme);
+        IsSettingsVisible = false;
+        StatusMessage = "Settings saved locally.";
     }
 
     [RelayCommand]
     private async Task ConfirmPendingAsync()
     {
         var action = _pendingConfirmedAction;
-        ClearConfirmation();
-        if (action is not null)
-            await action();
+        _pendingConfirmedAction = null;
+        IsConfirmationVisible = false;
+        ConfirmationMessage = "";
+        if (action is not null) await action();
     }
 
     [RelayCommand]
-    private void CancelPending() => ClearConfirmation();
+    private void CancelPending()
+    {
+        _pendingConfirmedAction = null;
+        IsConfirmationVisible = false;
+        ConfirmationMessage = "";
+    }
 
     private void QueueConfirmation(string message, Func<Task> action)
     {
@@ -484,11 +456,45 @@ public sealed partial class MainViewModel : ObservableObject
         IsConfirmationVisible = true;
     }
 
-    private void ClearConfirmation()
+    private async Task RefreshDuplicatesAsync()
     {
-        IsConfirmationVisible = false;
-        ConfirmationMessage = "";
-        _pendingConfirmedAction = null;
+        try
+        {
+            var all = await _service.SearchAsync(new ContactQuery(IncludeArchived: true));
+            var candidates = new DuplicateDetector().Find(all);
+            DuplicatePairs.Clear();
+            foreach (var candidate in candidates) DuplicatePairs.Add(new DuplicatePairViewModel(candidate));
+            SelectedDuplicate = DuplicatePairs.FirstOrDefault();
+            DuplicateMessage = DuplicatePairs.Count == 0
+                ? "No likely duplicates found."
+                : $"Found {DuplicatePairs.Count} likely duplicate pair(s). Review the evidence before merging.";
+        }
+        catch (Exception ex)
+        {
+            DuplicatePairs.Clear();
+            SelectedDuplicate = null;
+            DuplicateMessage = SafeMessage(ex);
+        }
+    }
+
+    private async Task ExportTextAsync(string suggestedName, Func<IReadOnlyList<Contact>, string> encode)
+    {
+        if (SaveTextRequested is null)
+        {
+            StatusMessage = "File picker is unavailable on this platform.";
+            return;
+        }
+
+        try
+        {
+            var contacts = await _service.SearchAsync(new ContactQuery(IncludeArchived: true));
+            var saved = await SaveTextRequested(suggestedName, encode(contacts));
+            if (saved) StatusMessage = $"Exported {contacts.Count} {(contacts.Count == 1 ? "contact" : "contacts")}.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = SafeMessage(ex);
+        }
     }
 
     private void HideDetailViews()
@@ -497,45 +503,6 @@ public sealed partial class MainViewModel : ObservableObject
         IsSettingsVisible = false;
         IsDataToolsVisible = false;
         IsDuplicatesVisible = false;
-        ClearConfirmation();
-    }
-
-    private async Task DebouncedRefreshAsync()
-    {
-        var current = new CancellationTokenSource();
-        var previous = Interlocked.Exchange(ref _searchCts, current);
-        previous?.Cancel();
-        previous?.Dispose();
-        try
-        {
-            await Task.Delay(180, current.Token);
-            await RefreshAsync(current.Token);
-        }
-        catch (OperationCanceledException) when (current.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            if (ReferenceEquals(Interlocked.CompareExchange(ref _searchCts, null, current), current))
-                current.Dispose();
-        }
-    }
-
-    private async Task RefreshAsync(CancellationToken ct = default)
-    {
-        var query = new ContactQuery(
-            Search: string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim(),
-            Letter: _letter,
-            FavoritesOnly: FavoritesOnly,
-            ArchivedOnly: ArchivedOnly,
-            ShowAll: ShowAll);
-        var rows = await _service.ListAsync(query, ct);
-        ct.ThrowIfCancellationRequested();
-        var items = rows.Select(c => new ContactListItemViewModel(c)).ToArray();
-        ct.ThrowIfCancellationRequested();
-        Contacts.Clear();
-        foreach (var item in items) Contacts.Add(item);
-        ResultCountText = $"{Contacts.Count} contact{(Contacts.Count == 1 ? "" : "s")}";
     }
 
     private static string NormalizeTheme(string? value) => value?.Trim().ToLowerInvariant() switch
@@ -545,21 +512,51 @@ public sealed partial class MainViewModel : ObservableObject
         _ => "System"
     };
 
-    private static string SafeMessage(Exception ex)
+    private async Task DebouncedRefreshAsync()
     {
-        var text = ex.Message;
-        if (text.Length > 500) text = text[..500] + "…";
-        return text;
-    }
+        var current = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _searchCts, current);
+        if (previous is not null)
+        {
+            previous.Cancel();
+            previous.Dispose();
+        }
 
-    private static void TryDeleteTemporary(string path)
-    {
         try
         {
-            if (File.Exists(path)) File.Delete(path);
+            await Task.Delay(180, current.Token);
+            await RefreshAsync(current.Token);
         }
-        catch
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        finally
         {
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _searchCts, null, current), current))
+                current.Dispose();
         }
+    }
+
+    private async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        var query = new ContactQuery(SearchText, FavoritesOnly, IncludeArchived: ArchivedOnly, StartsWith: _letter);
+        var contacts = await _service.SearchAsync(query, cancellationToken);
+        if (ArchivedOnly) contacts = contacts.Where(x => x.IsArchived).ToArray();
+        Contacts.Clear();
+        foreach (var contact in contacts) Contacts.Add(new(contact));
+        ResultCountText = $"{Contacts.Count} {(Contacts.Count == 1 ? "contact" : "contacts")}";
+    }
+
+    private static string SafeMessage(Exception ex)
+    {
+        var message = string.IsNullOrWhiteSpace(ex.Message) ? "The operation failed." : ex.Message;
+        foreach (var path in new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Path.GetTempPath()
+        }.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            message = message.Replace(path, "[local path]", StringComparison.OrdinalIgnoreCase);
+        }
+        return message.Replace('\r', ' ').Replace('\n', ' ').Trim();
     }
 }
